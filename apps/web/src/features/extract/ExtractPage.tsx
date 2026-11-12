@@ -7,7 +7,18 @@ import {
 	pairVisits,
 	type Stamp,
 } from "@voyput/core";
-import { Badge, Button, Card, Dialog, Progress, Stack } from "@voyput/ui";
+import {
+	Badge,
+	Button,
+	Card,
+	Dialog,
+	EmptyState,
+	PageHeader,
+	Progress,
+	Stack,
+	Toolbar,
+	ToolbarSpacer,
+} from "@voyput/ui";
 import {
 	useCallback,
 	useEffect,
@@ -21,6 +32,7 @@ import type { PhotoRecord } from "../../db/db";
 import { useSettings } from "../../settings/SettingsContext";
 import { extractPhoto } from "./extractPhoto";
 import { runsFor } from "./runs";
+import "./extract.css";
 
 interface PassportData {
 	/** The passport these photos and stamps belong to. */
@@ -114,26 +126,34 @@ export function ExtractPage() {
 	if (!settings.openRouterKey) {
 		return (
 			<Stack>
-				<h1>Extract</h1>
-				<p>
+				<PageHeader eyebrow="Step 2 of 5" title="Extract" />
+				<EmptyState icon="🔑" title="An API key is needed">
 					Extraction needs your OpenRouter API key.{" "}
 					<Link to="/settings">Add it in Settings</Link>.
-				</p>
+				</EmptyState>
 			</Stack>
 		);
 	}
 
 	return (
 		<Stack>
-			<h1>Extract</h1>
-			<p>Read stamps from passport photos with {settings.model}.</p>
+			<PageHeader
+				eyebrow="Step 2 of 5"
+				title="Extract"
+				description={
+					<>
+						Read stamps from passport photos with{" "}
+						<code className="extract-model">{settings.model}</code>.
+					</>
+				}
+			/>
 			{passports.length === 0 ? (
-				<p>
-					No passports yet. <Link to="/import">Import photos</Link> first.
-				</p>
+				<EmptyState icon="📷" title="No passports yet">
+					<Link to="/import">Import photos</Link> first.
+				</EmptyState>
 			) : (
 				<Card>
-					<Stack>
+					<div className="extract-controls">
 						<label className="vp-field">
 							<span className="vp-field-label">Passport</span>
 							<select
@@ -149,37 +169,46 @@ export function ExtractPage() {
 								))}
 							</select>
 						</label>
-						<div>
+						<Toolbar>
 							<Button
 								variant="primary"
 								disabled={busy || !loaded || notOk.length === 0}
 								onClick={() => run(notOk)}
 							>
 								Extract
-							</Button>{" "}
+							</Button>
 							<Button
 								disabled={busy || !loaded || failed.length === 0}
 								onClick={() => run(failed)}
 							>
 								Retry failed
 							</Button>
-						</div>
-						{progress ? (
-							<div>
-								<Progress
-									value={progress.done}
-									max={progress.total}
-									label="Extraction progress"
-								/>
+							<ToolbarSpacer />
+							{loaded ? (
+								<span className="extract-summary">
+									{data.photos.length - notOk.length} of {data.photos.length}{" "}
+									photos read
+								</span>
+							) : null}
+						</Toolbar>
+					</div>
+					{progress ? (
+						<div className="extract-progress">
+							<Progress
+								value={progress.done}
+								max={progress.total}
+								label="Extraction progress"
+							/>
+							<span>
 								{progress.done} of {progress.total} photos done
-							</div>
-						) : null}
-					</Stack>
+							</span>
+						</div>
+					) : null}
 				</Card>
 			)}
 			{data.photos.length > 0 ? (
 				<Card title="Photos">
-					<ul aria-label="Photos">
+					<ul aria-label="Photos" className="extract-list">
 						{data.photos.map((photo) => (
 							<PhotoRow
 								key={photo.id}
@@ -243,28 +272,39 @@ function PhotoRow({
 }) {
 	const flagged = stamps.filter((stamp) => stamp.problem);
 	return (
-		<li aria-label={photo.name}>
-			{photo.name}{" "}
-			{running ? (
-				<Badge>reading…</Badge>
-			) : !extraction ? (
-				<Badge>not extracted</Badge>
-			) : extraction.status === "ok" ? (
-				<>
+		<li
+			aria-label={photo.name}
+			className="extract-row"
+			data-state={running ? "running" : (extraction?.status ?? "new")}
+		>
+			<div className="extract-row-main">
+				<span className="extract-row-name">{photo.name}</span>{" "}
+				{running ? (
+					<Badge tone="info" dot>
+						reading…
+					</Badge>
+				) : !extraction ? (
+					<Badge>not extracted</Badge>
+				) : extraction.status === "ok" ? (
 					<Badge tone="good">
 						ok · {stamps.length} {stamps.length === 1 ? "stamp" : "stamps"}
-					</Badge>{" "}
-					<Button disabled={!canReextract} onClick={onReextract}>
+					</Badge>
+				) : (
+					<>
+						<Badge tone="bad">failed</Badge>{" "}
+						<span className="extract-row-error">
+							{extraction.notes.split("\n")[0]}
+						</span>
+					</>
+				)}
+				{extraction?.status === "ok" && !running ? (
+					<Button size="sm" disabled={!canReextract} onClick={onReextract}>
 						Re-extract
 					</Button>
-				</>
-			) : (
-				<>
-					<Badge tone="bad">failed</Badge> {extraction.notes.split("\n")[0]}
-				</>
-			)}
+				) : null}
+			</div>
 			{flagged.length > 0 ? (
-				<ul>
+				<ul className="extract-flags">
 					{flagged.map((stamp) => (
 						<li key={stamp.id}>
 							<Badge tone="warn">check</Badge> {stamp.problem}
@@ -283,9 +323,11 @@ function Conflicts({ stamps }: { stamps: Stamp[] }) {
 	const span = (visit: Conflict["first"]) =>
 		`${visit.zone} ${byId.get(visit.entryStampId ?? "")?.date} – ${byId.get(visit.exitStampId ?? "")?.date}`;
 	return (
-		<Card title="Timeline conflicts">
-			<p>Two places at once: one of these stamps is probably misread.</p>
-			<ul aria-label="Timeline conflicts">
+		<Card
+			title="Timeline conflicts"
+			description="Two places at once: one of these stamps is probably misread."
+		>
+			<ul aria-label="Timeline conflicts" className="extract-conflicts">
 				{conflicts.map(({ first, second }) => (
 					<li key={`${first.entryStampId}-${second.entryStampId}`}>
 						{`${span(first)} overlaps ${span(second)}`}

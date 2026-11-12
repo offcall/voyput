@@ -1,0 +1,99 @@
+.extract-model {
+	font-family: var(--vp-font-mono);
+	font-size: 0.92em;
+	padding: 1px 6px;
+	border-radius: var(--vp-radius-sm);
+	background: var(--vp-surface-2);
+	color: var(--vp-text);
+}
+
+.extract-controls {
+	display: grid;
+	grid-template-columns: minmax(200px, 320px) minmax(0, 1fr);
+	gap: var(--vp-space-4);
+	align-items: end;
+}
+@media (max-width: 760px) {
+	.extract-controls {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+.extract-summary {
+	font-size: var(--vp-text-sm);
+	color: var(--vp-muted);
+	font-variant-numeric: tabular-nums;
+}
+.extract-progress {
+	display: grid;
+	gap: 6px;
+	margin-top: var(--vp-space-4);
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.extract-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius);
+	overflow: hidden;
+}
+.extract-row {
+	padding: 10px var(--vp-space-4);
+	border-left: 3px solid transparent;
+}
+.extract-row + .extract-row {
+	border-top: 1px solid var(--vp-border);
+}
+.extract-row:hover {
+	background: var(--vp-surface-2);
+}
+.extract-row[data-state="ok"] {
+	border-left-color: var(--vp-good);
+}
+.extract-row[data-state="failed"] {
+	border-left-color: var(--vp-bad);
+}
+.extract-row[data-state="running"] {
+	border-left-color: var(--vp-info);
+	background: var(--vp-info-soft);
+}
+.extract-row-main {
+	display: flex;
+	align-items: center;
+	gap: var(--vp-space-2);
+	flex-wrap: wrap;
+	min-height: 28px;
+}
+.extract-row-name {
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+	margin-right: auto;
+	order: -1;
+}
+.extract-row-error {
+	flex-basis: 100%;
+	font-size: var(--vp-text-xs);
+	color: var(--vp-bad);
+}
+.extract-flags {
+	list-style: none;
+	margin: 6px 0 0;
+	padding: 0;
+	display: grid;
+	gap: 4px;
+	font-size: var(--vp-text-sm);
+	color: var(--vp-muted);
+}
+
+.extract-conflicts {
+	margin: 0;
+	padding-left: var(--vp-space-5);
+	font-size: var(--vp-text-sm);
+	font-variant-numeric: tabular-nums;
+}
+.extract-conflicts li + li {
+	margin-top: 4px;
+}

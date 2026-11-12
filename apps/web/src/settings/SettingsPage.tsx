@@ -1,4 +1,4 @@
-import { Card, Stack, TextField } from "@voyput/ui";
+import { Card, Notice, PageHeader, Stack, TextField } from "@voyput/ui";
 import { useEffect, useState } from "react";
 import { useAi } from "../ai/AiContext";
 import type { ModelOption } from "../ai/openrouter";
@@ -25,76 +25,96 @@ export function SettingsPage() {
 
 	return (
 		<Stack>
-			<h1>Settings</h1>
+			<PageHeader
+				title="Settings"
+				description="Stamps are read by a vision model through OpenRouter, with your own key."
+			/>
 			{persisted ? null : (
-				<p role="alert">
+				<Notice tone="warn" role="alert">
 					This browser refused to save settings. They will be lost when you
 					close the tab.
-				</p>
+				</Notice>
 			)}
-			<Card title="OpenRouter">
-				<Stack>
-					<TextField
-						label="API key"
-						type="password"
-						value={settings.openRouterKey}
-						onChange={(openRouterKey) => update({ openRouterKey })}
-						description="Stored in this browser only. Requests go straight from here to OpenRouter."
-					/>
-					<div className="vp-field">
-						<label className="vp-field-label" htmlFor="vp-model">
-							Model
-						</label>
-						<input
-							id="vp-model"
-							className="vp-input"
-							list="vp-image-models"
-							value={modelDraft}
-							aria-invalid={modelDraft.trim() === ""}
-							onChange={(event) => {
-								setModelDraft(event.target.value);
-								const model = event.target.value.trim();
-								if (model) update({ model });
-							}}
+			<div style={{ maxWidth: 760 }}>
+				<Card
+					title="OpenRouter"
+					description={
+						<>
+							Get a key at{" "}
+							<a
+								href="https://openrouter.ai/keys"
+								target="_blank"
+								rel="noreferrer"
+							>
+								openrouter.ai/keys
+							</a>
+							. Each photo is one request, billed to your OpenRouter account.
+						</>
+					}
+				>
+					<Stack>
+						<TextField
+							label="API key"
+							type="password"
+							value={settings.openRouterKey}
+							onChange={(openRouterKey) => update({ openRouterKey })}
+							description="Stored in this browser only. Requests go straight from here to OpenRouter."
 						/>
-						{modelDraft.trim() === "" ? (
-							<span className="vp-field-description" role="alert">
-								Enter a model id. Extraction keeps using {settings.model}.
+						<div className="vp-field">
+							<label className="vp-field-label" htmlFor="vp-model">
+								Model
+							</label>
+							<input
+								id="vp-model"
+								className="vp-input"
+								list="vp-image-models"
+								value={modelDraft}
+								aria-invalid={modelDraft.trim() === ""}
+								onChange={(event) => {
+									setModelDraft(event.target.value);
+									const model = event.target.value.trim();
+									if (model) update({ model });
+								}}
+							/>
+							{modelDraft.trim() === "" ? (
+								<span className="vp-field-description" role="alert">
+									Enter a model id. Extraction keeps using {settings.model}.
+								</span>
+							) : null}
+							<span className="vp-field-description">
+								{models === "failed"
+									? "Could not load the model list. Type any OpenRouter model id that accepts images."
+									: `Type to search ${models.length || "the"} OpenRouter models that accept images.`}
 							</span>
-						) : null}
-						<span className="vp-field-description">
-							{models === "failed"
-								? "Could not load the model list. Type any OpenRouter model id that accepts images."
-								: `Type to search ${models.length || "the"} OpenRouter models that accept images.`}
-						</span>
-						<datalist id="vp-image-models">
-							{models === "failed"
-								? null
-								: models.map((model) => (
-										<option key={model.id} value={model.id}>
-											{model.name}
-										</option>
-									))}
-						</datalist>
-					</div>
-					<label className="vp-field">
-						<span className="vp-field-label">Reasoning effort</span>
-						<select
-							className="vp-input"
-							value={settings.reasoningEffort}
-							onChange={(event) =>
-								update({
-									reasoningEffort: event.target.value as ReasoningEffort,
-								})
-							}
-						>
-							<option value="low">low</option>
-							<option value="medium">medium</option>
-							<option value="high">high</option>
-						</select>
-					</label>
-				</Stack>
-			</Card>
+							<datalist id="vp-image-models">
+								{models === "failed"
+									? null
+									: models.map((model) => (
+											<option key={model.id} value={model.id}>
+												{model.name}
+											</option>
+										))}
+							</datalist>
+						</div>
+						<label className="vp-field">
+							<span className="vp-field-label">Reasoning effort</span>
+							<select
+								className="vp-input"
+								value={settings.reasoningEffort}
+								onChange={(event) =>
+									update({
+										reasoningEffort: event.target.value as ReasoningEffort,
+									})
+								}
+							>
+								<option value="low">low</option>
+								<option value="medium">medium</option>
+								<option value="high">high</option>
+							</select>
+						</label>
+					</Stack>
+				</Card>
+			</div>
 		</Stack>
 	);
 }
