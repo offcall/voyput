@@ -22,4 +22,18 @@ export type {
 	PhotoExtraction,
 	Stamp,
 } from "./stamps/types";
+export {
+	type DatedStamp,
+	guessHomeCountry,
+	usableStamps,
+} from "./trips/evidence";
+export {
+	buildTrip,
+	changePeriod,
+	stopsByDay,
+	suggestTrips,
+	type TripEvidence,
+	tripTitle,
+	visibleTrips,
+} from "./trips/suggest";
 export type { Boundary, Trip, TripStop } from "./trips/types";
