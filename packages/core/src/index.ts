@@ -16,12 +16,35 @@ export type {
 	Rotation,
 } from "./passports/types";
 export { SUPPORTED_PHOTO_TYPES } from "./passports/types";
+export { mapConcurrent } from "./stamps/concurrency";
+export {
+	type DateRange,
+	dateMatchesText,
+	dateProblem,
+	isInRange,
+	isValidDate,
+	monthNamesToNumbers,
+} from "./stamps/dates";
+export {
+	parsePhotoResponse,
+	type ReadStamp,
+	stampProblems,
+} from "./stamps/parse";
+export { buildStampPrompt, STAMP_GUIDE } from "./stamps/prompt";
 export type {
 	BorderCrossing,
 	Direction,
 	PhotoExtraction,
 	Stamp,
 } from "./stamps/types";
+export {
+	type Conflict,
+	findConflicts,
+	pairCountry,
+	pairVisits,
+	type Visit,
+	zoneOf,
+} from "./stamps/visits";
 export {
 	type DatedStamp,
 	guessHomeCountry,

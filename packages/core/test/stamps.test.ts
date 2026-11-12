@@ -1,0 +1,128 @@
+import { describe, expect, it } from "vitest";
+import {
+	findConflicts,
+	pairVisits,
+	parsePhotoResponse,
+	type Stamp,
+} from "../src/index";
+
+const stamp = (overrides: Partial<Stamp> & Pick<Stamp, "id">): Stamp => ({
+	passportId: "p1",
+	photoId: "photo-1",
+	direction: "entry",
+	borderCrossing: "car",
+	dateText: "",
+	date: "2022-05-17",
+	country: null,
+	countryCode: "RO",
+	location: null,
+	confidence: 90,
+	notes: "",
+	problem: null,
+	source: "ai",
+	reviewed: false,
+	...overrides,
+});
+
+describe("pairVisits and findConflicts", () => {
+	it("joins Schengen countries into one visit, keeps pre-accession Romania apart and spots an overlap", () => {
+		const stamps = [
+			// Enter Spain, leave through Italy: one Schengen visit.
+			stamp({ id: "es-in", countryCode: "ES", date: "2019-07-01" }),
+			stamp({
+				id: "it-out",
+				countryCode: "IT",
+				direction: "exit",
+				date: "2019-07-20",
+			}),
+			// Romania in 2019 is not Schengen yet: its own zone, overlapping the trip above.
+			stamp({ id: "ro-in", countryCode: "RO", date: "2019-07-10" }),
+			stamp({
+				id: "ro-out",
+				countryCode: "RO",
+				direction: "exit",
+				date: "2019-07-12",
+			}),
+			// Two Ukrainian entries in a row: the first stays open, the second closes on the same
+			// day Romania began, which is allowed.
+			stamp({ id: "ua-in-1", countryCode: "UA", date: "2019-06-01" }),
+			stamp({ id: "ua-in-2", countryCode: "UA", date: "2019-07-05" }),
+			stamp({
+				id: "ua-out",
+				countryCode: "UA",
+				direction: "exit",
+				date: "2019-07-10",
+			}),
+			// Flagged and unknown-direction stamps never pair.
+			stamp({
+				id: "bad",
+				countryCode: "UA",
+				direction: "exit",
+				date: "2019-06-02",
+				problem: "misread",
+			}),
+			stamp({
+				id: "unk",
+				countryCode: "UA",
+				direction: "unknown",
+				date: "2019-06-03",
+			}),
+		];
+
+		const visits = pairVisits(stamps);
+		expect(visits.map((v) => [v.zone, v.entryStampId, v.exitStampId])).toEqual([
+			["Schengen", "es-in", "it-out"],
+			["RO", "ro-in", "ro-out"],
+			["UA", "ua-in-1", null],
+			["UA", "ua-in-2", "ua-out"],
+		]);
+
+		const conflicts = findConflicts(visits, stamps);
+		expect(
+			conflicts.map(({ first, second }) => [first.zone, second.zone]),
+		).toEqual([
+			["Schengen", "RO"],
+			["Schengen", "UA"],
+		]);
+	});
+});
+
+describe("parsePhotoResponse", () => {
+	it("flags a date that is outside the passport or does not match the printed text", () => {
+		const raw = `\`\`\`json
+${JSON.stringify({
+	notes: "two stamps",
+	stamps: [
+		{
+			direction: "exit",
+			dateText: "◁ 14 06 21 03",
+			date: "2021-06-03",
+			country: "Ukraine",
+			countryCode: "UA",
+			location: null,
+			confidence: 80,
+		},
+		{
+			direction: "entry",
+			dateText: "17.05.12 41",
+			date: "2012-05-17",
+			country: "Romania",
+			countryCode: "RO",
+			location: null,
+			confidence: 80,
+			borderCrossing: "plane",
+		},
+	],
+})}
+\`\`\``;
+		const { stamps } = parsePhotoResponse(raw, {
+			from: "2014-01-01",
+			to: null,
+		});
+		expect(stamps.map((s) => s.problem)).toEqual([
+			'date 2021-06-03 does not match printed "◁ 14 06 21 03"',
+			"date 2012-05-17 is outside passport validity",
+		]);
+		expect(stamps.map((s) => s.borderCrossing)).toEqual(["unknown", "plane"]);
+	});
+});

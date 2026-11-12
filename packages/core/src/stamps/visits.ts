@@ -1,0 +1,124 @@
+import type { Stamp } from "./types";
+
+/** One stay in a zone, built from an entry stamp, an exit stamp, or both. */
+export interface Visit {
+	/** Country code, or "Schengen" for the Schengen area. */
+	zone: string;
+	entryStampId: string | null;
+	exitStampId: string | null;
+}
+
+/** Two visits in different zones that overlap in time. */
+export interface Conflict {
+	first: Visit;
+	second: Visit;
+}
+
+/** Date each country joined Schengen (no internal border stamps after that). */
+const SCHENGEN_SINCE: Record<string, string> = {
+	...Object.fromEntries(
+		"AT BE CH CZ DE DK EE ES FI FR GR HU IS IT LI LT LU LV MT NL NO PL PT SE SI SK"
+			.split(" ")
+			.map((code) => [code, "0000-01-01"]),
+	),
+	HR: "2023-01-01",
+	RO: "2024-03-31",
+	BG: "2024-03-31",
+};
+
+/**
+ * Where a stay is counted: the whole Schengen area is one zone
+ * (enter in Spain, exit in Italy = one visit), other countries are their own zone.
+ */
+export const zoneOf = (stamp: Stamp): string => {
+	const since = SCHENGEN_SINCE[stamp.countryCode ?? ""];
+	return since && (stamp.date ?? "") >= since
+		? "Schengen"
+		: (stamp.countryCode ?? "?");
+};
+
+const toVisit = (
+	stamp: Stamp,
+	entry: Stamp | null,
+	exit: Stamp | null,
+): Visit => ({
+	zone: zoneOf(stamp),
+	entryStampId: entry?.id ?? null,
+	exitStampId: exit?.id ?? null,
+});
+
+/**
+ * Pairs stamps of ONE zone, already in date order: each entry is closed by the next exit.
+ * Two entries in a row → the first stays unpaired. An exit with no open entry → unpaired.
+ * A chronological heuristic: a missing or duplicate stamp can create a wrong pair.
+ */
+export const pairCountry = (stamps: readonly Stamp[]): Visit[] => {
+	const visits: Visit[] = [];
+	let open: Stamp | null = null;
+	for (const stamp of stamps) {
+		if (stamp.direction === "entry") {
+			if (open) visits.push(toVisit(open, open, null));
+			open = stamp;
+		} else {
+			visits.push(toVisit(open ?? stamp, open, stamp));
+			open = null;
+		}
+	}
+	if (open) visits.push(toVisit(open, open, null));
+	return visits;
+};
+
+/** Builds visits from all stamps. Unknown-direction and flagged stamps are not used. */
+export const pairVisits = (stamps: readonly Stamp[]): Visit[] => {
+	const directed = stamps.filter(
+		(stamp) => stamp.direction !== "unknown" && !stamp.problem,
+	);
+	const pairable = directed.filter((stamp) => stamp.date && stamp.countryCode);
+	const unpairable = directed.filter(
+		(stamp) => !stamp.date || !stamp.countryCode,
+	);
+
+	const byDate = (a: Stamp, b: Stamp): number =>
+		(a.date ?? "").localeCompare(b.date ?? "") ||
+		(a.direction === "entry" ? -1 : 1);
+
+	const zones = new Map<string, Stamp[]>();
+	for (const stamp of pairable) {
+		const zone = zoneOf(stamp);
+		zones.set(zone, [...(zones.get(zone) ?? []), stamp]);
+	}
+	const paired = [...zones.values()].flatMap((zoneStamps) =>
+		pairCountry([...zoneStamps].sort(byDate)),
+	);
+	const single = unpairable.map((stamp) =>
+		stamp.direction === "entry"
+			? toVisit(stamp, stamp, null)
+			: toVisit(stamp, null, stamp),
+	);
+	return [...paired, ...single];
+};
+
+/**
+ * Visits in different zones that overlap in time (nobody is in two places at once).
+ * Leaving one country and entering another on the same day is fine.
+ * Every conflict means at least one of the four dates or directions is misread.
+ */
+export const findConflicts = (
+	visits: readonly Visit[],
+	stamps: readonly Stamp[],
+): Conflict[] => {
+	const byId = new Map(stamps.map((stamp) => [stamp.id, stamp]));
+	const spans = visits.flatMap((visit) => {
+		const from = visit.entryStampId ? byId.get(visit.entryStampId)?.date : null;
+		const to = visit.exitStampId ? byId.get(visit.exitStampId)?.date : null;
+		return from && to ? [{ visit, from, to }] : [];
+	});
+	return spans.flatMap((a, index) =>
+		spans
+			.slice(index + 1)
+			.filter(
+				(b) => a.visit.zone !== b.visit.zone && a.from < b.to && b.from < a.to,
+			)
+			.map((b) => ({ first: a.visit, second: b.visit })),
+	);
+};
