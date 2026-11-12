@@ -8,6 +8,13 @@ voyput reconstructs a travel history from passport stamp photos, cross-checked a
 
 TypeScript. Toolchain (runtime, package manager, test runner, type check) recorded in `docs/adr/`. One task at a time.
 
+## Layout
+
+- `apps/web`: the app. One folder per section in `src/features/<section>`; a section owns its folder.
+- `packages/ui`: shared components (Base UI) and `styles.css`. New component: own file, export from `src/index.ts`, add a story.
+- `packages/core`: domain types and pure logic, one folder per domain. No React, IndexedDB or network.
+- Database schema: `apps/web/src/db/db.ts`. Change it only by adding a Dexie version.
+
 ## Language
 
 All artifacts English: code, identifiers, comments, docs, ADRs, commits, tests, agent instructions.
