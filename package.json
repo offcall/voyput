@@ -1,20 +1,33 @@
 {
+	"name": "voyput",
 	"private": true,
 	"type": "module",
 	"engines": {
 		"node": ">=22.12"
 	},
-	"main": "./dist/index.js",
-	"types": "./dist/index.d.ts",
+	"workspaces": [
+		"apps/*",
+		"packages/*"
+	],
 	"scripts": {
-		"check": "biome check . && tsc --noEmit && vitest run --passWithNoTests",
-		"test": "vitest run --passWithNoTests",
-		"build": "tsc -p tsconfig.build.json"
+		"dev": "npm run dev -w @voyput/web",
+		"build": "npm run build -w @voyput/web",
+		"storybook": "npm run storybook -w @voyput/ui",
+		"check": "biome check . && tsc --noEmit && vitest run",
+		"test": "vitest run"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.15",
+		"@testing-library/react": "^16.3.3",
+		"@testing-library/user-event": "^14.6.10",
 		"@types/node": "^22.20.5",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
+		"@vitejs/plugin-react": "^6.3.0",
+		"fake-indexeddb": "^6.2.8",
+		"jsdom": "^31.0.0",
 		"typescript": "^7.0.2",
+		"vite": "^8.3.8",
 		"vitest": "^5.0.5"
 	}
 }

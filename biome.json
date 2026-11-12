@@ -6,7 +6,13 @@
 		"useIgnoreFile": true
 	},
 	"files": {
-		"includes": ["**", "!dist", "!node_modules", "!coverage"]
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/node_modules",
+			"!**/coverage",
+			"!**/storybook-static"
+		]
 	},
 	"formatter": {
 		"enabled": true
