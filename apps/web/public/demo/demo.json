@@ -64,7 +64,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-02",
@@ -81,7 +81,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-03",
@@ -98,7 +98,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-04",
@@ -115,7 +115,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-05",
@@ -132,7 +132,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-06",
@@ -149,7 +149,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-07",
@@ -166,7 +166,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-08",
@@ -183,7 +183,7 @@
 			"notes": "Partly outside the page; checkpoint cut off.",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-09",
@@ -200,7 +200,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-10",
@@ -217,7 +217,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-11",
@@ -234,7 +234,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-12",
@@ -251,7 +251,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-13",
@@ -268,7 +268,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-14",
@@ -285,7 +285,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-15",
@@ -302,7 +302,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-16",
@@ -319,7 +319,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false
+			"reviewed": true
 		}
 	]
 }
