@@ -1,3 +1,4 @@
+import { isIsoDate } from "../passports/photos";
 import { parseCsvRows } from "./csv";
 import type { LocationRow } from "./types";
 
@@ -11,14 +12,24 @@ export const REQUIRED_LOCATION_COLUMNS = [
 
 export type LocationCsvResult =
 	| { ok: true; rows: LocationRow[]; skipped: number }
-	| { ok: false; missingColumns: string[] };
+	| { ok: false; missingColumns: string[] }
+	| { ok: false; error: string };
 
 /**
  * Parses the Apple Photos location export. Rows with a bad date or
  * coordinates are counted in `skipped`, not returned.
  */
 export function parseLocationCsv(text: string): LocationCsvResult {
-	const [header = [], ...body] = parseCsvRows(text);
+	let parsed: string[][];
+	try {
+		parsed = parseCsvRows(text);
+	} catch (error) {
+		return {
+			ok: false,
+			error: error instanceof Error ? error.message : String(error),
+		};
+	}
+	const [header = [], ...body] = parsed;
 	const index = new Map(header.map((name, i) => [name.trim(), i]));
 	const missingColumns = REQUIRED_LOCATION_COLUMNS.filter(
 		(name) => !index.has(name),
@@ -40,7 +51,8 @@ export function parseLocationCsv(text: string): LocationCsvResult {
 		const lon = Number(lonText);
 		if (
 			!date ||
-			Number.isNaN(Date.parse(date)) ||
+			// ISO day first: the day is read as date.slice(0, 10) everywhere.
+			!isIsoDate(date.slice(0, 10)) ||
 			!latText ||
 			!lonText ||
 			!(Math.abs(lat) <= 90) ||

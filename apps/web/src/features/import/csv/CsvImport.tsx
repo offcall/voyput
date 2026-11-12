@@ -21,9 +21,19 @@ async function importLocationCsv(
 ): Promise<ImportState> {
 	const result = parseLocationCsv(await file.text());
 	if (!result.ok) {
+		const problem =
+			"missingColumns" in result
+				? `is missing required columns: ${result.missingColumns.join(", ")}`
+				: `could not be read: ${result.error}`;
 		return {
 			kind: "error",
-			message: `${file.name} is missing required columns: ${result.missingColumns.join(", ")}. Nothing was imported.`,
+			message: `${file.name} ${problem}. Nothing was changed.`,
+		};
+	}
+	if (result.rows.length === 0) {
+		return {
+			kind: "error",
+			message: `${file.name} has no valid rows (${result.skipped} skipped). Nothing was changed.`,
 		};
 	}
 	await db.transaction("rw", db.locations, async () => {
@@ -44,7 +54,7 @@ export function CsvImport() {
 
 	const onFiles = async (files: File[]) => {
 		const file = files[0];
-		if (!file) return;
+		if (!file || state.kind === "busy") return;
 		setState({ kind: "busy" });
 		try {
 			setState(await importLocationCsv(db, file));

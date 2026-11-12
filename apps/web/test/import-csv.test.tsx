@@ -11,22 +11,24 @@ function csvFile(lines: string[]): File {
 	});
 }
 
+const OLD_ROW = {
+	date: "2001-01-01T00:00:00",
+	lat: 1,
+	lon: 1,
+	countryCode: "XX",
+	country: "",
+	city: "",
+	source: "",
+	isVideo: false,
+	filename: "old.jpg",
+	uuid: "old",
+};
+
 describe("import location CSV", () => {
 	it("stores the rows and shows a summary", async () => {
 		const user = userEvent.setup();
 		const { db } = renderApp("/");
-		await db.locations.add({
-			date: "2001-01-01T00:00:00",
-			lat: 1,
-			lon: 1,
-			countryCode: "XX",
-			country: "",
-			city: "",
-			source: "",
-			isVideo: false,
-			filename: "old.jpg",
-			uuid: "old",
-		});
+		await db.locations.add(OLD_ROW);
 
 		await user.upload(
 			await screen.findByLabelText(PICKER),
@@ -48,18 +50,31 @@ describe("import location CSV", () => {
 		]);
 	});
 
-	it("rejects a file with missing columns and stores nothing", async () => {
+	it("keeps stored locations when a file is unusable", async () => {
 		const user = userEvent.setup();
 		const { db } = renderApp("/");
+		await db.locations.add(OLD_ROW);
+		const picker = await screen.findByLabelText(PICKER);
 
 		await user.upload(
-			await screen.findByLabelText(PICKER),
+			picker,
 			csvFile(["date,latitude,longitude", "2019-05-01,47,28"]),
 		);
-
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"missing required columns: lat, lon, country_code",
 		);
-		expect(await db.locations.count()).toBe(0);
+
+		await user.upload(
+			picker,
+			csvFile([
+				"date,lat,lon,country_code",
+				"05/01/2019,47,28,MD",
+				"2019-02-30T10:00:00,47,28,MD",
+			]),
+		);
+		expect(
+			(await screen.findByText(/has no valid rows/)).textContent,
+		).toContain("Nothing was changed");
+		expect(await db.locations.count()).toBe(1);
 	});
 });

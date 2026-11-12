@@ -2,6 +2,7 @@
  * Splits CSV text into rows of fields (RFC 4180 style). Quoted fields may hold
  * commas, newlines and doubled quotes, e.g. "Moldova, Republic of".
  * Blank lines are dropped; a leading byte-order mark is ignored.
+ * Throws on a quote that is never closed: it would swallow every later row.
  */
 export function parseCsvRows(text: string): string[][] {
 	const rows: string[][] = [];
@@ -29,6 +30,7 @@ export function parseCsvRows(text: string): string[][] {
 			field = "";
 		} else if (c !== "\r") field += c;
 	}
+	if (inQuotes) throw new Error("a quoted field is never closed");
 	if (field.length > 0 || row.length > 0) {
 		row.push(field);
 		rows.push(row);

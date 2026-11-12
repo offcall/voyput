@@ -40,4 +40,19 @@ describe("parseLocationCsv", () => {
 			missingColumns: ["lat", "country_code"],
 		});
 	});
+
+	it("accepts the exporter's microsecond timestamps and rejects an unclosed quote", () => {
+		const header = "date,lat,lon,country_code,filename";
+		const ok = parseLocationCsv(
+			`${header}\n2019-05-01T10:00:00.123456+03:00,47,28,MD,a.jpg\n`,
+		);
+		expect(ok.ok && ok.rows.length).toBe(1);
+		const broken = parseLocationCsv(
+			`${header}\n2019-05-01T10:00:00,47,28,MD,"a.jpg\n2019-05-02T10:00:00,47,28,MD,b.jpg\n`,
+		);
+		expect(broken).toEqual({
+			ok: false,
+			error: "a quoted field is never closed",
+		});
+	});
 });
