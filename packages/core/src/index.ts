@@ -8,6 +8,7 @@ export {
 } from "./locations/parseLocationCsv";
 export type { LocationRow } from "./locations/types";
 export { LOCATION_CSV_COLUMNS } from "./locations/types";
+export { isIsoDate, photoMimeType, rotateBy } from "./passports/photos";
 export type {
 	Passport,
 	PassportPhoto,
