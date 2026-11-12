@@ -1,0 +1,121 @@
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { LocationRow, Stamp } from "@voyput/core";
+import { describe, expect, it } from "vitest";
+import { VoyputDb } from "../src/db/db";
+import { renderApp } from "./renderApp";
+
+const photo = (
+	day: string,
+	countryCode: string,
+	country: string,
+	city = "",
+): LocationRow => ({
+	date: `${day}T12:00:00+02:00`,
+	lat: 0,
+	lon: 0,
+	countryCode,
+	country,
+	city,
+	source: "apple",
+	isVideo: false,
+	filename: `IMG_${day}_${countryCode}.jpg`,
+	uuid: `${day}-${countryCode}`,
+});
+
+const stamp = (
+	id: string,
+	date: string,
+	countryCode: string,
+	country: string,
+	direction: Stamp["direction"],
+	location: string,
+): Stamp => ({
+	id,
+	passportId: "p1",
+	photoId: "ph1",
+	direction,
+	borderCrossing: "plane",
+	dateText: date,
+	date,
+	country,
+	countryCode,
+	location,
+	confidence: 95,
+	notes: "",
+	problem: null,
+	source: "ai",
+	reviewed: true,
+});
+
+/** Home is Moldova; one trip to Romania with stamps, one to Japan with photos only. */
+async function seed(db: VoyputDb) {
+	const home = ["01", "02", "03", "04", "05", "06", "07", "08"].map((d) =>
+		photo(`2024-01-${d}`, "MD", "Moldova", "Chișinău"),
+	);
+	await db.locations.bulkPut([
+		...home,
+		photo("2024-03-02", "RO", "Romania", "Bucharest"),
+		photo("2024-03-03", "RO", "Romania", "Brașov"),
+		photo("2024-03-10", "MD", "Moldova", "Chișinău"),
+		photo("2024-05-10", "JP", "Japan", "Tokyo"),
+		photo("2024-05-11", "JP", "Japan", "Kyoto"),
+		photo("2024-05-20", "MD", "Moldova", "Chișinău"),
+	]);
+	await db.stamps.bulkPut([
+		stamp("s1", "2024-03-01", "MD", "Moldova", "exit", "Chișinău Airport"),
+		stamp("s2", "2024-03-01", "RO", "Romania", "entry", "Otopeni"),
+		stamp("s3", "2024-03-05", "RO", "Romania", "exit", "Otopeni"),
+		stamp("s4", "2024-03-05", "MD", "Moldova", "entry", "Chișinău Airport"),
+	]);
+}
+
+describe("trips", () => {
+	it("suggests two trips, confirms and renames one, and keeps it after reload", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-test");
+		await seed(db);
+		const first = renderApp("/trips", { db });
+
+		expect(await screen.findByRole("button", { name: "Romania" })).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Japan" })).toBeTruthy();
+		expect(screen.getAllByText("Suggested")).toHaveLength(2);
+
+		await user.click(screen.getByRole("button", { name: "Romania" }));
+		const detail = screen
+			.getByRole("heading", { name: "Trip: Romania" })
+			.closest("section");
+		if (!detail) throw new Error("trip detail not found");
+		const d = within(detail);
+		expect(d.getByText("2024-03-02")).toBeTruthy();
+		expect(d.getByText("Bucharest")).toBeTruthy();
+		expect(d.getAllByRole("listitem")).toHaveLength(4);
+
+		const title = d.getByLabelText("Title");
+		await user.clear(title);
+		await user.type(title, "Spring in Romania");
+		await user.click(d.getByRole("button", { name: "Confirm" }));
+		expect(
+			await screen.findByRole("button", { name: "Spring in Romania" }),
+		).toBeTruthy();
+
+		const stored = await db.trips.toArray();
+		expect(stored).toHaveLength(1);
+		expect(stored[0]).toMatchObject({
+			title: "Spring in Romania",
+			confirmed: true,
+			start: "2024-03-01",
+			end: "2024-03-05",
+			stampIds: ["s1", "s2", "s3", "s4"],
+		});
+		first.unmount();
+
+		renderApp("/trips", { db });
+		expect(
+			await screen.findByRole("button", { name: "Spring in Romania" }),
+		).toBeTruthy();
+		expect(screen.getByText("Confirmed")).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Japan" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Romania" })).toBeNull();
+	});
+});
