@@ -1,0 +1,33 @@
+.vp-theme-switch {
+	display: flex;
+	gap: 2px;
+	margin: 0;
+	padding: 3px;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius);
+	background: var(--vp-surface-2);
+	min-width: 0;
+}
+.vp-theme-switch button {
+	flex: 1;
+	display: grid;
+	place-items: center;
+	padding: 4px 8px;
+	border: none;
+	border-radius: var(--vp-radius-sm);
+	background: transparent;
+	color: var(--vp-muted);
+	cursor: pointer;
+}
+.vp-theme-switch button:hover {
+	color: var(--vp-text);
+}
+.vp-theme-switch button[aria-pressed="true"] {
+	background: var(--vp-surface);
+	color: var(--vp-text);
+	box-shadow: var(--vp-shadow-sm);
+}
+.vp-theme-switch svg {
+	width: 16px;
+	height: 16px;
+}

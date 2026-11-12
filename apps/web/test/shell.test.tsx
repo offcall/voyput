@@ -20,6 +20,21 @@ describe("app shell", () => {
 		}
 	});
 
+	it("switches the theme and remembers it", async () => {
+		const user = userEvent.setup();
+		const first = renderApp("/import");
+		await user.click(await screen.findByRole("button", { name: "Dark theme" }));
+		expect(document.documentElement.dataset.theme).toBe("dark");
+		first.unmount();
+
+		renderApp("/import");
+		const dark = await screen.findByRole("button", { name: "Dark theme" });
+		expect(dark.getAttribute("aria-pressed")).toBe("true");
+		await user.click(screen.getByRole("button", { name: "System theme" }));
+		expect(document.documentElement.dataset.theme).toBeUndefined();
+		expect(localStorage.getItem("voyput:theme")).toBeNull();
+	});
+
 	it("keeps the OpenRouter key and model after a reload", async () => {
 		const user = userEvent.setup();
 		const first = renderApp("/settings");
