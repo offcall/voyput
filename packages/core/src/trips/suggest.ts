@@ -10,10 +10,13 @@ export interface TripEvidence {
 }
 
 /**
- * Days without any evidence that still count as one trip. Longer silences
- * end a trip, unless a foreign entry stamp is still waiting for its exit.
+ * Days without any evidence after which a trip ends on its own. Photo
+ * libraries have gaps of weeks, so this is long; explicit crossings and home
+ * photos end trips much earlier.
  */
-const MAX_SILENT_DAYS = 3;
+const MAX_SILENT_DAYS = 30;
+/** The same, while a foreign entry stamp still waits for an exit. */
+const MAX_SILENT_DAYS_AFTER_ENTRY = 180;
 
 interface Day {
 	foreign: Set<string>;
@@ -45,45 +48,67 @@ function collectDays({ stamps, locations, home }: TripEvidence) {
 	return [...days].sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-/** Start and end days of each stay outside the home country. */
+interface OpenPeriod {
+	start: string;
+	/** Last day with any evidence of being away. */
+	last: string;
+	/** Foreign countries entered by stamp and not left yet. */
+	waiting: Set<string>;
+}
+
+/**
+ * Start and end days of each stay outside the home country. A day's stamps
+ * are applied as a set, because their order within a day is unknown.
+ */
 function findPeriods(evidence: TripEvidence): [string, string][] {
 	const { home } = evidence;
 	const periods: [string, string][] = [];
-	let open: {
-		start: string;
-		lastForeign: string | null;
-		waiting: Set<string>;
-	} | null = null;
-	const close = (end: string) => {
-		if (open?.lastForeign) periods.push([open.start, end]);
+	let open: OpenPeriod | null = null;
+	const close = (period: OpenPeriod, end: string) => {
+		periods.push([period.start, end]);
 		open = null;
 	};
 
 	for (const [day, d] of collectDays(evidence)) {
-		const homeStamp = (direction: "entry" | "exit") =>
-			d.stamps.some((s) => s.countryCode === home && s.direction === direction);
-		if (open) {
-			const last = open.lastForeign ?? open.start;
-			if (open.waiting.size === 0 && daysBetween(last, day) > MAX_SILENT_DAYS)
-				close(last);
-		}
-		if (!open && (d.foreign.size > 0 || homeStamp("exit")))
-			open = { start: day, lastForeign: null, waiting: new Set() };
-		if (!open) continue;
+		const has = (cc: string, direction: "entry" | "exit") =>
+			d.stamps.some((s) => s.countryCode === cc && s.direction === direction);
+		const homeExit = has(home, "exit");
+		const homeEntry = has(home, "entry");
 
-		for (const s of d.stamps) {
-			if (s.countryCode === home) continue;
-			if (s.direction === "entry") open.waiting.add(s.countryCode);
-			if (s.direction === "exit") open.waiting.delete(s.countryCode);
+		if (open && !homeEntry) {
+			const period: OpenPeriod = open;
+			const limit =
+				period.waiting.size > 0 ? MAX_SILENT_DAYS_AFTER_ENTRY : MAX_SILENT_DAYS;
+			// Leaving home again proves the previous trip is over.
+			if (homeExit || daysBetween(period.last, day) > limit)
+				close(period, period.last);
 		}
-		if (d.foreign.size > 0) open.lastForeign = day;
+		if (!open && (d.foreign.size > 0 || homeExit))
+			open = { start: day, last: day, waiting: new Set() };
+		const period: OpenPeriod | null = open;
+		if (!period) continue;
 
-		if (homeStamp("entry")) close(day);
-		else if (d.homePhoto && d.foreign.size === 0 && !homeStamp("exit"))
-			close(open.lastForeign ?? open.start);
+		// A country entered and left on the same day is not waited for.
+		const foreign = (direction: "entry" | "exit") =>
+			new Set(
+				d.stamps
+					.filter((s) => s.countryCode !== home && s.direction === direction)
+					.map((s) => s.countryCode),
+			);
+		const entries = foreign("entry");
+		const exits = foreign("exit");
+		// Any foreign exit ends the wait: Schengen and similar areas stamp
+		// the entry in one country and the exit in another.
+		if ([...exits].some((cc) => !entries.has(cc))) period.waiting.clear();
+		for (const cc of entries) if (!exits.has(cc)) period.waiting.add(cc);
+		if (d.foreign.size > 0 || homeExit) period.last = day;
+
+		if (homeEntry) close(period, day);
+		else if (d.homePhoto && d.foreign.size === 0 && !homeExit)
+			close(period, period.last);
 	}
-	const last = open as { start: string; lastForeign: string | null } | null;
-	if (last) close(last.lastForeign ?? last.start);
+	const last: OpenPeriod | null = open;
+	if (last) close(last, last.last);
 	return periods;
 }
 
@@ -150,7 +175,10 @@ const unknownBoundary = (date: string): Boundary => ({
 
 /** Countries of the stops, in the order they were first visited. */
 export function tripTitle(stops: readonly TripStop[]): string {
-	return [...new Set(stops.map((s) => s.country))].join(" → ") || "New trip";
+	return (
+		[...new Set(stops.map((s) => s.country))].join(" → ") ||
+		"Unknown destination"
+	);
 }
 
 /** Stops and stamps for a period; boundaries come from stamps on its edge days. */
@@ -216,20 +244,27 @@ export function changePeriod(
 	};
 }
 
-const overlaps = (a: Trip, b: Trip) => a.start <= b.end && b.start <= a.end;
+/** A span of days, both ends included. */
+export interface Period {
+	start: string;
+	end: string;
+}
+
+const overlaps = (a: Period, b: Period) => a.start <= b.end && b.start <= a.end;
 
 /**
- * Stored trips win: a suggestion is shown only when it was not dismissed,
- * not saved already, and does not overlap a stored trip.
+ * Stored trips win: a suggestion is shown only when it does not overlap a
+ * stored trip or a period the user dismissed. Suggestion ids change when the
+ * data changes, so dismissals are kept by period.
  */
 export function visibleTrips(
 	stored: readonly Trip[],
 	suggestions: readonly Trip[],
-	dismissed: readonly string[],
+	dismissed: readonly Period[],
 ): { trip: Trip; stored: boolean }[] {
 	const fresh = suggestions.filter(
 		(s) =>
-			!dismissed.includes(s.id) &&
+			!dismissed.some((p) => overlaps(p, s)) &&
 			!stored.some((t) => t.id === s.id || overlaps(t, s)),
 	);
 	return [

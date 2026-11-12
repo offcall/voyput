@@ -45,6 +45,7 @@ export {
 	type Visit,
 	zoneOf,
 } from "./stamps/visits";
+export { COUNTRY_CODES, isCountryCode } from "./trips/countries";
 export {
 	type DatedStamp,
 	guessHomeCountry,
@@ -53,6 +54,7 @@ export {
 export {
 	buildTrip,
 	changePeriod,
+	type Period,
 	stopsByDay,
 	suggestTrips,
 	type TripEvidence,
