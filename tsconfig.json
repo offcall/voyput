@@ -13,7 +13,8 @@
 		"noUnusedParameters": true,
 		"verbatimModuleSyntax": true,
 		"skipLibCheck": true,
-		"noEmit": true
+		"noEmit": true,
+		"allowImportingTsExtensions": true
 	},
 	"include": [
 		"apps/*/src",
@@ -22,6 +23,7 @@
 		"packages/*/src",
 		"packages/*/test",
 		"packages/*/.storybook",
+		"scripts",
 		"vitest.config.ts",
 		"vitest.setup.ts"
 	]

@@ -14,7 +14,8 @@
 		"build": "npm run build -w @voyput/web",
 		"storybook": "npm run storybook -w @voyput/ui",
 		"check": "biome check . && tsc --noEmit && vitest run",
-		"test": "vitest run"
+		"test": "vitest run",
+		"demo:generate": "node --experimental-strip-types scripts/demo/generate.ts && biome format --write apps/web/public/demo"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.15",

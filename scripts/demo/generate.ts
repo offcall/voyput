@@ -2,20 +2,14 @@
  * Writes the demo data into apps/web/public/demo:
  * passport page PNGs, ground-truth stamps (demo.json) and photo_locations.csv.
  *
- * Run from the repo root:
- *   node --experimental-strip-types scripts/demo/generate.ts
- *   npx biome format --write apps/web/public/demo
+ * Run from the repo root: `npm run demo:generate`.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Resvg } from "@resvg/resvg-js";
-import type {
-	Passport,
-	PassportPhoto,
-	Stamp,
-} from "../../packages/core/src/index.ts";
+import type { Passport, PassportPhoto, Stamp } from "@voyput/core";
 import { dateText, pageSvg } from "./draw.ts";
 import { locationsCsv } from "./locations.ts";
 import { COUNTRIES, PAGES } from "./scenario.ts";
@@ -77,7 +71,7 @@ PAGES.forEach((page, i) => {
 			notes: plan.notes ?? "",
 			problem: null,
 			source: "ai",
-			reviewed: false,
+			reviewed: true,
 		});
 	}
 });
