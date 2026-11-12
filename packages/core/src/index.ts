@@ -60,3 +60,4 @@ export {
 	visibleTrips,
 } from "./trips/suggest";
 export type { Boundary, Trip, TripStop } from "./trips/types";
+export * from "./viz";
