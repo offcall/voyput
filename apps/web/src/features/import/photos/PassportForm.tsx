@@ -1,7 +1,7 @@
 import { isIsoDate } from "@voyput/core";
 import { Button, TextField } from "@voyput/ui";
 import { type FormEvent, useState } from "react";
-import type { PassportInput } from "./passportStore";
+import { type PassportInput, storageErrorMessage } from "./passportStore";
 
 /** Name and validity dates of a passport; used to create and to edit one. */
 export function PassportForm({
@@ -17,6 +17,7 @@ export function PassportForm({
 	const [validFrom, setValidFrom] = useState(initial?.validFrom ?? "");
 	const [validTo, setValidTo] = useState(initial?.validTo ?? "");
 	const [error, setError] = useState<string | null>(null);
+	const [saving, setSaving] = useState(false);
 
 	const submit = async (event: FormEvent) => {
 		event.preventDefault();
@@ -29,11 +30,18 @@ export function PassportForm({
 		if (validFrom && validTo && validFrom > validTo)
 			return setError("Valid from must not be after valid to.");
 		setError(null);
-		await onSubmit({
-			name: trimmed,
-			validFrom: validFrom || null,
-			validTo: validTo || null,
-		});
+		setSaving(true);
+		try {
+			await onSubmit({
+				name: trimmed,
+				validFrom: validFrom || null,
+				validTo: validTo || null,
+			});
+		} catch (failure) {
+			return setError(storageErrorMessage("save the passport", failure));
+		} finally {
+			setSaving(false);
+		}
 		if (!initial) {
 			setName("");
 			setValidFrom("");
@@ -59,7 +67,7 @@ export function PassportForm({
 			/>
 			{error ? <p role="alert">{error}</p> : null}
 			<div>
-				<Button type="submit" variant="primary">
+				<Button type="submit" variant="primary" disabled={saving}>
 					{submitLabel}
 				</Button>
 			</div>

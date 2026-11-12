@@ -13,11 +13,12 @@ export function PhotoThumb({
 	onDelete: () => void;
 }) {
 	const [url, setUrl] = useState<string | null>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a photo's bytes never change, but every table change hands us a new Blob instance
 	useEffect(() => {
 		const next = URL.createObjectURL(photo.blob);
 		setUrl(next);
 		return () => URL.revokeObjectURL(next);
-	}, [photo.blob]);
+	}, [photo.id]);
 
 	return (
 		<figure style={{ margin: 0, display: "grid", gap: 4 }}>

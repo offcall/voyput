@@ -2,6 +2,7 @@ import { type Passport, SUPPORTED_PHOTO_TYPES } from "@voyput/core";
 import { Button, Card, Dialog, Dropzone } from "@voyput/ui";
 import { useCallback, useState } from "react";
 import { useDb } from "../../../db/DbContext";
+import type { PhotoRecord } from "../../../db/db";
 import { PassportForm } from "./PassportForm";
 import { PhotoThumb } from "./PhotoThumb";
 import {
@@ -10,6 +11,7 @@ import {
 	deletePhoto,
 	listPhotos,
 	rotatePhoto,
+	storageErrorMessage,
 	updatePassport,
 } from "./passportStore";
 import { useLiveQuery } from "./useLiveQuery";
@@ -23,6 +25,18 @@ export function PassportCard({ passport }: { passport: Passport }) {
 	const [rejected, setRejected] = useState<string[]>([]);
 	const [editing, setEditing] = useState(false);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const [photoToDelete, setPhotoToDelete] = useState<PhotoRecord | null>(null);
+	const [error, setError] = useState<string | null>(null);
+
+	/** Runs a storage write and shows its failure instead of losing it. */
+	const run = async (action: string, write: () => Promise<unknown>) => {
+		setError(null);
+		try {
+			await write();
+		} catch (failure) {
+			setError(storageErrorMessage(action, failure));
+		}
+	};
 
 	const validity =
 		passport.validFrom || passport.validTo
@@ -47,13 +61,21 @@ export function PassportCard({ passport }: { passport: Passport }) {
 					multiple
 					label={`Add page photos to ${passport.name}`}
 					hint="JPEG or PNG. Drop files here or pick them."
-					onFiles={async (files) =>
-						setRejected(await addPhotos(db, passport.id, files))
+					onFiles={(files) =>
+						run("add the photos", async () =>
+							setRejected(await addPhotos(db, passport.id, files)),
+						)
 					}
 				/>
 				{rejected.length > 0 ? (
 					<p role="alert" style={{ color: "var(--vp-bad)", margin: 0 }}>
 						Not added, only JPEG and PNG are supported: {rejected.join(", ")}
+					</p>
+				) : null}
+
+				{error ? (
+					<p role="alert" style={{ color: "var(--vp-bad)", margin: 0 }}>
+						{error}
 					</p>
 				) : null}
 
@@ -73,8 +95,10 @@ export function PassportCard({ passport }: { passport: Passport }) {
 							<li key={photo.id}>
 								<PhotoThumb
 									photo={photo}
-									onRotate={() => rotatePhoto(db, photo.id, photo.rotation)}
-									onDelete={() => deletePhoto(db, photo.id)}
+									onRotate={() =>
+										run("rotate the photo", () => rotatePhoto(db, photo.id))
+									}
+									onDelete={() => setPhotoToDelete(photo)}
 								/>
 							</li>
 						))}
@@ -106,7 +130,12 @@ export function PassportCard({ passport }: { passport: Passport }) {
 						<Button onClick={() => setConfirmingDelete(false)}>Cancel</Button>
 						<Button
 							variant="danger"
-							onClick={() => deletePassport(db, passport.id)}
+							onClick={async () => {
+								setConfirmingDelete(false);
+								await run("delete the passport", () =>
+									deletePassport(db, passport.id),
+								);
+							}}
 						>
 							Delete passport
 						</Button>
@@ -116,6 +145,37 @@ export function PassportCard({ passport }: { passport: Passport }) {
 				<p>
 					Its {photos?.length ?? 0} photo(s), their extractions and stamps are
 					removed from this browser.
+				</p>
+			</Dialog>
+
+			<Dialog
+				open={photoToDelete !== null}
+				onOpenChange={(open) => {
+					if (!open) setPhotoToDelete(null);
+				}}
+				title={`Delete ${photoToDelete?.name ?? "photo"}?`}
+				actions={
+					<>
+						<Button onClick={() => setPhotoToDelete(null)}>Cancel</Button>
+						<Button
+							variant="danger"
+							onClick={async () => {
+								const photo = photoToDelete;
+								setPhotoToDelete(null);
+								if (photo)
+									await run("delete the photo", () =>
+										deletePhoto(db, photo.id),
+									);
+							}}
+						>
+							Delete photo
+						</Button>
+					</>
+				}
+			>
+				<p>
+					The photo, its extraction and its stamps are removed from this
+					browser.
 				</p>
 			</Dialog>
 		</Card>

@@ -2,7 +2,6 @@ import {
 	type Passport,
 	type PassportPhoto,
 	photoMimeType,
-	type Rotation,
 	rotateBy,
 } from "@voyput/core";
 import type { PhotoRecord, VoyputDb } from "../../../db/db";
@@ -68,7 +67,8 @@ export async function listPhotos(
 		.toArray();
 	return photos.sort(
 		(a, b) =>
-			a.addedAt.localeCompare(b.addedAt) || a.name.localeCompare(b.name),
+			a.addedAt.localeCompare(b.addedAt) ||
+			a.name.localeCompare(b.name, undefined, { numeric: true }),
 	);
 }
 
@@ -101,12 +101,16 @@ export async function addPhotos(
 	return rejected;
 }
 
-export async function rotatePhoto(
-	db: VoyputDb,
-	id: string,
-	current: Rotation,
-): Promise<void> {
-	await db.photos.update(id, { rotation: rotateBy(current, 90) });
+/** Turns the photo 90° clockwise from its stored rotation, so quick repeated clicks add up. */
+export async function rotatePhoto(db: VoyputDb, id: string): Promise<void> {
+	await db.photos.where({ id }).modify((photo) => {
+		photo.rotation = rotateBy(photo.rotation, 90);
+	});
+}
+
+/** A storage error as a sentence for the user. */
+export function storageErrorMessage(action: string, error: unknown): string {
+	return `Could not ${action}: ${error instanceof Error ? error.message : String(error)}`;
 }
 
 /** Removes the photo with its extraction and stamps. */
