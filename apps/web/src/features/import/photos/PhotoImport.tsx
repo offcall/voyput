@@ -1,4 +1,4 @@
-import { Card } from "@voyput/ui";
+import { Card, Notice, Stack } from "@voyput/ui";
 import { useCallback } from "react";
 import { useDb } from "../../../db/DbContext";
 import { PassportCard } from "./PassportCard";
@@ -16,14 +16,15 @@ export function PhotoImport() {
 
 	return (
 		<>
-			<Card title="Passport photos">
-				<div style={{ display: "grid", gap: 12 }}>
-					<p style={{ margin: 0 }}>
-						Add each passport, then photos of its stamp pages.
-					</p>
-					<PhotoGuidance />
+			<Card
+				title="Passport photos"
+				description="Add each passport, then photos of its stamp pages."
+			>
+				<Stack>
 					{error ? (
-						<p role="alert">Could not read the passports: {error}</p>
+						<Notice tone="bad" role="alert">
+							Could not read the passports: {error}
+						</Notice>
 					) : null}
 					<PassportForm
 						submitLabel="Add passport"
@@ -31,7 +32,8 @@ export function PhotoImport() {
 							await createPassport(db, input);
 						}}
 					/>
-				</div>
+					<PhotoGuidance />
+				</Stack>
 			</Card>
 			{passports?.map((passport) => (
 				<PassportCard key={passport.id} passport={passport} />

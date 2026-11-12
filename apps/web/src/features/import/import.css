@@ -1,0 +1,193 @@
+/* Import page: passports with their photo grids, the CSV card and the demo card. */
+
+.import-row {
+	display: grid;
+	grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+	gap: var(--vp-space-4);
+	align-items: start;
+}
+@media (max-width: 960px) {
+	.import-row {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.import-section-title {
+	display: flex;
+	align-items: center;
+	gap: var(--vp-space-2);
+	margin: var(--vp-space-4) 0 0;
+	font-size: var(--vp-text-sm);
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--vp-muted);
+}
+
+/* New passport form: one row on wide screens. */
+.import-passport-form {
+	display: grid;
+	grid-template-columns: minmax(180px, 2fr) minmax(130px, 1fr) minmax(
+			130px,
+			1fr
+		) auto;
+	gap: var(--vp-space-3);
+	align-items: start;
+}
+.import-passport-form > .import-form-submit {
+	padding-top: 26px;
+}
+.import-passport-form > [role="alert"] {
+	grid-column: 1 / -1;
+}
+.import-passport-form[data-layout="stacked"] {
+	grid-template-columns: minmax(0, 1fr);
+}
+.import-passport-form[data-layout="stacked"] > .import-form-submit {
+	padding-top: 0;
+}
+@media (max-width: 760px) {
+	.import-passport-form {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.import-passport-form > .import-form-submit {
+		padding-top: 0;
+	}
+}
+
+.import-messages {
+	display: grid;
+	gap: var(--vp-space-2);
+	margin-bottom: var(--vp-space-3);
+}
+.import-messages:empty {
+	display: none;
+}
+
+/* Photo grid: the drop tile first, then one tile per page. */
+.import-grid {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: var(--vp-space-3);
+}
+.import-grid > li {
+	min-width: 0;
+}
+.import-grid .vp-dropzone {
+	aspect-ratio: 4 / 5;
+	box-sizing: border-box;
+	justify-content: center;
+	padding: var(--vp-space-4) var(--vp-space-3);
+	font-size: var(--vp-text-xs);
+}
+.import-grid .vp-dropzone label {
+	font-size: var(--vp-text-sm);
+}
+
+.import-thumb {
+	margin: 0;
+	display: grid;
+	gap: 6px;
+}
+.import-thumb-frame {
+	position: relative;
+	aspect-ratio: 4 / 5;
+	display: grid;
+	place-items: center;
+	overflow: hidden;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius);
+	background: var(--vp-surface-2);
+	transition:
+		border-color var(--vp-duration) var(--vp-ease),
+		box-shadow var(--vp-duration) var(--vp-ease);
+}
+.import-thumb-frame:hover,
+.import-thumb-frame:focus-within {
+	border-color: var(--vp-border-strong);
+	box-shadow: var(--vp-shadow);
+}
+/* Fill the frame and keep the whole page visible; a sideways page is
+   scaled so its rotated box (5:4) still fits the 4:5 frame. */
+.import-thumb-frame img {
+	grid-area: 1 / 1;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	transition: rotate 200ms var(--vp-ease);
+}
+.import-thumb-frame img[data-sideways] {
+	scale: 0.8;
+}
+.import-thumb-actions {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	display: flex;
+	gap: 4px;
+	opacity: 0;
+	transition: opacity var(--vp-duration) var(--vp-ease);
+}
+.import-thumb-frame:hover .import-thumb-actions,
+.import-thumb-frame:focus-within .import-thumb-actions {
+	opacity: 1;
+}
+@media (hover: none) {
+	.import-thumb-actions {
+		opacity: 1;
+	}
+}
+.import-thumb-actions .vp-button {
+	box-shadow: var(--vp-shadow);
+}
+.import-thumb-status {
+	position: absolute;
+	left: 6px;
+	bottom: 6px;
+}
+.import-thumb-status .vp-badge {
+	box-shadow: var(--vp-shadow-sm);
+	backdrop-filter: blur(4px);
+}
+.import-thumb figcaption {
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+/* CSV card */
+.import-csv {
+	display: grid;
+	gap: var(--vp-space-4);
+}
+.import-csv-empty {
+	margin: 0;
+	color: var(--vp-muted);
+	font-size: var(--vp-text-sm);
+}
+.import-csv code {
+	font-family: var(--vp-font-mono);
+	font-size: 0.92em;
+	padding: 1px 5px;
+	border-radius: 4px;
+	background: var(--vp-surface-2);
+	color: var(--vp-text);
+}
+.import-countries {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.import-csv .vp-stat-value {
+	font-size: var(--vp-text-lg);
+	white-space: nowrap;
+}

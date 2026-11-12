@@ -3,10 +3,23 @@ import {
 	parseLocationCsv,
 	summarizeLocations,
 } from "@voyput/core";
-import { Card, Dropzone } from "@voyput/ui";
-import { useState } from "react";
+import {
+	Card,
+	CountryChip,
+	Disclosure,
+	Dropzone,
+	Notice,
+	Stat,
+	StatGroup,
+} from "@voyput/ui";
+import { useCallback, useState } from "react";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
+import { useLiveQuery } from "../photos/useLiveQuery";
+import {
+	type StoredLocations,
+	summarizeStoredLocations,
+} from "./storedLocations";
 
 type ImportState =
 	| { kind: "idle" }
@@ -51,6 +64,9 @@ async function importLocationCsv(
 export function CsvImport() {
 	const db = useDb();
 	const [state, setState] = useState<ImportState>({ kind: "idle" });
+	const { data: stored } = useLiveQuery(
+		useCallback(() => summarizeStoredLocations(db), [db]),
+	);
 
 	const onFiles = async (files: File[]) => {
 		const file = files[0];
@@ -67,15 +83,21 @@ export function CsvImport() {
 	};
 
 	return (
-		<Card title="Location history (CSV)">
-			<Dropzone
-				accept=".csv,text/csv"
-				label="Drop photo_locations.csv here or pick it"
-				hint="A new file replaces the locations imported before."
-				onFiles={onFiles}
-			/>
-			<ImportStatus state={state} />
-			<HowToGetFile />
+		<Card
+			title="Location history (CSV)"
+			description="Where your photos were taken, from the Apple Photos library."
+		>
+			<div className="import-csv">
+				<StoredSummary stored={stored} />
+				<Dropzone
+					accept=".csv,text/csv"
+					label="Drop photo_locations.csv here or pick it"
+					hint="A new file replaces the locations imported before."
+					onFiles={onFiles}
+				/>
+				<ImportStatus state={state} />
+				<HowToGetFile />
+			</div>
 		</Card>
 	);
 }
@@ -85,20 +107,28 @@ function ImportStatus({ state }: { state: ImportState }) {
 		case "idle":
 			return null;
 		case "busy":
-			return <p role="status">Importing…</p>;
+			return (
+				<Notice tone="info" role="status">
+					Importing…
+				</Notice>
+			);
 		case "error":
-			return <p role="alert">{state.message}</p>;
+			return (
+				<Notice tone="bad" role="alert">
+					{state.message}
+				</Notice>
+			);
 		case "done": {
 			const { summary, skipped } = state;
 			return (
-				<p role="status">
+				<Notice tone="good" role="status">
 					Imported {summary.rowCount} locations
 					{summary.firstDay
 						? ` from ${summary.firstDay} to ${summary.lastDay}`
 						: ""}{" "}
 					in {summary.countryCount} countries. Skipped {skipped} rows with a bad
 					date or coordinates.
-				</p>
+				</Notice>
 			);
 		}
 	}
@@ -106,8 +136,7 @@ function ImportStatus({ state }: { state: ImportState }) {
 
 function HowToGetFile() {
 	return (
-		<details>
-			<summary>How to get this file</summary>
+		<Disclosure summary="How to get this file">
 			<p>
 				The file comes from the Apple Photos library on a Mac. It lists every
 				photo and video that has GPS coordinates; nothing is downloaded from
@@ -124,11 +153,53 @@ function HowToGetFile() {
 					to photo_locations.csv. Photos without GPS are left out.
 				</li>
 				<li>
-					Columns: date, lat, lon, country_code, country, city, source,
-					is_video, filename, uuid. date, lat, lon and country_code are
-					required; date is ISO 8601.
+					Columns: <code>date</code>, <code>lat</code>, <code>lon</code>,{" "}
+					<code>country_code</code>, <code>country</code>, <code>city</code>,{" "}
+					<code>source</code>, <code>is_video</code>, <code>filename</code>,{" "}
+					<code>uuid</code>. The first four are required; <code>date</code> is
+					ISO 8601.
 				</li>
 			</ol>
-		</details>
+		</Disclosure>
+	);
+}
+
+/** What is stored now, so a reload still shows the imported history. */
+function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
+	if (!stored) return null;
+	if (stored.rowCount === 0)
+		return (
+			<p className="import-csv-empty">
+				No locations stored yet. Trips and charts need them.
+			</p>
+		);
+	const years =
+		stored.firstDay && stored.lastDay
+			? `${stored.firstDay.slice(0, 4)}–${stored.lastDay.slice(0, 4)}`
+			: "–";
+	return (
+		<>
+			<StatGroup>
+				<Stat label="Locations" value={stored.rowCount.toLocaleString("en")} />
+				<Stat
+					label="Period"
+					value={years}
+					hint={
+						stored.firstDay
+							? `${stored.firstDay} to ${stored.lastDay}`
+							: undefined
+					}
+				/>
+				<Stat label="Countries" value={stored.countryCount} />
+				<Stat label="Cities" value={stored.cityCount} />
+			</StatGroup>
+			<ul className="import-countries" aria-label="Stored countries">
+				{stored.countries.map((country) => (
+					<li key={country.code} title={`${country.rows} locations`}>
+						<CountryChip code={country.code} name={country.name} />
+					</li>
+				))}
+			</ul>
+		</>
 	);
 }

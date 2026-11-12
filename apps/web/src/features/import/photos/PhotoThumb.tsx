@@ -1,14 +1,17 @@
-import { Button } from "@voyput/ui";
+import { Badge, Button } from "@voyput/ui";
 import { useEffect, useState } from "react";
 import type { PhotoRecord } from "../../../db/db";
+import type { PhotoStatus } from "./passportStore";
 
-/** One photo in the grid, shown with its saved rotation. */
+/** One photo in the grid, shown with its saved rotation; actions appear on hover or focus. */
 export function PhotoThumb({
 	photo,
+	status,
 	onRotate,
 	onDelete,
 }: {
 	photo: PhotoRecord;
+	status?: PhotoStatus | undefined;
 	onRotate: () => void;
 	onDelete: () => void;
 }) {
@@ -21,52 +24,60 @@ export function PhotoThumb({
 	}, [photo.id]);
 
 	return (
-		<figure style={{ margin: 0, display: "grid", gap: 4 }}>
-			<div
-				style={{
-					aspectRatio: "1",
-					display: "grid",
-					placeItems: "center",
-					overflow: "hidden",
-					border: "1px solid var(--vp-border)",
-					borderRadius: "var(--vp-radius)",
-				}}
-			>
+		<figure className="import-thumb">
+			<div className="import-thumb-frame">
 				{url ? (
 					<img
 						src={url}
 						alt={photo.name}
 						data-rotation={photo.rotation}
-						style={{
-							maxWidth: "100%",
-							maxHeight: "100%",
-							transform: `rotate(${photo.rotation}deg)`,
-						}}
+						data-sideways={photo.rotation % 180 !== 0 ? "" : undefined}
+						style={{ rotate: `${photo.rotation}deg` }}
 					/>
 				) : null}
+				<div className="import-thumb-actions">
+					<Button
+						size="sm"
+						square
+						onClick={onRotate}
+						aria-label={`Rotate ${photo.name}`}
+						title="Rotate 90°"
+					>
+						↻
+					</Button>
+					<Button
+						size="sm"
+						square
+						variant="danger"
+						onClick={onDelete}
+						aria-label={`Delete ${photo.name}`}
+						title="Delete"
+					>
+						✕
+					</Button>
+				</div>
+				{status ? (
+					<div className="import-thumb-status">
+						<StatusBadge status={status} />
+					</div>
+				) : null}
 			</div>
-			<figcaption
-				style={{
-					fontSize: 12,
-					overflow: "hidden",
-					textOverflow: "ellipsis",
-					whiteSpace: "nowrap",
-				}}
-			>
-				{photo.name}
-			</figcaption>
-			<div style={{ display: "flex", gap: 4 }}>
-				<Button onClick={onRotate} aria-label={`Rotate ${photo.name}`}>
-					↻
-				</Button>
-				<Button
-					variant="danger"
-					onClick={onDelete}
-					aria-label={`Delete ${photo.name}`}
-				>
-					✕
-				</Button>
-			</div>
+			<figcaption title={photo.name}>{photo.name}</figcaption>
 		</figure>
 	);
+}
+
+function StatusBadge({ status }: { status: PhotoStatus }) {
+	switch (status.kind) {
+		case "new":
+			return <Badge>not extracted</Badge>;
+		case "failed":
+			return <Badge tone="bad">failed</Badge>;
+		case "ok":
+			return (
+				<Badge tone="good">
+					{status.stamps} {status.stamps === 1 ? "stamp" : "stamps"}
+				</Badge>
+			);
+	}
 }

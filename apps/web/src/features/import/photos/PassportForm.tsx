@@ -1,5 +1,5 @@
 import { isIsoDate } from "@voyput/core";
-import { Button, TextField } from "@voyput/ui";
+import { Button, Notice, TextField } from "@voyput/ui";
 import { type FormEvent, useState } from "react";
 import { type PassportInput, storageErrorMessage } from "./passportStore";
 
@@ -7,9 +7,12 @@ import { type PassportInput, storageErrorMessage } from "./passportStore";
 export function PassportForm({
 	initial,
 	submitLabel,
+	layout = "row",
 	onSubmit,
 }: {
 	initial?: PassportInput;
+	/** "row" puts the fields side by side on wide screens; "stacked" for dialogs. */
+	layout?: "row" | "stacked";
 	submitLabel: string;
 	onSubmit: (input: PassportInput) => Promise<void>;
 }) {
@@ -50,7 +53,11 @@ export function PassportForm({
 	};
 
 	return (
-		<form onSubmit={submit} style={{ display: "grid", gap: 8 }}>
+		<form
+			onSubmit={submit}
+			className="import-passport-form"
+			data-layout={layout}
+		>
 			<TextField label="Passport name" value={name} onChange={setName} />
 			<TextField
 				label="Valid from"
@@ -65,12 +72,16 @@ export function PassportForm({
 				onChange={setValidTo}
 				placeholder="YYYY-MM-DD"
 			/>
-			{error ? <p role="alert">{error}</p> : null}
-			<div>
+			<div className="import-form-submit">
 				<Button type="submit" variant="primary" disabled={saving}>
 					{submitLabel}
 				</Button>
 			</div>
+			{error ? (
+				<Notice tone="bad" role="alert">
+					{error}
+				</Notice>
+			) : null}
 		</form>
 	);
 }

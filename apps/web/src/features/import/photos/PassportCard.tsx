@@ -1,5 +1,5 @@
 import { type Passport, SUPPORTED_PHOTO_TYPES } from "@voyput/core";
-import { Button, Card, Dialog, Dropzone } from "@voyput/ui";
+import { Button, Card, Dialog, Dropzone, Notice } from "@voyput/ui";
 import { useCallback, useState } from "react";
 import { useDb } from "../../../db/DbContext";
 import type { PhotoRecord } from "../../../db/db";
@@ -10,6 +10,7 @@ import {
 	addPhotos,
 	deletePassport,
 	deletePhoto,
+	listPhotoStatuses,
 	listPhotos,
 	rotatePhoto,
 	storageErrorMessage,
@@ -22,6 +23,9 @@ export function PassportCard({ passport }: { passport: Passport }) {
 	const db = useDb();
 	const { data: photos, error: readError } = useLiveQuery(
 		useCallback(() => listPhotos(db, passport.id), [db, passport.id]),
+	);
+	const { data: statuses } = useLiveQuery(
+		useCallback(() => listPhotoStatuses(db, passport.id), [db, passport.id]),
 	);
 	const [added, setAdded] = useState<AddPhotosResult>({
 		rejected: [],
@@ -47,79 +51,78 @@ export function PassportCard({ passport }: { passport: Passport }) {
 			? `valid ${passport.validFrom ?? "?"} – ${passport.validTo ?? "?"}`
 			: "validity not set";
 
+	const photoCount = photos?.length ?? 0;
+
 	return (
-		<Card title={passport.name}>
-			<div style={{ display: "grid", gap: 12 }}>
-				<div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-					<span style={{ color: "var(--vp-muted)", flex: 1 }}>
-						{validity} · {photos?.length ?? 0} photo(s)
-					</span>
-					<Button onClick={() => setEditing(true)}>Edit</Button>
-					<Button variant="danger" onClick={() => setConfirmingDelete(true)}>
+		<Card
+			title={passport.name}
+			description={`${validity} · ${photoCount} ${photoCount === 1 ? "photo" : "photos"}`}
+			actions={
+				<>
+					<Button size="sm" onClick={() => setEditing(true)}>
+						Edit
+					</Button>
+					<Button
+						size="sm"
+						variant="danger"
+						onClick={() => setConfirmingDelete(true)}
+					>
 						Delete
 					</Button>
-				</div>
-
-				<Dropzone
-					accept={SUPPORTED_PHOTO_TYPES.join(",")}
-					multiple
-					label={`Add page photos to ${passport.name}`}
-					hint="JPEG or PNG. Drop files here or pick them."
-					onFiles={(files) =>
-						run("add the photos", async () =>
-							setAdded(await addPhotos(db, passport.id, files)),
-						)
-					}
-				/>
+				</>
+			}
+		>
+			<div className="import-messages">
 				{added.rejected.length > 0 ? (
-					<p role="alert" style={{ color: "var(--vp-bad)", margin: 0 }}>
+					<Notice tone="bad" role="alert">
 						Not added, only JPEG and PNG are supported:{" "}
 						{added.rejected.join(", ")}
-					</p>
+					</Notice>
 				) : null}
 				{added.duplicates.length > 0 ? (
-					<p role="status" style={{ margin: 0 }}>
+					<Notice tone="warn" role="status">
 						Already added: {added.duplicates.join(", ")}
-					</p>
+					</Notice>
 				) : null}
 				{readError ? (
-					<p role="alert" style={{ color: "var(--vp-bad)", margin: 0 }}>
+					<Notice tone="bad" role="alert">
 						Could not read the photos: {readError}
-					</p>
+					</Notice>
 				) : null}
-
 				{error ? (
-					<p role="alert" style={{ color: "var(--vp-bad)", margin: 0 }}>
+					<Notice tone="bad" role="alert">
 						{error}
-					</p>
-				) : null}
-
-				{photos && photos.length > 0 ? (
-					<ul
-						aria-label={`Photos of ${passport.name}`}
-						style={{
-							listStyle: "none",
-							padding: 0,
-							margin: 0,
-							display: "grid",
-							gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
-							gap: 12,
-						}}
-					>
-						{photos.map((photo) => (
-							<li key={photo.id}>
-								<PhotoThumb
-									photo={photo}
-									onRotate={() =>
-										run("rotate the photo", () => rotatePhoto(db, photo.id))
-									}
-									onDelete={() => setPhotoToDelete(photo)}
-								/>
-							</li>
-						))}
-					</ul>
+					</Notice>
 				) : null}
 			</div>
+
+			<ul aria-label={`Photos of ${passport.name}`} className="import-grid">
+				{photos?.map((photo) => (
+					<li key={photo.id}>
+						<PhotoThumb
+							photo={photo}
+							status={statuses?.get(photo.id)}
+							onRotate={() =>
+								run("rotate the photo", () => rotatePhoto(db, photo.id))
+							}
+							onDelete={() => setPhotoToDelete(photo)}
+						/>
+					</li>
+				))}
+				<li>
+					<Dropzone
+						accept={SUPPORTED_PHOTO_TYPES.join(",")}
+						multiple
+						label={`Add page photos to ${passport.name}`}
+						hint="JPEG or PNG · drop or click"
+						onFiles={(files) =>
+							run("add the photos", async () =>
+								setAdded(await addPhotos(db, passport.id, files)),
+							)
+						}
+					/>
+				</li>
+			</ul>
 
 			<Dialog
 				open={editing}
@@ -129,6 +132,7 @@ export function PassportCard({ passport }: { passport: Passport }) {
 				<PassportForm
 					initial={passport}
 					submitLabel="Save"
+					layout="stacked"
 					onSubmit={async (input) => {
 						await updatePassport(db, passport.id, input);
 						setEditing(false);
@@ -158,8 +162,8 @@ export function PassportCard({ passport }: { passport: Passport }) {
 				}
 			>
 				<p>
-					Its {photos?.length ?? 0} photo(s), their extractions and stamps are
-					removed from this browser.
+					Its {photoCount} photo(s), their extractions and stamps are removed
+					from this browser.
 				</p>
 			</Dialog>
 

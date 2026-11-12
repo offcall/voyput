@@ -1,4 +1,4 @@
-import { Button, Card, Dialog } from "@voyput/ui";
+import { Button, Card, Dialog, Notice } from "@voyput/ui";
 import { useState } from "react";
 import { useDb } from "../../db/DbContext";
 import {
@@ -8,6 +8,7 @@ import {
 	loadDemo,
 	removeDemo,
 } from "./loadDemo";
+import "./demo.css";
 
 const fetchDemoFile: FetchFile = async (name) => {
 	const response = await fetch(`${import.meta.env.BASE_URL}demo/${name}`);
@@ -59,19 +60,36 @@ export function DemoLoader() {
 	};
 
 	return (
-		<Card title="Try it with demo data">
-			<p>
+		<Card className="demo-card" title="Try it with demo data">
+			<div className="demo-art" aria-hidden="true">
+				<span className="demo-stamp" data-n="1">
+					UA ← 10.08
+				</span>
+				<span className="demo-stamp" data-n="2">
+					ES → 10.08
+				</span>
+				<span className="demo-stamp" data-n="3">
+					MD ← 03.05
+				</span>
+			</div>
+			<p className="demo-text">
 				A fictional passport with stamps already read and reviewed, plus
-				matching location history. No API key needed. Demo stamps and locations
-				mix with your own data in Review, Trips and Visualize until you remove
-				them.
+				matching location history. No API key needed.
 			</p>
-			<div style={{ display: "flex", gap: 8 }}>
-				<Button onClick={onLoad} disabled={state.kind === "busy"}>
+			<p className="demo-note">
+				Demo stamps and locations mix with your own data in Review, Trips and
+				Visualize until you remove them.
+			</p>
+			<div className="demo-actions">
+				<Button
+					variant="primary"
+					onClick={onLoad}
+					disabled={state.kind === "busy"}
+				>
 					Load demo data
 				</Button>
 				<Button
-					variant="danger"
+					variant="ghost"
 					onClick={() => setConfirming("remove")}
 					disabled={state.kind === "busy"}
 				>
@@ -116,17 +134,25 @@ function LoadStatus({ state }: { state: LoadState }) {
 		case "idle":
 			return null;
 		case "busy":
-			return <p role="status">Working on demo data…</p>;
+			return (
+				<Notice tone="info" role="status">
+					Working on demo data…
+				</Notice>
+			);
 		case "error":
-			return <p role="alert">{state.message}</p>;
+			return (
+				<Notice tone="bad" role="alert">
+					{state.message}
+				</Notice>
+			);
 		case "removed":
-			return <p role="status">Demo data removed.</p>;
+			return <Notice role="status">Demo data removed.</Notice>;
 		case "loaded": {
 			const { photos, stamps, locations } = state.summary;
 			return (
-				<p role="status">
+				<Notice tone="good" role="status">
 					Loaded {photos} demo pages, {stamps} stamps and {locations} locations.
-				</p>
+				</Notice>
 			);
 		}
 	}

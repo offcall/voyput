@@ -56,6 +56,43 @@ export async function deletePassport(db: VoyputDb, id: string): Promise<void> {
 	);
 }
 
+/** What the extraction made of a photo, shown on its tile. */
+export type PhotoStatus =
+	| { kind: "new" }
+	| { kind: "ok"; stamps: number }
+	| { kind: "failed" };
+
+/** Extraction result of each photo of a passport, by photo id; photos never extracted are "new". */
+export async function listPhotoStatuses(
+	db: VoyputDb,
+	passportId: string,
+): Promise<Map<string, PhotoStatus>> {
+	const ids = await db.photos
+		.where("passportId")
+		.equals(passportId)
+		.primaryKeys();
+	const [extractions, stamps] = await Promise.all([
+		db.extractions.bulkGet(ids),
+		db.stamps.where("passportId").equals(passportId).toArray(),
+	]);
+	const stampCount = new Map<string, number>();
+	for (const stamp of stamps)
+		stampCount.set(stamp.photoId, (stampCount.get(stamp.photoId) ?? 0) + 1);
+	return new Map(
+		ids.map((id, index): [string, PhotoStatus] => {
+			const status = extractions[index]?.status;
+			return [
+				id,
+				status === "ok"
+					? { kind: "ok", stamps: stampCount.get(id) ?? 0 }
+					: status === "failed"
+						? { kind: "failed" }
+						: { kind: "new" },
+			];
+		}),
+	);
+}
+
 /** Photos of one passport in the order they were added. */
 export async function listPhotos(
 	db: VoyputDb,
