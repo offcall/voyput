@@ -10,6 +10,7 @@ npm run dev        # app at http://127.0.0.1:5173
 npm run storybook  # component kit at http://127.0.0.1:6006
 npm run check      # biome, tsc, tests
 npm run build      # static app in apps/web/dist
+npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/demo
 ```
 
 ## Layout
