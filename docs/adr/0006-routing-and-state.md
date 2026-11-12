@@ -10,7 +10,7 @@ Sections (Import, Extract, Review, Trips, Visualize, Settings) are reachable at 
 
 ## Decision
 
-- TanStack Router with code-based routes in `apps/web/src/app/router.tsx`. One route per section.
+- TanStack Router with code-based routes in `apps/web/src/app/router.tsx`. One route per section. Hash history (`/#/trips`), so any static host serves deep links without a fallback rule.
 - Shared state through React context: `DbProvider` (database) and `SettingsProvider` (settings). Section state stays in its section.
 - No global state library.
 

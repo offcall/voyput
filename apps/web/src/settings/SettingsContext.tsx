@@ -2,13 +2,17 @@ import {
 	createContext,
 	type ReactNode,
 	useContext,
+	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { loadSettings, type Settings, saveSettings } from "./settings";
 
 interface SettingsValue {
 	settings: Settings;
+	/** False when the last save failed; settings still work for this session. */
+	persisted: boolean;
 	update: (patch: Partial<Settings>) => void;
 }
 
@@ -22,18 +26,21 @@ export function SettingsProvider({
 	children: ReactNode;
 }) {
 	const [settings, setSettings] = useState(() => loadSettings(storage));
+	const [persisted, setPersisted] = useState(true);
+	const loaded = useRef(settings);
+
+	useEffect(() => {
+		if (settings === loaded.current) return;
+		setPersisted(saveSettings(storage, settings));
+	}, [settings, storage]);
+
 	const value = useMemo<SettingsValue>(
 		() => ({
 			settings,
-			update: (patch) => {
-				setSettings((current) => {
-					const next = { ...current, ...patch };
-					saveSettings(storage, next);
-					return next;
-				});
-			},
+			persisted,
+			update: (patch) => setSettings((current) => ({ ...current, ...patch })),
 		}),
-		[settings, storage],
+		[settings, persisted],
 	);
 	return (
 		<SettingsContext.Provider value={value}>

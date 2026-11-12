@@ -28,7 +28,7 @@ async function importLocationCsv(
 	}
 	await db.transaction("rw", db.locations, async () => {
 		await db.locations.clear();
-		await db.locations.bulkAdd(result.rows);
+		await db.locations.bulkPut(result.rows);
 	});
 	return {
 		kind: "done",

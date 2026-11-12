@@ -44,6 +44,12 @@ export function loadSettings(storage: Storage): Settings {
 	};
 }
 
-export function saveSettings(storage: Storage, settings: Settings): void {
-	storage.setItem(STORAGE_KEY, JSON.stringify(settings));
+/** Returns false when the browser refuses to store (full or blocked); settings then live only in memory. */
+export function saveSettings(storage: Storage, settings: Settings): boolean {
+	try {
+		storage.setItem(STORAGE_KEY, JSON.stringify(settings));
+		return true;
+	} catch {
+		return false;
+	}
 }

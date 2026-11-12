@@ -3,10 +3,16 @@ import { useSettings } from "./SettingsContext";
 import type { ReasoningEffort } from "./settings";
 
 export function SettingsPage() {
-	const { settings, update } = useSettings();
+	const { settings, persisted, update } = useSettings();
 	return (
 		<Stack>
 			<h1>Settings</h1>
+			{persisted ? null : (
+				<p role="alert">
+					This browser refused to save settings. They will be lost when you
+					close the tab.
+				</p>
+			)}
 			<Card title="OpenRouter">
 				<Stack>
 					<TextField

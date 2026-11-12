@@ -12,10 +12,6 @@ export interface PhotoRecord extends PassportPhoto {
 	blob: Blob;
 }
 
-export interface LocationRecord extends LocationRow {
-	id?: number;
-}
-
 /** Small values that are not worth their own table, e.g. UI state of a section. */
 export interface KvRecord {
 	key: string;
@@ -28,7 +24,8 @@ export class VoyputDb extends Dexie {
 	declare photos: Table<PhotoRecord, string>;
 	declare extractions: Table<PhotoExtraction, string>;
 	declare stamps: Table<Stamp, string>;
-	declare locations: Table<LocationRecord, number>;
+	/** Keyed by the export's photo uuid, so re-importing a CSV never duplicates rows. */
+	declare locations: Table<LocationRow, string>;
 	declare trips: Table<Trip, string>;
 	declare kv: Table<KvRecord, string>;
 
@@ -39,7 +36,7 @@ export class VoyputDb extends Dexie {
 			photos: "id, passportId",
 			extractions: "photoId",
 			stamps: "id, passportId, photoId, date",
-			locations: "++id, date",
+			locations: "uuid, date",
 			trips: "id, start",
 			kv: "key",
 		});

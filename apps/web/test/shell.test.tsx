@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { SECTIONS } from "../src/app/Layout";
 import { renderApp } from "./renderApp";
 
@@ -36,5 +36,21 @@ describe("app shell", () => {
 		expect((screen.getByLabelText("Model") as HTMLInputElement).value).toBe(
 			"openai/gpt-6.1-sol",
 		);
+	});
+
+	it("keeps working when the browser refuses to store settings", async () => {
+		const user = userEvent.setup();
+		const setItem = vi
+			.spyOn(Storage.prototype, "setItem")
+			.mockImplementation(() => {
+				throw new Error("QuotaExceededError");
+			});
+		renderApp("/settings");
+		await user.type(await screen.findByLabelText("API key"), "sk-or-x");
+		expect((screen.getByLabelText("API key") as HTMLInputElement).value).toBe(
+			"sk-or-x",
+		);
+		expect(screen.getByRole("alert").textContent).toMatch(/refused to save/);
+		setItem.mockRestore();
 	});
 });

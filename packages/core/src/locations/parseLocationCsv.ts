@@ -59,7 +59,10 @@ export function parseLocationCsv(text: string): LocationCsvResult {
 			source: cell(cells, "source"),
 			isVideo: /^(true|1)$/i.test(cell(cells, "is_video")),
 			filename: cell(cells, "filename"),
-			uuid: cell(cells, "uuid"),
+			// The database keys rows by uuid; without one, date + position + file is the identity.
+			uuid:
+				cell(cells, "uuid") ||
+				`${date}|${latText}|${lonText}|${cell(cells, "filename")}`,
 		});
 	}
 	return { ok: true, rows, skipped };
