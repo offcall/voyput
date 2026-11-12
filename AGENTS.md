@@ -46,8 +46,9 @@ Before significant architectural decision:
 
 1. Read ADRs in `docs/adr/`.
 2. Check decision already documented.
-3. New decision: write ADR before or with implementation. Add row to `docs/adr/README.md`.
-4. Never rewrite accepted ADR decision. Supersede with new ADR, mark old one superseded.
+3. New decision: write ADR before or with implementation, status `Proposed`. Add row to `docs/adr/README.md`.
+4. `Proposed` ADR: edit freely while its step is in review. Step accepted: status `Accepted`.
+5. Never rewrite accepted ADR decision. Supersede with new ADR, mark old one superseded.
 
 Significant: dependencies, toolchain, module boundaries, public interfaces, data formats, persistence, workflow.
 
