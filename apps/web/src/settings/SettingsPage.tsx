@@ -9,6 +9,8 @@ export function SettingsPage() {
 	const { settings, persisted, update } = useSettings();
 	const ai = useAi();
 	const [models, setModels] = useState<ModelOption[] | "failed">([]);
+	// What the user typed; an empty model id is never stored.
+	const [modelDraft, setModelDraft] = useState(settings.model);
 
 	useEffect(() => {
 		let current = true;
@@ -47,9 +49,19 @@ export function SettingsPage() {
 							id="vp-model"
 							className="vp-input"
 							list="vp-image-models"
-							value={settings.model}
-							onChange={(event) => update({ model: event.target.value })}
+							value={modelDraft}
+							aria-invalid={modelDraft.trim() === ""}
+							onChange={(event) => {
+								setModelDraft(event.target.value);
+								const model = event.target.value.trim();
+								if (model) update({ model });
+							}}
 						/>
+						{modelDraft.trim() === "" ? (
+							<span className="vp-field-description" role="alert">
+								Enter a model id. Extraction keeps using {settings.model}.
+							</span>
+						) : null}
 						<span className="vp-field-description">
 							{models === "failed"
 								? "Could not load the model list. Type any OpenRouter model id that accepts images."
