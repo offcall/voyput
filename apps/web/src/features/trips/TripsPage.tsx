@@ -1,5 +1,6 @@
 import {
 	buildTrip,
+	COUNTRY_CODES,
 	guessHomeCountry,
 	suggestTrips,
 	type Trip,
@@ -20,6 +21,9 @@ import {
 	type TripsData,
 } from "./tripStore";
 
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+const regionName = (cc: string) => `${regionNames.of(cc) ?? cc} (${cc})`;
+
 export function TripsPage() {
 	const db = useDb();
 	const [data, setData] = useState<TripsData | null>(null);
@@ -39,24 +43,26 @@ export function TripsPage() {
 		void reload();
 	}, [reload]);
 
-	const evidence = useMemo<TripEvidence | null>(() => {
-		if (!data) return null;
-		const stamps = usableStamps(data.stamps);
-		const home = data.home ?? guessHomeCountry(stamps, data.locations);
-		return home ? { stamps, locations: data.locations, home } : null;
-	}, [data]);
-	const countries = useMemo(() => {
-		const all = new Set<string>();
-		for (const s of evidence?.stamps ?? []) all.add(s.countryCode);
-		for (const l of evidence?.locations ?? []) all.add(l.countryCode);
-		return [...all].sort();
-	}, [evidence]);
+	const stamps = useMemo(() => usableStamps(data?.stamps ?? []), [data]);
+	const home = useMemo(
+		() => data?.home ?? guessHomeCountry(stamps, data?.locations ?? []),
+		[data, stamps],
+	);
+	/** Without a home country nothing is suggested, but trips can still be edited. */
+	const evidence = useMemo<TripEvidence>(
+		() => ({ stamps, locations: data?.locations ?? [], home: home ?? "" }),
+		[stamps, data, home],
+	);
 	const list = useMemo(
 		() =>
-			data && evidence
-				? visibleTrips(data.stored, suggestTrips(evidence), data.dismissed)
+			data
+				? visibleTrips(
+						data.stored,
+						home ? suggestTrips(evidence) : [],
+						data.dismissed,
+					)
 				: [],
-		[data, evidence],
+		[data, evidence, home],
 	);
 
 	const run = (action: Promise<void>) =>
@@ -66,19 +72,21 @@ export function TripsPage() {
 				setError(e instanceof Error ? e.message : String(e)),
 			);
 	const onSave = (trip: Trip) => run(saveTrip(db, trip));
-	const onDelete = (id: string) => {
+	const onDelete = (trip: Trip) => {
 		setSelectedId(null);
-		void run(deleteTrip(db, id));
+		void run(deleteTrip(db, trip));
 	};
 	const onAdd = (title: string, start: string, end: string) => {
-		if (!evidence) return;
 		const built = buildTrip(evidence, start, end);
+		const manual = (date: string) =>
+			({ date, source: "manual", method: "unknown" }) as const;
 		const trip: Trip = {
 			...built,
 			id: crypto.randomUUID(),
 			title: title || built.title,
-			arrival: { date: start, source: "manual", method: "unknown" },
-			departure: { date: end, source: "manual", method: "unknown" },
+			arrival: built.arrival.source === "stamp" ? built.arrival : manual(start),
+			departure:
+				built.departure.source === "stamp" ? built.departure : manual(end),
 		};
 		setSelectedId(trip.id);
 		void run(saveTrip(db, trip));
@@ -92,27 +100,30 @@ export function TripsPage() {
 			{error ? <p role="alert">{error}</p> : null}
 			{!data ? (
 				<p>Loading…</p>
-			) : !evidence ? (
-				<p>
-					No reviewed stamps or locations yet. Review stamps or import the
-					location CSV first.
-				</p>
 			) : (
 				<>
 					<label className="vp-field">
 						<span className="vp-field-label">Home country</span>
 						<select
 							className="vp-input"
-							value={evidence.home}
+							value={home ?? ""}
 							onChange={(e) => void run(saveHome(db, e.target.value))}
 						>
-							{countries.map((cc) => (
+							{home ? null : <option value="">Choose your home country</option>}
+							{COUNTRY_CODES.map((cc) => (
 								<option key={cc} value={cc}>
-									{cc}
+									{regionName(cc)}
 								</option>
 							))}
 						</select>
 					</label>
+					{home ? null : (
+						<p>
+							No reviewed stamps or locations yet, so there is nothing to
+							suggest. Review stamps, import the location CSV or choose your
+							home country.
+						</p>
+					)}
 					<Card title={`Trips (${list.length})`}>
 						{list.length === 0 ? <p>No trips found.</p> : null}
 						<ul>

@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { LocationRow, Stamp } from "@voyput/core";
 import { describe, expect, it } from "vitest";
@@ -117,5 +117,58 @@ describe("trips", () => {
 		expect(screen.getByText("Confirmed")).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Japan" })).toBeTruthy();
 		expect(screen.queryByRole("button", { name: "Romania" })).toBeNull();
+	});
+
+	it("edits dates, deletes a suggestion and adds a trip, all kept after reload", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-edit-test");
+		await seed(db);
+		const first = renderApp("/trips", { db });
+
+		const openDetail = async (name: string) => {
+			await user.click(await screen.findByRole("button", { name }));
+			const section = screen
+				.getByRole("heading", { name: `Trip: ${name}` })
+				.closest("section");
+			if (!section) throw new Error("trip detail not found");
+			return within(section);
+		};
+
+		let d = await openDetail("Japan");
+		fireEvent.change(d.getByLabelText("Start"), {
+			target: { value: "2024-05-11" },
+		});
+		await user.click(d.getByRole("button", { name: "Save" }));
+		await screen.findAllByText("Draft");
+
+		d = await openDetail("Romania");
+		await user.click(d.getByRole("button", { name: "Delete" }));
+		await screen.findByRole("heading", { name: "Trips (1)" });
+
+		await user.type(screen.getByLabelText("New trip title"), "Weekend in Kyiv");
+		fireEvent.change(screen.getByLabelText("New trip start"), {
+			target: { value: "2024-07-01" },
+		});
+		fireEvent.change(screen.getByLabelText("New trip end"), {
+			target: { value: "2024-07-03" },
+		});
+		await user.click(screen.getByRole("button", { name: "Add trip" }));
+		await screen.findByRole("heading", { name: "Trips (2)" });
+		first.unmount();
+
+		renderApp("/trips", { db });
+		await screen.findByRole("heading", { name: "Trips (2)" });
+		expect(screen.queryByRole("button", { name: "Romania" })).toBeNull();
+		expect(
+			screen.getByRole("button", { name: "Weekend in Kyiv" }),
+		).toBeTruthy();
+		const japan = (await db.trips.toArray()).find((t) => t.title === "Japan");
+		expect(japan).toMatchObject({
+			start: "2024-05-11",
+			end: "2024-05-11",
+			confirmed: false,
+			arrival: { source: "manual", date: "2024-05-11" },
+		});
+		expect(japan?.stops.map((s) => s.cities)).toEqual([["Kyoto"]]);
 	});
 });

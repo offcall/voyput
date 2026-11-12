@@ -30,7 +30,7 @@ export function TripDetail({
 	evidence: TripEvidence;
 	stamps: readonly Stamp[];
 	onSave: (trip: Trip) => void;
-	onDelete: (id: string) => void;
+	onDelete: (trip: Trip) => void;
 }) {
 	const [title, setTitle] = useState(trip.title);
 	const [start, setStart] = useState(trip.start);
@@ -71,7 +71,7 @@ export function TripDetail({
 				<Button disabled={!!error} onClick={() => save(trip.confirmed)}>
 					Save
 				</Button>{" "}
-				<Button variant="danger" onClick={() => onDelete(trip.id)}>
+				<Button variant="danger" onClick={() => onDelete(trip)}>
 					Delete
 				</Button>
 			</div>

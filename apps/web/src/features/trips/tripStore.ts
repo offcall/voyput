@@ -1,4 +1,10 @@
-import type { LocationRow, Stamp, Trip } from "@voyput/core";
+import {
+	isCountryCode,
+	type LocationRow,
+	type Period,
+	type Stamp,
+	type Trip,
+} from "@voyput/core";
 import type { VoyputDb } from "../../db/db";
 
 const DISMISSED_KEY = "trips:dismissed";
@@ -8,14 +14,22 @@ export interface TripsData {
 	stamps: Stamp[];
 	locations: LocationRow[];
 	stored: Trip[];
-	/** Ids of suggestions the user deleted. */
-	dismissed: string[];
-	/** Home country chosen by the user, or null to guess it. */
+	/** Periods of trips the user deleted; suggestions there stay hidden. */
+	dismissed: Period[];
+	/** Home country chosen by the user, or null (also when invalid) to guess it. */
 	home: string | null;
 }
 
-const stringList = (value: unknown): string[] =>
-	Array.isArray(value) ? value.filter((v) => typeof v === "string") : [];
+const isPeriod = (v: unknown): v is Period =>
+	typeof v === "object" &&
+	v !== null &&
+	"start" in v &&
+	"end" in v &&
+	typeof v.start === "string" &&
+	typeof v.end === "string";
+
+const periodList = (value: unknown): Period[] =>
+	Array.isArray(value) ? value.filter(isPeriod) : [];
 
 export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 	const [stamps, locations, stored, dismissed, home] = await Promise.all([
@@ -29,8 +43,8 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 		stamps,
 		locations,
 		stored,
-		dismissed: stringList(dismissed?.value),
-		home: typeof home?.value === "string" ? home.value : null,
+		dismissed: periodList(dismissed?.value),
+		home: isCountryCode(home?.value) ? home.value : null,
 	};
 }
 
@@ -38,13 +52,15 @@ export async function saveTrip(db: VoyputDb, trip: Trip): Promise<void> {
 	await db.trips.put(trip);
 }
 
-/** Removes a stored trip and keeps a deleted suggestion from coming back. */
-export async function deleteTrip(db: VoyputDb, id: string): Promise<void> {
+/** Removes a trip and keeps suggestions in its period from coming back. */
+export async function deleteTrip(db: VoyputDb, trip: Trip): Promise<void> {
 	await db.transaction("rw", db.trips, db.kv, async () => {
-		await db.trips.delete(id);
-		const dismissed = stringList((await db.kv.get(DISMISSED_KEY))?.value);
-		if (!dismissed.includes(id))
-			await db.kv.put({ key: DISMISSED_KEY, value: [...dismissed, id] });
+		await db.trips.delete(trip.id);
+		const dismissed = periodList((await db.kv.get(DISMISSED_KEY))?.value);
+		await db.kv.put({
+			key: DISMISSED_KEY,
+			value: [...dismissed, { start: trip.start, end: trip.end }],
+		});
 	});
 }
 
