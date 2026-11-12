@@ -104,25 +104,11 @@
 	background: var(--vp-surface);
 }
 
-/* Country chip */
 .vp-trips-chips {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
 }
-.vp-trips-chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 4px;
-	padding: 2px 7px;
-	border-radius: 6px;
-	font-family: var(--vp-font-mono);
-	font-size: 12px;
-	font-weight: 800;
-	line-height: 1.4;
-	color: #14161c;
-}
-
 /* Layout */
 .vp-trips-layout {
 	display: grid;
@@ -134,7 +120,7 @@
 }
 @media (min-width: 1000px) {
 	.vp-trips-layout {
-		grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+		grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
 	}
 	.vp-trips-pane {
 		position: sticky;
@@ -307,7 +293,7 @@
 }
 .vp-trips-form {
 	display: grid;
-	grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+	grid-template-columns: minmax(140px, 1fr) minmax(150px, auto) minmax(150px, auto);
 	gap: 10px;
 }
 @media (max-width: 640px) {
@@ -575,7 +561,7 @@
 }
 .vp-trips-stop {
 	display: grid;
-	grid-template-columns: 4px 190px minmax(110px, 160px) 1fr auto;
+	grid-template-columns: 4px 172px minmax(80px, 130px) minmax(80px, 1fr) auto;
 	align-items: center;
 	gap: 12px;
 	padding: 7px 12px 7px 0;
@@ -621,7 +607,7 @@
 }
 .vp-trips-stamps li {
 	display: grid;
-	grid-template-columns: 16px 90px 48px minmax(110px, 160px) 1fr;
+	grid-template-columns: 16px 84px 48px minmax(80px, 130px) minmax(0, 1fr);
 	align-items: center;
 	gap: 10px;
 	padding: 6px 10px;

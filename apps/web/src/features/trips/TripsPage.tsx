@@ -104,6 +104,22 @@ export function TripsPage() {
 		[data],
 	);
 	const usable = useMemo(() => new Map(stamps.map((s) => [s.id, s])), [stamps]);
+	/** Photo and problem counts per trip, computed once per data change. */
+	const facts = useMemo(
+		() =>
+			new Map(
+				list.map(({ trip }) => [
+					trip.id,
+					{
+						photos: photosAbroad(photoDays, home ?? "", trip.start, trip.end),
+						problems: problemCount(
+							tripProblems(trip.stampIds, usable, photoDays),
+						),
+					},
+				]),
+			),
+		[list, photoDays, home, usable],
+	);
 	const years = useMemo(() => {
 		const byYear = new Map<string, typeof list>();
 		for (const item of list) {
@@ -182,15 +198,8 @@ export function TripsPage() {
 											key={trip.id}
 											trip={trip}
 											stored={stored}
-											photos={photosAbroad(
-												photoDays,
-												home ?? "",
-												trip.start,
-												trip.end,
-											)}
-											problems={problemCount(
-												tripProblems(trip.stampIds, usable, photoDays),
-											)}
+											photos={facts.get(trip.id)?.photos ?? 0}
+											problems={facts.get(trip.id)?.problems ?? 0}
 											selected={trip.id === selectedId}
 											onSelect={() => setSelectedId(trip.id)}
 										/>

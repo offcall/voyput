@@ -207,4 +207,50 @@ describe("trips", () => {
 		if (!card) throw new Error("trip card not found");
 		expect(within(card).getByText("1 issue")).toBeTruthy();
 	});
+
+	it("moves trip edges with the arrow keys and keeps the new period", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-keys-test");
+		await seed(db);
+		const first = renderApp("/trips", { db });
+		await user.click(await screen.findByRole("button", { name: "Romania" }));
+
+		const start = screen.getByRole("slider", { name: "Trip start" });
+		const end = screen.getByRole("slider", { name: "Trip end" });
+		start.focus();
+		await user.keyboard("{ArrowRight}");
+		expect(start.getAttribute("aria-valuetext")).toBe("2024-03-02");
+		await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
+		expect(start.getAttribute("aria-valuetext")).toBe("2024-03-02");
+		end.focus();
+		await user.keyboard("{Shift>}{ArrowLeft}{/Shift}");
+		expect(end.getAttribute("aria-valuetext")).toBe("2024-03-05");
+		await user.keyboard("{ArrowRight}");
+		expect(end.getAttribute("aria-valuetext")).toBe("2024-03-06");
+
+		await user.click(screen.getByRole("button", { name: "Save" }));
+		await screen.findAllByText("Draft");
+		first.unmount();
+
+		renderApp("/trips", { db });
+		await user.click(await screen.findByRole("button", { name: "Romania" }));
+		const stored = await db.trips.toArray();
+		expect(stored).toHaveLength(1);
+		expect(stored[0]).toMatchObject({
+			start: "2024-03-02",
+			end: "2024-03-06",
+			arrival: { source: "manual", date: "2024-03-02" },
+			departure: { source: "manual", date: "2024-03-06" },
+		});
+		expect(stored[0]?.stops.map((s) => s.day)).toEqual([
+			"2024-03-02",
+			"2024-03-03",
+			"2024-03-05",
+		]);
+		expect(
+			screen
+				.getByRole("slider", { name: "Trip start" })
+				.getAttribute("aria-valuetext"),
+		).toBe("2024-03-02");
+	});
 });

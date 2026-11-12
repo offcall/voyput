@@ -1,8 +1,8 @@
-import type { DatedStamp } from "@voyput/core";
+import { type DatedStamp, zoneOf } from "@voyput/core";
 import { addDays } from "./format";
 import type { PhotoDays } from "./photoDays";
 
-/** A stamp whose country no photo near its date shows. */
+/** A stamp whose zone (country, or the Schengen area) no photo near its date shows. */
 export interface StampConflict {
 	stamp: DatedStamp;
 	/** Countries photographed near the stamp date instead. */
@@ -25,7 +25,11 @@ export function stampConflicts(
 		for (let i = -CONFLICT_WINDOW_DAYS; i <= CONFLICT_WINDOW_DAYS; i++)
 			for (const c of photoDays.get(addDays(stamp.date, i)) ?? [])
 				seen.add(c.countryCode);
-		return seen.size === 0 || seen.has(stamp.countryCode)
+		const zone = zoneOf(stamp);
+		const sameZone = [...seen].some(
+			(countryCode) => zoneOf({ ...stamp, countryCode }) === zone,
+		);
+		return seen.size === 0 || sameZone
 			? []
 			: [{ stamp, seen: [...seen].sort() }];
 	});

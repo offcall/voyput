@@ -1,6 +1,6 @@
 import type { Trip } from "@voyput/core";
-import { CountryChip } from "./CountryChip";
 import { dayCount } from "./format";
+import { TripChip } from "./TripChip";
 
 /** Totals over all listed trips. */
 export function TripsSummary({
@@ -38,7 +38,7 @@ export function TripsSummary({
 			{countries.length ? (
 				<div className="vp-trips-summary-countries">
 					{countries.map((cc) => (
-						<CountryChip key={cc} code={cc} />
+						<TripChip key={cc} code={cc} />
 					))}
 				</div>
 			) : null}

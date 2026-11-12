@@ -73,3 +73,8 @@ export function rangeText(start: string, end: string): string {
 
 export const plural = (n: number, one: string, many = `${one}s`) =>
 	`${n} ${n === 1 ? one : many}`;
+
+/** Countries of the stops, in the order they were first visited. */
+export const tripCountries = (stops: readonly { countryCode: string }[]) => [
+	...new Set(stops.map((s) => s.countryCode)),
+];

@@ -9,7 +9,6 @@ import {
 } from "@voyput/core";
 import { Button, TextField } from "@voyput/ui";
 import { useMemo, useState } from "react";
-import { CountryChip, tripCountries } from "./CountryChip";
 import { CONFLICT_WINDOW_DAYS, tripProblems } from "./conflicts";
 import { DateField, periodError } from "./DateField";
 import { DaysTimeline } from "./DaysTimeline";
@@ -22,9 +21,11 @@ import {
 	longDay,
 	plural,
 	rangeText,
+	tripCountries,
 } from "./format";
 import type { PhotoDays } from "./photoDays";
 import { StatusBadge } from "./StatusBadge";
+import { TripChip } from "./TripChip";
 
 /** Days of context shown before and after the trip on the timeline. */
 const CONTEXT_DAYS = 5;
@@ -151,7 +152,7 @@ export function TripDetail({
 				<div>
 					<div className="vp-trips-chips">
 						{tripCountries(draft.stops).map((cc) => (
-							<CountryChip key={cc} code={cc} />
+							<TripChip key={cc} code={cc} />
 						))}
 					</div>
 					<h2
@@ -224,12 +225,12 @@ export function TripDetail({
 					</div>
 					{problems.conflicts.map(({ stamp, seen }) => (
 						<div key={stamp.id} className="vp-trips-conflict-row">
-							<CountryChip code={stamp.countryCode} />
+							<TripChip code={stamp.countryCode} />
 							<span className="vp-trips-mono">{stamp.date}</span>
 							<span>{stamp.direction}</span>
 							<span className="vp-trips-muted">photos show</span>
 							{seen.map((cc) => (
-								<CountryChip key={cc} code={cc} />
+								<TripChip key={cc} code={cc} />
 							))}
 						</div>
 					))}

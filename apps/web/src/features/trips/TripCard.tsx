@@ -1,16 +1,30 @@
-import type { Trip } from "@voyput/core";
+import type { Trip, TripStop } from "@voyput/core";
 import { Badge } from "@voyput/ui";
-import { CountryChip, tripCountries } from "./CountryChip";
-import { colorOf, dayCount, daysIn, plural, rangeText } from "./format";
+import {
+	colorOf,
+	dayCount,
+	daysIn,
+	plural,
+	rangeText,
+	tripCountries,
+} from "./format";
 import { StatusBadge } from "./StatusBadge";
+import { TripChip } from "./TripChip";
+
+/** Longer trips get no strip; the squares would be too thin to read. */
+const MAX_STRIP_DAYS = 400;
 
 /** One square per day, coloured by the countries of that day's stops. */
 function DayStrip({ trip }: { trip: Trip }) {
+	if (dayCount(trip.start, trip.end) > MAX_STRIP_DAYS) return null;
 	const days = daysIn(trip.start, trip.end);
+	const byDay = new Map<string, TripStop[]>();
+	for (const s of trip.stops)
+		byDay.set(s.day, [...(byDay.get(s.day) ?? []), s]);
 	return (
 		<div className="vp-trips-strip" aria-hidden="true">
 			{days.map((day) => {
-				const stops = trip.stops.filter((s) => s.day === day);
+				const stops = byDay.get(day) ?? [];
 				return (
 					<span key={day} className="vp-trips-strip-day" title={day}>
 						{stops.length === 0 ? (
@@ -59,7 +73,7 @@ export function TripCard({
 			<div className="vp-trips-card-head">
 				<div className="vp-trips-chips">
 					{tripCountries(trip.stops).map((cc) => (
-						<CountryChip key={cc} code={cc} />
+						<TripChip key={cc} code={cc} />
 					))}
 				</div>
 				<div className="vp-trips-card-badges">
