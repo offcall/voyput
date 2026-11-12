@@ -20,5 +20,7 @@ export interface PassportPhoto {
 	name: string;
 	mimeType: PhotoMimeType;
 	rotation: Rotation;
+	/** File size in bytes, used with the name to skip re-added files; absent for older and demo photos. */
+	size?: number;
 	addedAt: string;
 }

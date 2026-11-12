@@ -72,33 +72,53 @@ export async function listPhotos(
 	);
 }
 
-/** Stores the JPEG/PNG files and returns the names of the files it rejected. */
+export interface AddPhotosResult {
+	/** Names of files that are not JPEG or PNG. */
+	rejected: string[];
+	/** Names of files this passport already has (same name and size). */
+	duplicates: string[];
+}
+
+/** Stores the new JPEG/PNG files and reports the ones it skipped. */
 export async function addPhotos(
 	db: VoyputDb,
 	passportId: string,
 	files: File[],
-): Promise<string[]> {
-	const rejected: string[] = [];
+): Promise<AddPhotosResult> {
+	const result: AddPhotosResult = { rejected: [], duplicates: [] };
 	const records: PhotoRecord[] = [];
 	const addedAt = new Date().toISOString();
+	const fileKey = (name: string, size: number | undefined) => `${size}:${name}`;
+	const known = new Set(
+		(await db.photos.where("passportId").equals(passportId).toArray()).map(
+			(photo) => fileKey(photo.name, photo.size),
+		),
+	);
 	for (const file of files) {
 		const mimeType = photoMimeType(file);
 		if (!mimeType) {
-			rejected.push(file.name);
+			result.rejected.push(file.name);
 			continue;
 		}
+		const key = fileKey(file.name, file.size);
+		if (known.has(key)) {
+			result.duplicates.push(file.name);
+			continue;
+		}
+		known.add(key);
 		const photo: PassportPhoto = {
 			id: crypto.randomUUID(),
 			passportId,
 			name: file.name,
 			mimeType,
 			rotation: 0,
+			size: file.size,
 			addedAt,
 		};
 		records.push({ ...photo, blob: file });
 	}
 	await db.photos.bulkAdd(records);
-	return rejected;
+	return result;
 }
 
 /** Turns the photo 90° clockwise from its stored rotation, so quick repeated clicks add up. */

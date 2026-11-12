@@ -38,6 +38,12 @@ describe("import passport photos", () => {
 		expect(screen.getByRole("alert").textContent).toContain("page-3.heic");
 		expect(await first.db.photos.count()).toBe(2);
 
+		await user.upload(picker, [file("page-1.jpg", "image/jpeg")]);
+		expect((await screen.findByRole("status")).textContent).toContain(
+			"Already added: page-1.jpg",
+		);
+		expect(await first.db.photos.count()).toBe(2);
+
 		const rotate = screen.getByRole("button", { name: "Rotate page-1.jpg" });
 		await Promise.all([user.click(rotate), user.click(rotate)]);
 		await waitFor(() =>

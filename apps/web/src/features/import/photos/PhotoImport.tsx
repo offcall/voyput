@@ -10,7 +10,9 @@ import { useLiveQuery } from "./useLiveQuery";
 /** Passports and their page photos. */
 export function PhotoImport() {
 	const db = useDb();
-	const passports = useLiveQuery(useCallback(() => listPassports(db), [db]));
+	const { data: passports, error } = useLiveQuery(
+		useCallback(() => listPassports(db), [db]),
+	);
 
 	return (
 		<>
@@ -20,6 +22,9 @@ export function PhotoImport() {
 						Add each passport, then photos of its stamp pages.
 					</p>
 					<PhotoGuidance />
+					{error ? (
+						<p role="alert">Could not read the passports: {error}</p>
+					) : null}
 					<PassportForm
 						submitLabel="Add passport"
 						onSubmit={async (input) => {

@@ -6,6 +6,7 @@ import type { PhotoRecord } from "../../../db/db";
 import { PassportForm } from "./PassportForm";
 import { PhotoThumb } from "./PhotoThumb";
 import {
+	type AddPhotosResult,
 	addPhotos,
 	deletePassport,
 	deletePhoto,
@@ -19,10 +20,13 @@ import { useLiveQuery } from "./useLiveQuery";
 /** One passport: its details, a drop target for page photos and their grid. */
 export function PassportCard({ passport }: { passport: Passport }) {
 	const db = useDb();
-	const photos = useLiveQuery(
+	const { data: photos, error: readError } = useLiveQuery(
 		useCallback(() => listPhotos(db, passport.id), [db, passport.id]),
 	);
-	const [rejected, setRejected] = useState<string[]>([]);
+	const [added, setAdded] = useState<AddPhotosResult>({
+		rejected: [],
+		duplicates: [],
+	});
 	const [editing, setEditing] = useState(false);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [photoToDelete, setPhotoToDelete] = useState<PhotoRecord | null>(null);
@@ -63,13 +67,24 @@ export function PassportCard({ passport }: { passport: Passport }) {
 					hint="JPEG or PNG. Drop files here or pick them."
 					onFiles={(files) =>
 						run("add the photos", async () =>
-							setRejected(await addPhotos(db, passport.id, files)),
+							setAdded(await addPhotos(db, passport.id, files)),
 						)
 					}
 				/>
-				{rejected.length > 0 ? (
+				{added.rejected.length > 0 ? (
 					<p role="alert" style={{ color: "var(--vp-bad)", margin: 0 }}>
-						Not added, only JPEG and PNG are supported: {rejected.join(", ")}
+						Not added, only JPEG and PNG are supported:{" "}
+						{added.rejected.join(", ")}
+					</p>
+				) : null}
+				{added.duplicates.length > 0 ? (
+					<p role="status" style={{ margin: 0 }}>
+						Already added: {added.duplicates.join(", ")}
+					</p>
+				) : null}
+				{readError ? (
+					<p role="alert" style={{ color: "var(--vp-bad)", margin: 0 }}>
+						Could not read the photos: {readError}
 					</p>
 				) : null}
 
