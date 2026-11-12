@@ -16,6 +16,41 @@ export type {
 	Rotation,
 } from "./passports/types";
 export { SUPPORTED_PHOTO_TYPES } from "./passports/types";
+export {
+	checkStamp,
+	type NearbyPhoto,
+	nearbyPhotos,
+	type StampCheck,
+} from "./review/checks";
+export { buildDayRuns, type DayRun, runsBetween } from "./review/dayRuns";
+export { dayIso, dayNumber } from "./review/days";
+export {
+	type CheckedStamp,
+	hasOpenIcloudCheck,
+	hasOpenProblem,
+	photoMatches,
+	photoSeverity,
+	REVIEW_FILTERS,
+	type ReviewFilter,
+	type Severity,
+	severity,
+} from "./review/filters";
+export {
+	buildPhotoIndex,
+	countryLabel,
+	type PhotoIndex,
+} from "./review/photoIndex";
+export {
+	buildRescanText,
+	buildValidateText,
+	missedStamps,
+	parseValidateResponse,
+	type RescanExistingStamp,
+	VALIDATE_SYSTEM,
+	type ValidateCorrection,
+	type ValidateResult,
+	type ValidateStamp,
+} from "./review/prompts";
 export { mapConcurrent } from "./stamps/concurrency";
 export {
 	type DateRange,
@@ -34,6 +69,8 @@ export { buildStampPrompt, STAMP_GUIDE } from "./stamps/prompt";
 export type {
 	BorderCrossing,
 	Direction,
+	DismissedNotes,
+	NoteKind,
 	PhotoExtraction,
 	Stamp,
 } from "./stamps/types";

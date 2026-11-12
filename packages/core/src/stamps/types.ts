@@ -29,7 +29,13 @@ export interface Stamp {
 	problem: string | null;
 	source: "ai" | "manual";
 	reviewed: boolean;
+	/** Warnings the user hid on Review; a hidden warning no longer counts as an issue. */
+	dismissed?: DismissedNotes;
 }
+
+/** Review warnings a user can hide: our date check and the location history check. */
+export type NoteKind = "problem" | "icloudCheck" | "suggestion";
+export type DismissedNotes = Partial<Record<NoteKind, true>>;
 
 /** What one extraction run produced for one photo. */
 export interface PhotoExtraction {
