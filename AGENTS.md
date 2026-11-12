@@ -55,7 +55,7 @@ Format:
 
 - File: `docs/adr/NNNN-kebab-case-title.md`, sequential numbers.
 - Title: `# ADR NNNN: Title`.
-- Sections: `## Status`, `## Context`, `## Decision`, `## Consequences`.
+- Sections: `## Status`, `## Context`, `## Decision`, optional `## Alternatives`, `## Consequences`.
 - Short. One decision per ADR.
 
 `docs/adr/` = persistent architectural memory.
