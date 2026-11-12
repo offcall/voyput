@@ -293,7 +293,10 @@
 }
 .vp-trips-form {
 	display: grid;
-	grid-template-columns: minmax(140px, 1fr) minmax(150px, auto) minmax(150px, auto);
+	grid-template-columns: minmax(140px, 1fr) minmax(150px, auto) minmax(
+			150px,
+			auto
+		);
 	gap: 10px;
 }
 @media (max-width: 640px) {
