@@ -14,3 +14,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0008](0008-ai-through-openrouter.md) | AI Through OpenRouter | Accepted |
 | [0009](0009-testing.md) | Testing | Accepted |
 | [0010](0010-demo-data-generator.md) | Demo Data Generator | Accepted |
+| [0011](0011-theme-in-local-storage.md) | Theme in localStorage | Accepted |
