@@ -55,4 +55,12 @@ describe("parseLocationCsv", () => {
 			error: "a quoted field is never closed",
 		});
 	});
+
+	it("skips rows without a two-letter country code", () => {
+		const result = parseLocationCsv(
+			"date,lat,lon,country_code\n2019-05-01T10:00:00,47,28,md\n2019-05-02T10:00:00,47,28,\n2019-05-03T10:00:00,47,28,X\n2019-05-04T10:00:00,47,28,123\n",
+		);
+		expect(result.ok && result.rows.map((r) => r.countryCode)).toEqual(["MD"]);
+		expect(result.ok && result.skipped).toBe(3);
+	});
 });
