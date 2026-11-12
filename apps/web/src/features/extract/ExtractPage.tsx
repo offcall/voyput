@@ -2,29 +2,40 @@ import { Link } from "@tanstack/react-router";
 import {
 	type Conflict,
 	findConflicts,
-	mapConcurrent,
 	type Passport,
 	type PhotoExtraction,
 	pairVisits,
 	type Stamp,
 } from "@voyput/core";
 import { Badge, Button, Card, Progress, Stack } from "@voyput/ui";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+} from "react";
 import { useAi } from "../../ai/AiContext";
 import { useDb } from "../../db/DbContext";
 import type { PhotoRecord } from "../../db/db";
 import { useSettings } from "../../settings/SettingsContext";
 import { extractPhoto } from "./extractPhoto";
-
-const CONCURRENCY = 3;
+import { runsFor } from "./runs";
 
 interface PassportData {
+	/** The passport these photos and stamps belong to. */
+	passportId: string;
 	photos: PhotoRecord[];
 	extractions: Map<string, PhotoExtraction>;
 	stamps: Stamp[];
 }
 
-const EMPTY: PassportData = { photos: [], extractions: new Map(), stamps: [] };
+const EMPTY: PassportData = {
+	passportId: "",
+	photos: [],
+	extractions: new Map(),
+	stamps: [],
+};
 
 export function ExtractPage() {
 	const db = useDb();
@@ -33,8 +44,11 @@ export function ExtractPage() {
 	const [passports, setPassports] = useState<Passport[]>([]);
 	const [passportId, setPassportId] = useState("");
 	const [data, setData] = useState<PassportData>(EMPTY);
-	const [running, setRunning] = useState<Set<string>>(new Set());
-	const [progress, setProgress] = useState<{ done: number; total: number }>();
+	const runs = runsFor(db);
+	const { active, progress } = useSyncExternalStore(
+		runs.subscribe,
+		runs.snapshot,
+	);
 
 	useEffect(() => {
 		void db.passports.toArray().then((all) => {
@@ -61,6 +75,7 @@ export function ExtractPage() {
 			.toArray();
 		if (call !== reloads.current) return;
 		setData({
+			passportId,
 			photos,
 			extractions: new Map(
 				extractions.flatMap((extraction) =>
@@ -71,35 +86,28 @@ export function ExtractPage() {
 		});
 	}, [db, passportId]);
 
+	// Reload when the passport changes and whenever a photo starts or finishes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `active` is the trigger.
 	useEffect(() => {
 		void reload();
-	}, [reload]);
+	}, [reload, active]);
 
-	const passport = passports.find((p) => p.id === passportId);
+	// Until the selected passport's photos are loaded, the list shows another passport.
+	const loaded = data.passportId === passportId;
+	const passport = passports.find((p) => p.id === data.passportId);
 	const notOk = data.photos.filter(
 		(photo) => data.extractions.get(photo.id)?.status !== "ok",
 	);
 	const failed = data.photos.filter(
 		(photo) => data.extractions.get(photo.id)?.status === "failed",
 	);
-	const busy = running.size > 0;
+	const busy = active.size > 0;
 
-	const run = async (photos: PhotoRecord[]) => {
-		if (!passport || photos.length === 0) return;
-		setProgress({ done: 0, total: photos.length });
-		await mapConcurrent(photos, CONCURRENCY, async (photo) => {
-			setRunning((current) => new Set(current).add(photo.id));
-			await extractPhoto(db, ai, settings, passport, photo);
-			setRunning((current) => {
-				const next = new Set(current);
-				next.delete(photo.id);
-				return next;
-			});
-			setProgress(
-				(current) => current && { ...current, done: current.done + 1 },
-			);
-			await reload();
-		});
+	const run = (photos: PhotoRecord[]) => {
+		if (!passport || !loaded) return;
+		void runs.start(photos, (photo) =>
+			extractPhoto(db, ai, settings, passport, photo),
+		);
 	};
 
 	if (!settings.openRouterKey) {
@@ -143,14 +151,14 @@ export function ExtractPage() {
 						<div>
 							<Button
 								variant="primary"
-								disabled={busy || notOk.length === 0}
-								onClick={() => void run(notOk)}
+								disabled={busy || !loaded || notOk.length === 0}
+								onClick={() => run(notOk)}
 							>
 								Extract
 							</Button>{" "}
 							<Button
-								disabled={busy || failed.length === 0}
-								onClick={() => void run(failed)}
+								disabled={busy || !loaded || failed.length === 0}
+								onClick={() => run(failed)}
 							>
 								Retry failed
 							</Button>
@@ -177,7 +185,7 @@ export function ExtractPage() {
 								photo={photo}
 								extraction={data.extractions.get(photo.id)}
 								stamps={data.stamps.filter((s) => s.photoId === photo.id)}
-								running={running.has(photo.id)}
+								running={active.has(photo.id)}
 							/>
 						))}
 					</ul>

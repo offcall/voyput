@@ -14,7 +14,8 @@ const errorMessage = (error: unknown): string =>
 /**
  * Reads the stamps on one photo and stores the result. Never throws: a failure is
  * stored as a "failed" extraction, and the photo's earlier stamps are kept.
- * A success replaces the photo's earlier AI stamps; stamps added by hand stay.
+ * A success replaces the photo's earlier unreviewed AI stamps; reviewed stamps and
+ * stamps added by hand stay.
  */
 export async function extractPhoto(
 	db: VoyputDb,
@@ -37,34 +38,35 @@ export async function extractPhoto(
 		finishedAt: new Date().toISOString(),
 	});
 
-	let result: ReturnType<typeof parsePhotoResponse>;
 	try {
 		const answer = await ai.askAboutImage(settings, {
 			system: buildStampPrompt(range),
 			text: `Photo filename: ${JSON.stringify(photo.name)}`,
 			image: { blob: photo.blob, rotation: photo.rotation },
 		});
-		result = parsePhotoResponse(answer.text, range);
+		const result = parsePhotoResponse(answer.text, range);
+		const stamps: Stamp[] = result.stamps.map((read) => ({
+			...read,
+			id: crypto.randomUUID(),
+			passportId: passport.id,
+			photoId: photo.id,
+			source: "ai",
+			reviewed: false,
+		}));
+		await db.transaction("rw", db.stamps, db.extractions, async () => {
+			await db.stamps
+				.where("photoId")
+				.equals(photo.id)
+				.filter((stamp) => stamp.source === "ai" && !stamp.reviewed)
+				.delete();
+			await db.stamps.bulkAdd(stamps);
+			await db.extractions.put(finish("ok", result.notes));
+		});
 	} catch (error) {
-		await db.extractions.put(finish("failed", errorMessage(error)));
-		return;
+		try {
+			await db.extractions.put(finish("failed", errorMessage(error)));
+		} catch {
+			// Storage is broken too; the photo simply shows as not extracted.
+		}
 	}
-
-	const stamps: Stamp[] = result.stamps.map((read) => ({
-		...read,
-		id: crypto.randomUUID(),
-		passportId: passport.id,
-		photoId: photo.id,
-		source: "ai",
-		reviewed: false,
-	}));
-	await db.transaction("rw", db.stamps, db.extractions, async () => {
-		await db.stamps
-			.where("photoId")
-			.equals(photo.id)
-			.filter((stamp) => stamp.source === "ai")
-			.delete();
-		await db.stamps.bulkAdd(stamps);
-		await db.extractions.put(finish("ok", result.notes));
-	});
 }
