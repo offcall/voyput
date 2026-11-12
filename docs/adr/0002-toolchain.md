@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The module resolution line is superseded by [ADR 0004](0004-workspace-layout.md).
 
 ## Context
 
