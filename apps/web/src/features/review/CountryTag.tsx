@@ -1,16 +1,11 @@
-import type { CSSProperties } from "react";
-import { countryColor, flagOf } from "./format";
+import { countryColor } from "@voyput/core";
+import { CountryChip } from "@voyput/ui";
 
-/** Flag and code on the country's own colour; the code reads where flags do not render. */
+/** Core's colour for a country, muted when the code is unknown. */
+export const colourOf = (code: string | null): string =>
+	code ? countryColor(code) : "var(--vp-muted)";
+
+/** The kit country chip in core's colour; "??" when the code is unknown. */
 export function CountryTag({ code }: { code: string | null }) {
-	return (
-		<span
-			className="review-country"
-			data-unknown={code ? undefined : true}
-			style={{ "--review-country": countryColor(code) } as CSSProperties}
-		>
-			<span aria-hidden="true">{flagOf(code)}</span>
-			{code ?? "??"}
-		</span>
-	);
+	return <CountryChip code={code ?? "??"} colour={colourOf(code)} />;
 }

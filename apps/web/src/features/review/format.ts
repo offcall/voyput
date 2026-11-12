@@ -33,16 +33,6 @@ export const directionIcon = (direction: Direction): string =>
 export const errorMessage = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
 
-/** Stable colour per country code, from the kit's categorical palette. */
-export const countryColor = (code: string | null): string => {
-	if (!code) return "var(--vp-muted-2)";
-	const hash = [...code.toUpperCase()].reduce(
-		(h, c) => (h * 31 + c.charCodeAt(0)) % 9973,
-		7,
-	);
-	return `var(--vp-cat-${(hash % 10) + 1})`;
-};
-
 export const crossingIcon = (crossing: BorderCrossing): string =>
 	CROSSINGS.find((c) => c.value === crossing)?.icon ?? "";
 

@@ -11,7 +11,7 @@ import {
 	type Stamp,
 } from "@voyput/core";
 import { Button } from "@voyput/ui";
-import { useMemo, useState } from "react";
+import { type Dispatch, type SetStateAction, useMemo } from "react";
 import { useAi } from "../../ai/AiContext";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
@@ -47,6 +47,10 @@ export function PhotoReview({
 	onFilter,
 	onSelect,
 	onDeleted,
+	expanded,
+	setExpanded,
+	validations,
+	setValidations,
 }: {
 	records: ReviewRecords;
 	index: PhotoIndex;
@@ -58,16 +62,16 @@ export function PhotoReview({
 	onFilter: (filter: ReviewFilter) => void;
 	onSelect: (photoId: string) => void;
 	onDeleted: (stamp: Stamp) => void;
+	/** Open or closed per stamp id; kept by the page so a tab switch keeps it. */
+	expanded: Record<string, boolean>;
+	setExpanded: Dispatch<SetStateAction<Record<string, boolean>>>;
+	/** AI validate results per stamp id; kept by the page for the same reason. */
+	validations: Record<string, Validation>;
+	setValidations: Dispatch<SetStateAction<Record<string, Validation>>>;
 }) {
 	const db = useDb();
 	const ai = useAi();
 	const { settings } = useSettings();
-	const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
-		focusStampId ? { [focusStampId]: true } : {},
-	);
-	const [validations, setValidations] = useState<Record<string, Validation>>(
-		{},
-	);
 
 	const byPhoto = useMemo(() => {
 		const map = new Map<string, CheckedStamp[]>();

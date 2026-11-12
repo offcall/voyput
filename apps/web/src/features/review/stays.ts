@@ -1,73 +1,103 @@
-import type { Stamp } from "@voyput/core";
+import { pairCountry, type Stamp, zoneOf } from "@voyput/core";
 
 export type DatedStamp = Stamp & { date: string };
 
 /** One row of the timeline: an entry paired with its exit, or a stamp alone. */
 export type TimelineItem =
-	| { kind: "stay"; entry: DatedStamp; exit: DatedStamp; days: number }
+	| {
+			kind: "stay";
+			/** Country code, or "Schengen" for the Schengen area. */
+			zone: string;
+			entry: DatedStamp;
+			exit: DatedStamp;
+			days: number;
+	  }
 	| { kind: "single"; stamp: DatedStamp };
 
 const DAY_MS = 86_400_000;
 export const daysBetween = (from: string, to: string): number =>
 	Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
 
-/**
- * Same day: leaving one country comes before entering the next, but entering
- * a country comes before leaving it again (a same-day transit).
- */
-const rank = (stamp: Stamp, other: Stamp): number => {
-	if (stamp.direction === "unknown") return 2;
-	if (stamp.countryCode === other.countryCode)
-		return stamp.direction === "entry" ? 0 : 1;
-	return stamp.direction === "exit" ? 0 : 1;
-};
+const isDated = (s: Stamp): s is DatedStamp => s.date !== null;
 
+/** Same day: leaving comes before entering; unknown direction last. */
+const DIRECTION_RANK = { exit: 0, entry: 1, unknown: 2 } as const;
+
+/** Dated stamps by date, then direction, then id: a total order. */
 export const chronological = (stamps: readonly Stamp[]): DatedStamp[] =>
 	stamps
-		.filter((s): s is DatedStamp => s.date !== null)
+		.filter(isDated)
 		.sort(
 			(a, b) =>
 				a.date.localeCompare(b.date) ||
-				rank(a, b) - rank(b, a) ||
+				DIRECTION_RANK[a.direction] - DIRECTION_RANK[b.direction] ||
 				a.id.localeCompare(b.id),
 		);
 
-const startOf = (item: TimelineItem): string =>
+export const startOf = (item: TimelineItem): string =>
 	item.kind === "stay" ? item.entry.date : item.stamp.date;
 export const endOf = (item: TimelineItem): string =>
 	item.kind === "stay" ? item.exit.date : item.stamp.date;
 
-/** Pairs each entry with the next exit from the same country; the rest stay single. */
+/** Same start day: a lone exit, then stays, then a lone entry, then the rest. */
+const itemRank = (item: TimelineItem): number =>
+	item.kind === "stay"
+		? 1
+		: ([0, 2, 3][DIRECTION_RANK[item.stamp.direction]] ?? 3);
+const itemId = (item: TimelineItem): string =>
+	item.kind === "stay" ? item.entry.id : item.stamp.id;
+
+/** Within a zone and day an entry comes first, as core `pairVisits` has it; then id. */
+const forPairing = (a: DatedStamp, b: DatedStamp): number =>
+	a.date.localeCompare(b.date) ||
+	(a.direction === "entry" ? 0 : 1) - (b.direction === "entry" ? 0 : 1) ||
+	a.id.localeCompare(b.id);
+
+/**
+ * Pairs entries with exits per zone with core `zoneOf` and `pairCountry` (the
+ * Schengen area is one zone), like trips; unknown-direction and flagged stamps
+ * stay single, as core leaves them out. Pairing and item order are total
+ * orders, so the result never depends on input order.
+ */
 export function buildTimeline(stamps: readonly Stamp[]): TimelineItem[] {
-	const sorted = chronological(stamps);
-	const order = new Map(sorted.map((s, i) => [s.id, i]));
-	const open = new Map<string, DatedStamp>();
+	const dated = stamps.filter(isDated);
+	const byId = new Map(dated.map((s) => [s.id, s]));
+	const used = new Set<string>();
 	const items: TimelineItem[] = [];
-	for (const stamp of sorted) {
-		const code = stamp.countryCode;
-		if (!code || stamp.direction === "unknown") {
-			items.push({ kind: "single", stamp });
+	const zones = new Map<string, DatedStamp[]>();
+	for (const stamp of dated) {
+		if (stamp.direction === "unknown" || stamp.problem || !stamp.countryCode)
 			continue;
-		}
-		const entry = open.get(code);
-		if (stamp.direction === "entry") {
-			if (entry) items.push({ kind: "single", stamp: entry });
-			open.set(code, stamp);
-		} else if (entry) {
-			open.delete(code);
+		const zone = zoneOf(stamp);
+		zones.set(zone, [...(zones.get(zone) ?? []), stamp]);
+	}
+	const visits = [...zones.values()].flatMap((list) =>
+		pairCountry(list.sort(forPairing)),
+	);
+	for (const visit of visits) {
+		const entry = visit.entryStampId ? byId.get(visit.entryStampId) : undefined;
+		const exit = visit.exitStampId ? byId.get(visit.exitStampId) : undefined;
+		if (entry && exit)
 			items.push({
 				kind: "stay",
+				zone: visit.zone,
 				entry,
-				exit: stamp,
-				days: daysBetween(entry.date, stamp.date),
+				exit,
+				days: daysBetween(entry.date, exit.date),
 			});
-		} else items.push({ kind: "single", stamp });
+		else {
+			const stamp = entry ?? exit;
+			if (stamp) items.push({ kind: "single", stamp });
+		}
+		for (const s of [entry, exit]) if (s) used.add(s.id);
 	}
-	for (const entry of open.values())
-		items.push({ kind: "single", stamp: entry });
-	const first = (item: TimelineItem) =>
-		order.get(item.kind === "stay" ? item.entry.id : item.stamp.id) ?? 0;
+	for (const stamp of dated)
+		if (!used.has(stamp.id)) items.push({ kind: "single", stamp });
 	return items.sort(
-		(a, b) => startOf(a).localeCompare(startOf(b)) || first(a) - first(b),
+		(a, b) =>
+			startOf(a).localeCompare(startOf(b)) ||
+			itemRank(a) - itemRank(b) ||
+			endOf(a).localeCompare(endOf(b)) ||
+			itemId(a).localeCompare(itemId(b)),
 	);
 }

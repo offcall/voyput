@@ -11,6 +11,7 @@ import {
 	restoreStamp,
 	saveUiState,
 } from "./reviewStore";
+import type { Validation } from "./StampCard";
 import { TimelineView } from "./TimelineView";
 import { useLocationHistory, useReviewRecords } from "./useReviewData";
 import "./review.css";
@@ -32,6 +33,10 @@ export function ReviewPage() {
 	const [deleted, setDeleted] = useState<Stamp | null>(null);
 	const [currentId, setCurrentId] = useState<string | null>(null);
 	const [focus, setFocus] = useState<Focus | null>(null);
+	const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+	const [validations, setValidations] = useState<Record<string, Validation>>(
+		{},
+	);
 
 	useEffect(() => {
 		loadUiState(db)
@@ -56,6 +61,7 @@ export function ReviewPage() {
 	};
 	const openStamp = (stamp: Stamp) => {
 		setCurrentId(stamp.photoId);
+		setExpanded((e) => ({ ...e, [stamp.id]: true }));
 		setFocus((f) => ({ stampId: stamp.id, seq: (f?.seq ?? 0) + 1 }));
 	};
 	const error = records.error ?? history.error ?? uiError;
@@ -99,7 +105,8 @@ export function ReviewPage() {
 				)
 			) : (
 				<Tabs
-					// Opening a stamp from the timeline starts over on the Photos tab.
+					// Opening a stamp from the timeline starts over on the Photos tab; card
+					// state and validate results live here, so the remount keeps them.
 					key={focus?.seq ?? 0}
 					items={[
 						{
@@ -116,6 +123,10 @@ export function ReviewPage() {
 									onFilter={(filter) => updateUi({ filter })}
 									onSelect={setCurrentId}
 									onDeleted={setDeleted}
+									expanded={expanded}
+									setExpanded={setExpanded}
+									validations={validations}
+									setValidations={setValidations}
 								/>
 							),
 						},

@@ -18,15 +18,9 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { CountryTag } from "./CountryTag";
+import { CountryTag, colourOf } from "./CountryTag";
 import { DayStrip } from "./DayStrip";
-import {
-	countryColor,
-	crossingIcon,
-	directionIcon,
-	flagOf,
-	plural,
-} from "./format";
+import { crossingIcon, directionIcon, flagOf, plural } from "./format";
 import { TIMELINE_WINDOWS } from "./reviewStore";
 import {
 	buildTimeline,
@@ -34,11 +28,12 @@ import {
 	type DatedStamp,
 	daysBetween,
 	endOf,
+	startOf,
 	type TimelineItem,
 } from "./stays";
 
 const hueStyle = (code: string | null) =>
-	({ "--review-country": countryColor(code) }) as CSSProperties;
+	({ "--review-country": colourOf(code) }) as CSSProperties;
 
 const MONTHS = [
 	"Jan",
@@ -97,7 +92,7 @@ export function TimelineView({
 	const first = dated[0]?.date ?? dayRuns[0]?.start ?? null;
 	const [start, setStart] = useState<number | null>(null);
 	const from = start ?? (first ? dayNumber(first) : null);
-	if (from === null)
+	if (from === null && undated.length === 0)
 		return (
 			<div className="review-empty">
 				<strong>Nothing to show yet</strong>
@@ -111,6 +106,20 @@ export function TimelineView({
 	const countries = new Set(dated.map((s) => s.countryCode).filter(Boolean));
 	const problems = [...levels.values()].filter((l) => l !== "ok").length;
 	const stays = items.filter((item) => item.kind === "stay").length;
+
+	// Headings and gaps follow start order; the latest end seen so far bounds a gap,
+	// so stays over New Year or overlapping stays neither repeat years nor go negative.
+	let lastYear = "";
+	let maxEnd = "";
+	const marks = items.map((item) => {
+		const start = startOf(item);
+		const year = start.slice(0, 4);
+		const heading = year !== lastYear ? year : null;
+		const gap = maxEnd ? daysBetween(maxEnd, start) : 0;
+		lastYear = year;
+		if (endOf(item) > maxEnd) maxEnd = endOf(item);
+		return { heading, gap };
+	});
 
 	const row = (stamp: DatedStamp) => (
 		<StampRow
@@ -126,57 +135,59 @@ export function TimelineView({
 
 	return (
 		<div className="review-timeline">
-			<dl className="review-stats">
-				<div>
-					<dt>Stamps</dt>
-					<dd>{stamps.length}</dd>
-				</div>
-				<div>
-					<dt>Countries</dt>
-					<dd>{countries.size}</dd>
-				</div>
-				<div>
-					<dt>Stays</dt>
-					<dd>{stays}</dd>
-				</div>
-				<div data-tone={problems ? "warn" : "good"}>
-					<dt>To check</dt>
-					<dd>{problems}</dd>
-				</div>
-			</dl>
+			{from === null ? null : (
+				<>
+					<dl className="review-stats">
+						<div>
+							<dt>Stamps</dt>
+							<dd>{stamps.length}</dd>
+						</div>
+						<div>
+							<dt>Countries</dt>
+							<dd>{countries.size}</dd>
+						</div>
+						<div>
+							<dt>Stays</dt>
+							<dd>{stays}</dd>
+						</div>
+						<div data-tone={problems ? "warn" : "good"}>
+							<dt>To check</dt>
+							<dd>{problems}</dd>
+						</div>
+					</dl>
 
-			<OverviewBand
-				from={from}
-				windowDays={windowDays}
-				dayRuns={dayRuns}
-				stamps={dated}
-				levels={levels}
-				onMove={setStart}
-				onWindowDays={onWindowDays}
-				onOpen={onOpen}
-			/>
+					<OverviewBand
+						from={from}
+						windowDays={windowDays}
+						dayRuns={dayRuns}
+						stamps={dated}
+						levels={levels}
+						onMove={setStart}
+						onWindowDays={onWindowDays}
+						onOpen={onOpen}
+					/>
 
-			<ol className="review-chrono" aria-label="Stamps by date">
-				{items.map((item, i) => {
-					const prev = items[i - 1];
-					const begin = item.kind === "stay" ? item.entry : item.stamp;
-					const year = begin.date.slice(0, 4);
-					const gap = prev ? daysBetween(endOf(prev), begin.date) : 0;
-					return (
-						<Fragment key={begin.id}>
-							{!prev || endOf(prev).slice(0, 4) !== year ? (
-								<li className="review-year" aria-hidden="true">
-									{year}
-								</li>
-							) : null}
-							{gap > 1 ? (
-								<li className="review-gap">{plural(gap, "day")} later</li>
-							) : null}
-							<StayItem item={item} row={row} />
-						</Fragment>
-					);
-				})}
-			</ol>
+					<ol className="review-chrono" aria-label="Stamps by date">
+						{items.map((item, i) => {
+							const begin = item.kind === "stay" ? item.entry : item.stamp;
+							const { heading, gap } = marks[i] ?? { heading: null, gap: 0 };
+							return (
+								<Fragment key={begin.id}>
+									{heading ? (
+										<li className="review-year" aria-hidden="true">
+											{heading}
+										</li>
+									) : null}
+									{gap > 1 ? (
+										<li className="review-gap">{plural(gap, "day")} later</li>
+									) : null}
+									<StayItem item={item} row={row} />
+								</Fragment>
+							);
+						})}
+					</ol>
+				</>
+			)}
 
 			{undated.length > 0 ? (
 				<section className="review-undated" aria-label="Stamps without a date">
@@ -226,7 +237,14 @@ function StayItem({
 			<li className="review-stay" style={hueStyle(item.entry.countryCode)}>
 				<div className="review-stay-head">
 					<CountryTag code={item.entry.countryCode} />
-					<strong>{item.entry.country ?? item.entry.countryCode}</strong>
+					{item.exit.countryCode !== item.entry.countryCode ? (
+						<CountryTag code={item.exit.countryCode} />
+					) : null}
+					<strong>
+						{item.zone === "Schengen"
+							? "Schengen area"
+							: (item.entry.country ?? item.entry.countryCode)}
+					</strong>
 					<span className="review-stay-days">
 						{item.days === 0 ? "same day" : plural(item.days, "day")}
 					</span>

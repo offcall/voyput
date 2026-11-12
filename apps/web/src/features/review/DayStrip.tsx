@@ -1,6 +1,7 @@
 import { type DayRun, dayIso, dayNumber, runsBetween } from "@voyput/core";
 import type { CSSProperties } from "react";
-import { countryColor, flagOf } from "./format";
+import { colourOf } from "./CountryTag";
+import { flagOf } from "./format";
 
 const pct = (days: number, total: number) => `${(days / total) * 100}%`;
 
@@ -46,7 +47,7 @@ export function DayStrip({
 							{
 								left: pct(start, total),
 								width: pct(days, total),
-								"--review-country": countryColor(run.countryCode),
+								"--review-country": colourOf(run.countryCode),
 							} as CSSProperties
 						}
 					>

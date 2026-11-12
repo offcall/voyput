@@ -55,4 +55,25 @@ describe("review timeline", () => {
 			]),
 		).toEqual(["a", "c", "b"]);
 	});
+
+	it("pairs across the Schengen area as one zone", () => {
+		expect(
+			shape([
+				stamp("es-in", "2019-03-01", "ES", "entry"),
+				stamp("it-out", "2019-03-11", "IT", "exit"),
+			]),
+		).toEqual(["es-in-it-out:10"]);
+	});
+
+	it("orders same-day stamps the same whatever the input order", () => {
+		const day = [
+			stamp("fr-out", "2019-05-01", "FR", "exit"),
+			stamp("de-out", "2019-05-01", "DE", "exit"),
+			stamp("fr-in", "2019-05-01", "FR", "entry"),
+		];
+		const first = shape(day);
+		expect(first.filter((s) => s.includes(":"))).toHaveLength(1);
+		expect(shape([...day].reverse())).toEqual(first);
+		expect(shape([day[1], day[2], day[0]] as Stamp[])).toEqual(first);
+	});
 });
