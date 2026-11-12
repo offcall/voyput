@@ -1,0 +1,34 @@
+import type { BorderCrossing, Direction } from "@voyput/core";
+
+/** Regional indicator flag for a two-letter code, or a white flag. */
+export const flagOf = (code: string | null): string =>
+	code && /^[A-Za-z]{2}$/.test(code)
+		? String.fromCodePoint(
+				...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
+			)
+		: "🏳️";
+
+export const DIRECTIONS: readonly { value: Direction; label: string }[] = [
+	{ value: "entry", label: "Entry" },
+	{ value: "exit", label: "Exit" },
+	{ value: "unknown", label: "Unknown" },
+];
+
+export const CROSSINGS: readonly {
+	value: BorderCrossing;
+	label: string;
+	icon: string;
+}[] = [
+	{ value: "car", label: "Car", icon: "🚗" },
+	{ value: "plane", label: "Plane", icon: "✈️" },
+	{ value: "train", label: "Train", icon: "🚆" },
+	{ value: "ship", label: "Ship", icon: "🚢" },
+	{ value: "foot", label: "On foot", icon: "🚶" },
+	{ value: "unknown", label: "Unknown", icon: "❔" },
+];
+
+export const directionIcon = (direction: Direction): string =>
+	direction === "entry" ? "→" : direction === "exit" ? "←" : "?";
+
+export const errorMessage = (error: unknown): string =>
+	error instanceof Error ? error.message : String(error);
