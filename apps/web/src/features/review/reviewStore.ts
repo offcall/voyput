@@ -1,6 +1,4 @@
 import {
-	type DateRange,
-	dateProblem,
 	type NoteKind,
 	REVIEW_FILTERS,
 	type ReadStamp,
@@ -25,31 +23,36 @@ export type StampEdit = Partial<
 >;
 
 /**
- * Saves an edit. A new date of a read stamp is checked against its printed
- * text and the passport validity again, so a fixed date clears its problem.
+ * Saves only the edited fields, so two quick saves never undo each other.
+ * The user set the date by looking at the photo, so a date edit clears the
+ * date check's problem (user-edited stamps are trusted).
  */
 export async function updateStamp(
 	db: VoyputDb,
-	stamp: Stamp,
+	id: string,
 	edit: StampEdit,
-	range: DateRange,
 ): Promise<void> {
-	const next: Stamp = { ...stamp, ...edit };
-	if ("date" in edit && stamp.source === "ai")
-		next.problem = dateProblem(next.date, next.dateText, range);
-	await db.stamps.put(next);
+	await db.stamps.update(
+		id,
+		"date" in edit ? { ...edit, problem: null } : edit,
+	);
 }
 
+/** Hides or shows one warning, on the stored record. */
 export async function setDismissed(
 	db: VoyputDb,
-	stamp: Stamp,
+	id: string,
 	kind: NoteKind,
 	dismissed: boolean,
 ): Promise<void> {
-	const { [kind]: _, ...rest } = stamp.dismissed ?? {};
-	await db.stamps.put({
-		...stamp,
-		dismissed: dismissed ? { ...rest, [kind]: true } : rest,
+	await db.transaction("rw", db.stamps, async () => {
+		const stamp = await db.stamps.get(id);
+		if (!stamp) return;
+		const { [kind]: _, ...rest } = stamp.dismissed ?? {};
+		await db.stamps.put({
+			...stamp,
+			dismissed: dismissed ? { ...rest, [kind]: true } : rest,
+		});
 	});
 }
 

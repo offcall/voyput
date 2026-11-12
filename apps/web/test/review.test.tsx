@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { AiClient, ImageQuestion } from "../src/ai/openrouter";
 import { VoyputDb } from "../src/db/db";
+import { setDismissed, updateStamp } from "../src/features/review/reviewStore";
 import { seedDemo, stubObjectUrls } from "./fixtures/demo";
 import { offlineAi, renderApp } from "./renderApp";
 
@@ -39,8 +40,6 @@ describe("review", () => {
 		await waitFor(async () =>
 			expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-09"),
 		);
-		// The printed date says the 10th, so the edit is flagged.
-		expect(await stamp.findByText(/does not match printed/)).toBeTruthy();
 		await user.click(stamp.getByRole("checkbox", { name: "Reviewed" }));
 		await waitFor(async () =>
 			expect((await db.stamps.get("demo-stamp-01"))?.reviewed).toBe(true),
@@ -140,5 +139,18 @@ describe("review", () => {
 		);
 		expect(added?.borderCrossing).toBe("car");
 		expect(await card(5)).toBeTruthy();
+	});
+
+	it("keeps both of two overlapping saves", async () => {
+		const db = await demoDb();
+		await Promise.all([
+			updateStamp(db, "demo-stamp-01", { location: "Boryspil" }),
+			updateStamp(db, "demo-stamp-01", { reviewed: false }),
+			setDismissed(db, "demo-stamp-01", "icloudCheck", true),
+		]);
+		const stamp = await db.stamps.get("demo-stamp-01");
+		expect(stamp?.location).toBe("Boryspil");
+		expect(stamp?.reviewed).toBe(false);
+		expect(stamp?.dismissed).toEqual({ icloudCheck: true });
 	});
 });

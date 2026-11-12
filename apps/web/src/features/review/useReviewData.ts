@@ -9,7 +9,10 @@ import {
 import { useCallback, useMemo } from "react";
 import { useDb } from "../../db/DbContext";
 import type { PhotoRecord } from "../../db/db";
-import { useLiveQuery } from "../import/photos/useLiveQuery";
+import {
+	type LiveQueryResult,
+	useLiveQuery,
+} from "../import/photos/useLiveQuery";
 
 export interface ReviewRecords {
 	passports: Passport[];
@@ -19,7 +22,7 @@ export interface ReviewRecords {
 }
 
 /** Passports, photos and stamps, kept current as the database changes. */
-export function useReviewRecords(): ReviewRecords | undefined {
+export function useReviewRecords(): LiveQueryResult<ReviewRecords> {
 	const db = useDb();
 	const query = useCallback(async (): Promise<ReviewRecords> => {
 		const [passports, photos, stamps] = await Promise.all([
@@ -36,7 +39,7 @@ export function useReviewRecords(): ReviewRecords | undefined {
 		);
 		return { passports, photos, stamps };
 	}, [db]);
-	return useLiveQuery(query).data;
+	return useLiveQuery(query);
 }
 
 export interface LocationHistory {
@@ -45,13 +48,14 @@ export interface LocationHistory {
 }
 
 /** The location history as a sorted index; read apart from stamps so edits do not reload 30k rows. */
-export function useLocationHistory(): LocationHistory | undefined {
+export function useLocationHistory(): LiveQueryResult<LocationHistory> {
 	const db = useDb();
 	const query = useCallback(() => db.locations.toArray(), [db]);
-	const rows = useLiveQuery(query).data;
-	return useMemo(() => {
+	const { data: rows, error } = useLiveQuery(query);
+	const data = useMemo(() => {
 		if (!rows) return undefined;
 		const index = buildPhotoIndex(rows);
 		return { index, dayRuns: buildDayRuns(index) };
 	}, [rows]);
+	return { data, error };
 }

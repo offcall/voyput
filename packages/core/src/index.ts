@@ -22,6 +22,7 @@ export {
 	nearbyPhotos,
 	type StampCheck,
 } from "./review/checks";
+export { countryNamesToCodes } from "./review/countries";
 export { buildDayRuns, type DayRun, runsBetween } from "./review/dayRuns";
 export { dayIso, dayNumber } from "./review/days";
 export {

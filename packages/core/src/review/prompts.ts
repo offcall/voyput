@@ -30,13 +30,14 @@ export type RescanExistingStamp = Pick<
 	| "location"
 >;
 
-export interface ValidateCorrection {
+/** Only the fields the model gave in a valid form; nothing else is touched by Apply. */
+export type ValidateCorrection = Partial<{
 	direction: Direction;
-	date: string | null;
-	country: string | null;
-	countryCode: string | null;
-	location: string | null;
-}
+	date: string;
+	country: string;
+	countryCode: string;
+	location: string;
+}>;
 
 export interface ValidateResult {
 	ok: boolean;
@@ -118,29 +119,29 @@ export const parseValidateResponse = (raw: string): ValidateResult => {
 	}
 	if (!isObject(root) || typeof root.ok !== "boolean")
 		throw new Error(`unexpected answer: ${raw.slice(0, 200)}`);
-	const value = root.correction;
-	const direction = isObject(value) ? value.direction : null;
-	const correction: ValidateCorrection | null = isObject(value)
-		? {
-				direction:
-					direction === "entry" || direction === "exit" ? direction : "unknown",
-				date: isValidDate(value.date) ? value.date : null,
-				country: textOrNull(value.country),
-				countryCode:
-					typeof value.countryCode === "string" &&
-					/^[A-Z]{2}$/.test(value.countryCode)
-						? value.countryCode
-						: null,
-				location: textOrNull(value.location),
-			}
-		: null;
 	return {
 		ok: root.ok,
 		explanation: typeof root.explanation === "string" ? root.explanation : "",
-		correction,
+		correction: parseCorrection(root.correction),
 	};
 };
 
+/** Keeps the valid, non-empty fields; null when none is left. */
+const parseCorrection = (value: unknown): ValidateCorrection | null => {
+	if (!isObject(value)) return null;
+	const correction: ValidateCorrection = {};
+	const { direction, date, countryCode } = value;
+	if (direction === "entry" || direction === "exit" || direction === "unknown")
+		correction.direction = direction;
+	if (typeof date === "string" && isValidDate(date)) correction.date = date;
+	const country = textOrNull(value.country);
+	if (country) correction.country = country;
+	if (typeof countryCode === "string" && /^[A-Z]{2}$/.test(countryCode))
+		correction.countryCode = countryCode;
+	const location = textOrNull(value.location);
+	if (location) correction.location = location;
+	return Object.keys(correction).length > 0 ? correction : null;
+};
 /**
  * The user message of a rescan request. The system prompt is the extraction
  * prompt, so the answer has the same shape and goes through the same parser.

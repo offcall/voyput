@@ -2,14 +2,15 @@ import { Link } from "@tanstack/react-router";
 import {
 	type CheckedStamp,
 	checkStamp,
+	countryNamesToCodes,
 	type DateRange,
 	nearbyPhotos,
 	type PhotoIndex,
 	type ReviewFilter,
 	type Stamp,
 } from "@voyput/core";
-import { Button, Card } from "@voyput/ui";
-import { useEffect, useMemo, useState } from "react";
+import { Button } from "@voyput/ui";
+import { useMemo, useState } from "react";
 import { useAi } from "../../ai/AiContext";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
@@ -22,14 +23,12 @@ import {
 	addFoundStamp,
 	addManualStamp,
 	deleteStamp,
-	restoreStamp,
 	setDismissed,
 	updateStamp,
 } from "./reviewStore";
 import { COUNTRY_LIST_ID, StampCard, type Validation } from "./StampCard";
 import type { ReviewRecords } from "./useReviewData";
 
-const UNDO_MS = 6000;
 const NO_RANGE: DateRange = { from: null, to: null };
 
 const byDate = (a: CheckedStamp, b: CheckedStamp) =>
@@ -42,11 +41,13 @@ export function PhotoReview({
 	index,
 	filter,
 	onFilter,
+	onDeleted,
 }: {
 	records: ReviewRecords;
 	index: PhotoIndex;
 	filter: ReviewFilter;
 	onFilter: (filter: ReviewFilter) => void;
+	onDeleted: (stamp: Stamp) => void;
 }) {
 	const db = useDb();
 	const ai = useAi();
@@ -56,13 +57,6 @@ export function PhotoReview({
 	const [validations, setValidations] = useState<Record<string, Validation>>(
 		{},
 	);
-	const [deleted, setDeleted] = useState<Stamp | null>(null);
-
-	useEffect(() => {
-		if (!deleted) return;
-		const timer = setTimeout(() => setDeleted(null), UNDO_MS);
-		return () => clearTimeout(timer);
-	}, [deleted]);
 
 	const byPhoto = useMemo(() => {
 		const map = new Map<string, CheckedStamp[]>();
@@ -77,12 +71,16 @@ export function PhotoReview({
 	const stampsOf = (photoId: string) => byPhoto.get(photoId) ?? [];
 
 	const countryCodes = useMemo(() => {
-		const map = new Map<string, string>();
+		const map = countryNamesToCodes();
 		for (const [code, name] of index.countryNames) map.set(name, code);
 		for (const s of records.stamps)
 			if (s.country && s.countryCode) map.set(s.country, s.countryCode);
 		return map;
 	}, [index, records.stamps]);
+	const countryNames = useMemo(
+		() => new Map([...countryCodes].map(([name, code]) => [code, name])),
+		[countryCodes],
+	);
 
 	const photo =
 		records.photos.find((p) => p.id === currentId) ?? records.photos[0];
@@ -181,6 +179,7 @@ export function PhotoReview({
 						}
 						expanded={isExpanded(item.stamp)}
 						countryCodes={countryCodes}
+						countryNames={countryNames}
 						validation={validations[item.stamp.id]}
 						onToggle={() =>
 							setExpanded((e) => ({
@@ -192,15 +191,13 @@ export function PhotoReview({
 							// Marking a stamp reviewed folds it away; unmarking opens it.
 							if (edit.reviewed !== undefined)
 								setExpanded((e) => ({ ...e, [item.stamp.id]: !edit.reviewed }));
-							void updateStamp(db, item.stamp, edit, range);
+							void updateStamp(db, item.stamp.id, edit);
 						}}
 						onDelete={() =>
-							void deleteStamp(db, item.stamp).then(() =>
-								setDeleted(item.stamp),
-							)
+							void deleteStamp(db, item.stamp).then(() => onDeleted(item.stamp))
 						}
 						onDismiss={(kind, value) =>
-							void setDismissed(db, item.stamp, kind, value)
+							void setDismissed(db, item.stamp.id, kind, value)
 						}
 						onValidate={aiReady ? () => void validate(item) : undefined}
 					/>
@@ -211,21 +208,6 @@ export function PhotoReview({
 					<option key={name} value={name} />
 				))}
 			</datalist>
-			{deleted ? (
-				<Card>
-					<div className="review-toast" role="status">
-						Stamp deleted ({deleted.country ?? "unknown country"},{" "}
-						{deleted.date ?? "no date"}).{" "}
-						<Button
-							onClick={() =>
-								void restoreStamp(db, deleted).then(() => setDeleted(null))
-							}
-						>
-							Undo
-						</Button>
-					</div>
-				</Card>
-			) : null}
 		</div>
 	);
 }

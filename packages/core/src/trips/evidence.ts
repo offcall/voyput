@@ -7,13 +7,16 @@ export type DatedStamp = Stamp & { date: string; countryCode: string };
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CC_RE = /^[A-Z]{2}$/;
 
-/** Reviewed stamps with a full date and a country, without a flagged problem. */
+/**
+ * Reviewed stamps with a full date and a country, without an open problem.
+ * A problem the user hid on Review no longer counts.
+ */
 export function usableStamps(stamps: readonly Stamp[]): DatedStamp[] {
 	return stamps
 		.filter(
 			(s): s is DatedStamp =>
 				s.reviewed &&
-				s.problem === null &&
+				(s.problem === null || s.dismissed?.problem === true) &&
 				s.date !== null &&
 				DAY_RE.test(s.date) &&
 				s.countryCode !== null &&

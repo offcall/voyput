@@ -2,6 +2,7 @@ import {
 	type BorderCrossing,
 	type CheckedStamp,
 	type Direction,
+	isCountryCode,
 	isValidDate,
 	type NearbyPhoto,
 	type NoteKind,
@@ -31,7 +32,8 @@ function DraftInput({
 }: {
 	label: string;
 	value: string;
-	onCommit: (value: string) => void;
+	/** Returns false to reject the value and show the stored one again. */
+	onCommit: (value: string) => boolean | undefined;
 	maxLength?: number;
 	list?: string;
 }) {
@@ -47,7 +49,8 @@ function DraftInput({
 				list={list}
 				onChange={(event) => setDraft(event.target.value)}
 				onBlur={() => {
-					if (draft.trim() !== value) onCommit(draft.trim());
+					if (draft.trim() !== value && onCommit(draft.trim()) === false)
+						setDraft(value);
 				}}
 				onKeyDown={(event) => {
 					if (event.key === "Enter") event.currentTarget.blur();
@@ -69,6 +72,7 @@ export function StampCard({
 	nearby,
 	expanded,
 	countryCodes,
+	countryNames,
 	validation,
 	onToggle,
 	onEdit,
@@ -80,8 +84,10 @@ export function StampCard({
 	number: number;
 	nearby: readonly NearbyPhoto[];
 	expanded: boolean;
-	/** Country name → code, to fill the code when a known name is typed. */
+	/** Country name → code, to keep name and code in step. */
 	countryCodes: ReadonlyMap<string, string>;
+	/** Code → country name. */
+	countryNames: ReadonlyMap<string, string>;
 	validation: Validation | undefined;
 	onToggle: () => void;
 	onEdit: (edit: StampEdit) => void;
@@ -182,25 +188,40 @@ export function StampCard({
 							value={stamp.country ?? ""}
 							list={COUNTRY_LIST_ID}
 							onCommit={(value) => {
-								const code = countryCodes.get(value);
+								// An unknown name clears the code rather than keep one that may not match.
 								onEdit({
 									country: value || null,
-									...(code ? { countryCode: code } : {}),
+									countryCode: countryCodes.get(value) ?? null,
 								});
+								return true;
 							}}
 						/>
 						<DraftInput
 							label="Code"
 							value={stamp.countryCode ?? ""}
 							maxLength={2}
-							onCommit={(value) =>
-								onEdit({ countryCode: value ? value.toUpperCase() : null })
-							}
+							onCommit={(value) => {
+								const code = value.toUpperCase();
+								if (!code) {
+									onEdit({ countryCode: null });
+									return true;
+								}
+								if (!isCountryCode(code)) return false;
+								const name = countryNames.get(code);
+								onEdit({
+									countryCode: code,
+									...(name ? { country: name } : {}),
+								});
+								return true;
+							}}
 						/>
 						<DraftInput
 							label="Location"
 							value={stamp.location ?? ""}
-							onCommit={(value) => onEdit({ location: value || null })}
+							onCommit={(value) => {
+								onEdit({ location: value || null });
+								return true;
+							}}
 						/>
 					</div>
 					<label className="review-check">
@@ -256,7 +277,16 @@ export function StampCard({
 					<ValidateRow
 						validation={validation}
 						onValidate={onValidate}
-						onApply={(edit) => onEdit(edit)}
+						onApply={(correction) =>
+							onEdit({
+								...correction,
+								...(correction.country && !correction.countryCode
+									? {
+											countryCode: countryCodes.get(correction.country) ?? null,
+										}
+									: {}),
+							})
+						}
 					/>
 				</div>
 			) : null}
@@ -290,11 +320,10 @@ function ValidateRow({
 					{validation.result.explanation}
 					{!validation.result.ok && validation.result.correction ? (
 						<p>
-							Suggested: {validation.result.correction.direction},{" "}
-							{validation.result.correction.date ?? "no date"},{" "}
-							{validation.result.correction.country ?? "?"} (
-							{validation.result.correction.countryCode ?? "?"}),{" "}
-							{validation.result.correction.location ?? "?"}{" "}
+							Suggested:{" "}
+							{Object.entries(validation.result.correction)
+								.map(([field, value]) => `${field} ${value}`)
+								.join(", ")}{" "}
 							<Button
 								onClick={() =>
 									validation.result.correction &&
