@@ -18,21 +18,18 @@ interface Arc {
 }
 
 /** Quadratic arcs between country centroids for each change of country. */
-function buildArcs(movements: VizData["movements"]): Arc[] {
+function buildArcs(moves: VizData["moves"]): Arc[] {
 	const arcs: Arc[] = [];
-	for (let i = 1; i < movements.length; i++) {
-		const prev = movements[i - 1];
-		const cur = movements[i];
-		if (!prev || !cur || prev.code === cur.code) continue;
-		const a = COUNTRY_CENTROIDS[prev.code];
-		const b = COUNTRY_CENTROIDS[cur.code];
-		if (!a || !b) continue;
+	moves.forEach(({ from, to }, i) => {
+		const a = COUNTRY_CENTROIDS[from.code];
+		const b = COUNTRY_CENTROIDS[to.code];
+		if (!a || !b) return;
 		const [x1, y1] = projectEquirect(a[0], a[1]);
 		const [x2, y2] = projectEquirect(b[0], b[1]);
 		const dx = x2 - x1;
 		const dy = y2 - y1;
 		const len = Math.hypot(dx, dy);
-		if (len === 0) continue;
+		if (len === 0) return;
 		// Bend every arc to the same side of its direction of travel.
 		const [nx, ny] = dx > 0 ? [dy / len, -dx / len] : [-dy / len, dx / len];
 		const h = 0.12 * len;
@@ -41,10 +38,10 @@ function buildArcs(movements: VizData["movements"]): Arc[] {
 		arcs.push({
 			key: `${i}`,
 			d: `M${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`,
-			color: countryColor(cur.code),
-			title: `${prev.code} → ${cur.code} · ${cur.start} – ${cur.end}`,
+			color: countryColor(to.code),
+			title: `${from.code} → ${to.code} · ${to.start} – ${to.end}`,
 		});
-	}
+	});
 	return arcs;
 }
 
@@ -55,7 +52,7 @@ export function MapChart({
 	data: VizData;
 	world: WorldShapes | null;
 }) {
-	const arcs = useMemo(() => buildArcs(data.movements), [data.movements]);
+	const arcs = useMemo(() => buildArcs(data.moves), [data.moves]);
 	if (data.countries.length === 0) return <NoData />;
 	return (
 		<figure className="vp-viz-figure">

@@ -1,14 +1,16 @@
 import { Link } from "@tanstack/react-router";
-import { buildVizData, filterRowsByTrips } from "@voyput/core";
+import { buildVizData, splitRowsByTrips } from "@voyput/core";
 import { Card, Stack, type TabItem, Tabs } from "@voyput/ui";
 import { useMemo, useState } from "react";
 import { CalendarChart } from "./charts/CalendarChart";
+import { CountriesTable } from "./charts/CountriesTable";
 import { DistanceChart } from "./charts/DistanceChart";
 import { DonutChart } from "./charts/DonutChart";
 import { GlobeChart } from "./charts/GlobeChart";
 import { HeatmapChart } from "./charts/HeatmapChart";
 import { MapChart } from "./charts/MapChart";
 import { MatrixChart } from "./charts/MatrixChart";
+import { MovementsTable } from "./charts/MovementsTable";
 import { SankeyChart } from "./charts/SankeyChart";
 import { TripFilter } from "./TripFilter";
 import { useVizSource } from "./useVizSource";
@@ -22,12 +24,21 @@ export function VisualizePage() {
 
 	// Aggregating 30k rows is the expensive part: once per data or filter change.
 	const data = useMemo(() => {
-		if (!source) return null;
+		if (source.status !== "ready") return null;
 		const trips = source.trips.filter((trip) => selected.has(trip.id));
-		return buildVizData(filterRowsByTrips(source.rows, trips));
+		return buildVizData(splitRowsByTrips(source.rows, trips));
 	}, [source, selected]);
 
-	if (!source || !data) {
+	if (source.status === "error") {
+		return (
+			<Stack>
+				<h1>Visualize</h1>
+				<p role="alert">Could not read your data: {source.message}</p>
+			</Stack>
+		);
+	}
+
+	if (source.status === "loading" || !data) {
 		return (
 			<Stack>
 				<h1>Visualize</h1>
@@ -51,6 +62,16 @@ export function VisualizePage() {
 	}
 
 	const tabs: TabItem[] = [
+		{
+			value: "movements",
+			label: "Periods",
+			content: <MovementsTable data={data} />,
+		},
+		{
+			value: "countries",
+			label: "Countries",
+			content: <CountriesTable data={data} />,
+		},
 		{
 			value: "map",
 			label: "Route map",
@@ -103,9 +124,8 @@ export function VisualizePage() {
 				<p className="vp-viz-muted">
 					No photos fall inside the selected trips.
 				</p>
-			) : (
-				<Tabs items={tabs} />
-			)}
+			) : null}
+			<Tabs items={tabs} />
 		</Stack>
 	);
 }

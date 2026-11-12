@@ -95,13 +95,9 @@ function drawGlobe(
 
 	ctx.lineWidth = 1.3;
 	ctx.globalAlpha = 0.6;
-	const moves = data.movements;
-	for (let m = 1; m < moves.length; m++) {
-		const a = moves[m - 1];
-		const b = moves[m];
-		if (!a || !b || a.code === b.code) continue;
-		const c1 = COUNTRY_CENTROIDS[a.code];
-		const c2 = COUNTRY_CENTROIDS[b.code];
+	for (const { from, to } of data.moves) {
+		const c1 = COUNTRY_CENTROIDS[from.code];
+		const c2 = COUNTRY_CENTROIDS[to.code];
 		if (!c1 || !c2) continue;
 		const line: Projected[] = [];
 		for (let t = 0; t <= 40; t++) {
@@ -114,7 +110,7 @@ function drawGlobe(
 				),
 			);
 		}
-		ctx.strokeStyle = countryColor(b.code);
+		ctx.strokeStyle = countryColor(to.code);
 		polyline(ctx, line, 0);
 	}
 

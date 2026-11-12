@@ -8,6 +8,10 @@ function loadWorld(): Promise<WorldShapes> {
 	worldPromise ??= import("./assets/world-countries.geojson?raw").then(
 		(module) => buildWorldShapes(JSON.parse(module.default)),
 	);
+	// A failed load (e.g. a dropped chunk request) may succeed on the next visit.
+	worldPromise.catch(() => {
+		worldPromise = null;
+	});
 	return worldPromise;
 }
 

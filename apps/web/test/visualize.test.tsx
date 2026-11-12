@@ -1,7 +1,7 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { LocationRow, Trip } from "@voyput/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
 import { renderApp } from "./renderApp";
 
@@ -46,7 +46,19 @@ describe("visualize", () => {
 		).toBeTruthy();
 	});
 
-	it("shows the chart tabs and narrows them to the selected trips", async () => {
+	it("reports a failed database read instead of the empty state", async () => {
+		const db = new VoyputDb("visualize-error");
+		vi.spyOn(db.locations, "toArray").mockRejectedValue(
+			new Error("disk is gone"),
+		);
+		renderApp("/visualize", { db });
+		expect((await screen.findByRole("alert")).textContent).toContain(
+			"disk is gone",
+		);
+		expect(screen.queryByText("No locations yet")).toBeNull();
+	});
+
+	it("renders every tab and narrows them to the selected trips", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("visualize-filter");
 		await db.locations.bulkPut([
@@ -60,39 +72,64 @@ describe("visualize", () => {
 		await db.trips.bulkPut([
 			trip("t1", "Romania", "2024-03-01", "2024-03-05"),
 			trip("t2", "East Asia", "2024-06-09", "2024-06-13"),
+			trip("t3", "Lost weekend", "2024-09-01", "2024-09-02"),
 		]);
 		renderApp("/visualize", { db });
-
 		expect(await screen.findByText(/^4 countries/)).toBeTruthy();
-		for (const tab of [
-			"Route map",
-			"Heatmap",
-			"Globe",
-			"Year × country",
-			"Calendar",
-			"Moves",
-			"Years",
-			"Distance",
-		]) {
-			expect(screen.getByRole("tab", { name: tab })).toBeTruthy();
-		}
-		expect(screen.getByRole("img", { name: "Route map" })).toBeTruthy();
 
-		// Canvas charts draw nothing in jsdom but must not crash.
-		await user.click(screen.getByRole("tab", { name: "Globe" }));
-		expect(await screen.findByRole("img", { name: "Globe" })).toBeTruthy();
-		await user.click(screen.getByRole("tab", { name: "Heatmap" }));
-		expect(
-			await screen.findByRole("img", { name: "Photo heatmap" }),
-		).toBeTruthy();
+		const panel = () => within(screen.getByRole("tabpanel"));
+		const tabs: [string, () => unknown][] = [
+			[
+				"Periods",
+				() => panel().getByRole("img", { name: "Sequence of countries" }),
+			],
+			[
+				"Countries",
+				() => panel().getByRole("row", { name: /Romania 2 33.3%/ }),
+			],
+			["Route map", () => panel().getByRole("img", { name: "Route map" })],
+			// Canvas charts draw nothing in jsdom but must not crash.
+			["Heatmap", () => panel().getByRole("img", { name: "Photo heatmap" })],
+			["Globe", () => panel().getByRole("img", { name: "Globe" })],
+			[
+				"Year × country",
+				() => panel().getByRole("rowheader", { name: "All countries" }),
+			],
+			[
+				"Calendar",
+				() => panel().getByRole("img", { name: "Photos per day in 2024" }),
+			],
+			[
+				"Moves",
+				() => panel().getByRole("img", { name: "Moves between countries" }),
+			],
+			["Years", () => panel().getByRole("img", { name: "Countries in 2024" })],
+			["Distance", () => panel().getByText("Total distance")],
+		];
+		for (const [name, content] of tabs) {
+			await user.click(screen.getByRole("tab", { name }));
+			expect(content()).toBeTruthy();
+		}
 
 		await user.click(screen.getByRole("checkbox", { name: /East Asia/ }));
 		expect(await screen.findByText(/^2 countries/)).toBeTruthy();
+		await user.click(screen.getByRole("tab", { name: "Moves" }));
+		// A single Japan → Korea move is still a chart.
+		expect(
+			panel().getByRole("img", { name: "Moves between countries" }),
+		).toBeTruthy();
 
 		await user.click(screen.getByRole("checkbox", { name: /Romania/ }));
 		expect(await screen.findByText(/^3 countries/)).toBeTruthy();
 
 		await user.click(screen.getByRole("button", { name: "Show all data" }));
-		expect(await screen.findByText(/^4 countries/)).toBeTruthy();
+		await user.click(screen.getByRole("checkbox", { name: /Lost weekend/ }));
+		expect(
+			await screen.findByText("No photos fall inside the selected trips."),
+		).toBeTruthy();
+		// The tabs stay and keep the chosen tab.
+		expect(
+			screen.getByRole("tab", { name: "Moves", selected: true }),
+		).toBeTruthy();
 	});
 });

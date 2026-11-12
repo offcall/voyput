@@ -10,6 +10,14 @@ export interface Movement {
 	/** Last day, `YYYY-MM-DD`. */
 	end: string;
 	photos: number;
+	/** Index of the date range (selected trip) the movement belongs to. */
+	range: number;
+}
+
+/** A change of country between two movements of the same range. */
+export interface Move {
+	from: Movement;
+	to: Movement;
 }
 
 export interface CountryStat {
@@ -78,8 +86,14 @@ function hasCoords(row: LocationRow): boolean {
 	return Number.isFinite(row.lat) && Number.isFinite(row.lon);
 }
 
-/** Collapses days into country periods: each day counts for its most photographed country. */
-export function buildMovements(rows: readonly LocationRow[]): Movement[] {
+/**
+ * Collapses days into country periods: each day counts for its most photographed country.
+ * `range` tags the result, so moves are never drawn across a gap between ranges.
+ */
+export function buildMovements(
+	rows: readonly LocationRow[],
+	range = 0,
+): Movement[] {
 	const byDay = new Map<
 		string,
 		{ total: number; countries: Map<string, { country: string; n: number }> }
@@ -123,6 +137,7 @@ export function buildMovements(rows: readonly LocationRow[]): Movement[] {
 				start: day,
 				end: day,
 				photos: bucket.total,
+				range,
 			});
 		}
 	}
@@ -180,13 +195,25 @@ export function buildCityPoints(rows: readonly LocationRow[]): CityPoint[] {
 		.slice(0, CITY_POINT_LIMIT);
 }
 
-/** Country-to-country moves between consecutive movements, most frequent first. */
-export function buildTransitions(movements: readonly Movement[]): Transition[] {
-	const counts = new Map<string, Transition>();
+/** Consecutive movements of the same range that change country. */
+export function buildMoves(movements: readonly Movement[]): Move[] {
+	const moves: Move[] = [];
 	for (let i = 1; i < movements.length; i++) {
-		const from = movements[i - 1]?.code;
-		const to = movements[i]?.code;
-		if (!from || !to || from === to) continue;
+		const from = movements[i - 1];
+		const to = movements[i];
+		if (!from || !to || from.range !== to.range || from.code === to.code)
+			continue;
+		moves.push({ from, to });
+	}
+	return moves;
+}
+
+/** Country-to-country moves counted by pair, most frequent first. */
+export function buildTransitions(moves: readonly Move[]): Transition[] {
+	const counts = new Map<string, Transition>();
+	for (const move of moves) {
+		const from = move.from.code;
+		const to = move.to.code;
 		const key = `${from}->${to}`;
 		const current = counts.get(key);
 		if (current) current.count++;
@@ -207,8 +234,62 @@ export function buildDayCounts(
 	return counts;
 }
 
-/** Great-circle distance between photos adjacent in time. */
-export function buildDistances(rows: readonly LocationRow[]): Distances {
+/**
+ * Great-circle distance between photos adjacent in time, within each range.
+ * Span and per-day average count only the time inside the ranges.
+ */
+export function buildDistances(
+	ranges: readonly (readonly LocationRow[])[],
+): Distances {
+	const segments: DistanceSegment[] = [];
+	const perYear = new Map<string, number>();
+	let totalKm = 0;
+	let spanDays = 0;
+	for (const rows of ranges) {
+		const points = timedPoints(rows);
+		for (let i = 1; i < points.length; i++) {
+			const a = points[i - 1];
+			const b = points[i];
+			if (!a || !b) continue;
+			const km = haversineKm(a.lat, a.lon, b.lat, b.lon);
+			totalKm += km;
+			const year = a.day.slice(0, 4);
+			perYear.set(year, (perYear.get(year) ?? 0) + km);
+			segments.push({
+				km,
+				hours: (b.t - a.t) / 3_600_000,
+				fromCode: a.code,
+				fromCountry: a.country,
+				fromDate: a.day,
+				toCode: b.code,
+				toCountry: b.country,
+				toDate: b.day,
+			});
+		}
+		const first = points[0];
+		const last = points.at(-1);
+		if (first && last && points.length > 1)
+			spanDays += Math.max(1, (last.t - first.t) / 86_400_000);
+	}
+
+	const top = segments
+		.slice()
+		.sort((a, b) => b.km - a.km)
+		.slice(0, TOP_SEGMENTS);
+	return {
+		totalKm,
+		spanDays: Math.round(spanDays),
+		avgPerDayKm: spanDays > 0 ? totalKm / spanDays : 0,
+		longestKm: top[0]?.km ?? 0,
+		segmentCount: segments.length,
+		perYear: [...perYear.entries()]
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([year, km]) => ({ year, km })),
+		top,
+	};
+}
+
+function timedPoints(rows: readonly LocationRow[]) {
 	const points: {
 		t: number;
 		day: string;
@@ -231,52 +312,7 @@ export function buildDistances(rows: readonly LocationRow[]): Distances {
 			country: row.country || code,
 		});
 	}
-	points.sort((a, b) => a.t - b.t);
-
-	const segments: DistanceSegment[] = [];
-	const perYear = new Map<string, number>();
-	let totalKm = 0;
-	for (let i = 1; i < points.length; i++) {
-		const a = points[i - 1];
-		const b = points[i];
-		if (!a || !b) continue;
-		const km = haversineKm(a.lat, a.lon, b.lat, b.lon);
-		totalKm += km;
-		const year = a.day.slice(0, 4);
-		perYear.set(year, (perYear.get(year) ?? 0) + km);
-		segments.push({
-			km,
-			hours: (b.t - a.t) / 3_600_000,
-			fromCode: a.code,
-			fromCountry: a.country,
-			fromDate: a.day,
-			toCode: b.code,
-			toCountry: b.country,
-			toDate: b.day,
-		});
-	}
-
-	const first = points[0];
-	const last = points.at(-1);
-	const spanDays =
-		first && last && points.length > 1
-			? Math.max(1, (last.t - first.t) / 86_400_000)
-			: 0;
-	const top = segments
-		.slice()
-		.sort((a, b) => b.km - a.km)
-		.slice(0, TOP_SEGMENTS);
-	return {
-		totalKm,
-		spanDays: Math.round(spanDays),
-		avgPerDayKm: spanDays > 0 ? totalKm / spanDays : 0,
-		longestKm: top[0]?.km ?? 0,
-		segmentCount: segments.length,
-		perYear: [...perYear.entries()]
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([year, km]) => ({ year, km })),
-		top,
-	};
+	return points.sort((a, b) => a.t - b.t);
 }
 
 /** Flat `[lat, lon, lat, lon, …]` rounded to 0.01°, compact for 30k rows. */

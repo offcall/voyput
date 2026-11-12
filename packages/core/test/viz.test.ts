@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LocationRow } from "../src";
-import { buildVizData, filterRowsByTrips } from "../src";
+import { buildVizData, buildWorldShapes, splitRowsByTrips } from "../src";
 
 function row(date: string, countryCode: string, lat = 0, lon = 0): LocationRow {
 	return {
@@ -29,7 +29,7 @@ const rows = [
 
 describe("viz aggregates", () => {
 	it("collapses days into country periods and counts transitions", () => {
-		const data = buildVizData(rows);
+		const data = buildVizData([rows]);
 
 		expect(
 			data.movements.map((m) => [m.code, m.start, m.end, m.photos]),
@@ -52,9 +52,68 @@ describe("viz aggregates", () => {
 		expect(data.distances.totalKm).toBeLessThan(1770);
 	});
 
-	it("keeps only rows inside the selected trips", () => {
-		const trip = { start: "2024-05-03", end: "2024-05-03" };
-		expect(filterRowsByTrips(rows, [trip])).toHaveLength(3);
-		expect(filterRowsByTrips(rows, [])).toHaveLength(rows.length);
+	it("never joins two selected trips across the gap between them", () => {
+		// Trip 1: two days in Berlin. Trip 2: the Paris day. The 2025 Berlin photo is in neither.
+		const trips = [
+			{ start: "2024-05-03", end: "2024-05-03" },
+			{ start: "2024-05-01", end: "2024-05-02" },
+			{ start: "2024-05-03", end: "2024-05-03" },
+		];
+		const ranges = splitRowsByTrips(rows, trips);
+		expect(ranges.map((r) => r.length)).toEqual([2, 3]);
+
+		const data = buildVizData(ranges);
+		expect(data.movements.map((m) => [m.code, m.range])).toEqual([
+			["DE", 0],
+			["FR", 1],
+		]);
+		expect(data.moves).toEqual([]);
+		expect(data.transitions).toEqual([]);
+		// Only Paris → Berlin inside trip 2 (~877 km), not Berlin → Paris across the gap.
+		expect(data.distances.segmentCount).toBe(3);
+		expect(data.distances.totalKm).toBeGreaterThan(870);
+		expect(data.distances.totalKm).toBeLessThan(885);
+	});
+
+	it("keeps every row when no trip is selected", () => {
+		expect(splitRowsByTrips(rows, [])).toEqual([rows]);
+	});
+});
+
+describe("world shapes", () => {
+	it("draws Polygon and MultiPolygon countries and skips other geometry", () => {
+		const square = (lon: number, lat: number) => [
+			[lon, lat],
+			[lon + 1, lat],
+			[lon + 1, lat + 1],
+			[lon, lat + 1],
+			[lon, lat],
+		];
+		const world = buildWorldShapes({
+			features: [
+				{
+					properties: { name: "Germany" },
+					geometry: { type: "Polygon", coordinates: [square(10, 50)] },
+				},
+				{
+					properties: { name: "Japan" },
+					geometry: {
+						type: "MultiPolygon",
+						coordinates: [[square(135, 35)], [square(140, 40)]],
+					},
+				},
+				{
+					properties: { name: "Nowhere" },
+					geometry: { type: "Point", coordinates: [0, 0] },
+				},
+			],
+		});
+		expect(world.countryPaths.DE?.match(/M/g)).toHaveLength(1);
+		expect(world.countryPaths.JP?.match(/M/g)).toHaveLength(2);
+		expect(world.landPath.match(/M/g)).toHaveLength(3);
+		expect(world.rings).toHaveLength(3);
+		expect(world.rings[0]?.[0]).toEqual([50, 10]);
+		// Lon 10, lat 50 on the 1000 × 500 box.
+		expect(world.countryPaths.DE?.startsWith("M527.8 111.1")).toBe(true);
 	});
 });

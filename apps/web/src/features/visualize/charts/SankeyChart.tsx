@@ -32,7 +32,7 @@ function layout(entries: { code: string; flow: number }[]): Map<string, Node> {
 /** Country-to-country moves: where you left from (left) and where you went (right). */
 export function SankeyChart({ data }: { data: VizData }) {
 	const transitions = data.transitions;
-	if (transitions.length < 2) return <NoData />;
+	if (transitions.length === 0) return <NoData />;
 	const names = new Map(data.countries.map((c) => [c.code, c.country]));
 	const name = (code: string) =>
 		code === OTHER ? "Other" : (names.get(code) ?? code);

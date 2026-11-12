@@ -171,3 +171,15 @@
 	border-radius: 6px 6px 0 0;
 	background: var(--vp-accent);
 }
+.vp-viz-flags {
+	font-size: 2rem;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+.vp-viz-share {
+	width: 32%;
+}
+.vp-viz-share div {
+	height: 8px;
+	border-radius: 99px;
+}
