@@ -1,9 +1,26 @@
 import { Card, Stack, TextField } from "@voyput/ui";
+import { useEffect, useState } from "react";
+import { useAi } from "../ai/AiContext";
+import type { ModelOption } from "../ai/openrouter";
 import { useSettings } from "./SettingsContext";
 import type { ReasoningEffort } from "./settings";
 
 export function SettingsPage() {
 	const { settings, persisted, update } = useSettings();
+	const ai = useAi();
+	const [models, setModels] = useState<ModelOption[] | "failed">([]);
+
+	useEffect(() => {
+		let current = true;
+		ai.listImageModels().then(
+			(list) => current && setModels(list),
+			() => current && setModels("failed"),
+		);
+		return () => {
+			current = false;
+		};
+	}, [ai]);
+
 	return (
 		<Stack>
 			<h1>Settings</h1>
@@ -22,12 +39,32 @@ export function SettingsPage() {
 						onChange={(openRouterKey) => update({ openRouterKey })}
 						description="Stored in this browser only. Requests go straight from here to OpenRouter."
 					/>
-					<TextField
-						label="Model"
-						value={settings.model}
-						onChange={(model) => update({ model })}
-						description="Any OpenRouter model that accepts images."
-					/>
+					<div className="vp-field">
+						<label className="vp-field-label" htmlFor="vp-model">
+							Model
+						</label>
+						<input
+							id="vp-model"
+							className="vp-input"
+							list="vp-image-models"
+							value={settings.model}
+							onChange={(event) => update({ model: event.target.value })}
+						/>
+						<span className="vp-field-description">
+							{models === "failed"
+								? "Could not load the model list. Type any OpenRouter model id that accepts images."
+								: `Type to search ${models.length || "the"} OpenRouter models that accept images.`}
+						</span>
+						<datalist id="vp-image-models">
+							{models === "failed"
+								? null
+								: models.map((model) => (
+										<option key={model.id} value={model.id}>
+											{model.name}
+										</option>
+									))}
+						</datalist>
+					</div>
 					<label className="vp-field">
 						<span className="vp-field-label">Reasoning effort</span>
 						<select
