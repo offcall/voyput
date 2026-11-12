@@ -18,6 +18,11 @@ export const Buttons: StoryObj = {
 			<Button>Default</Button>
 			<Button variant="primary">Primary</Button>
 			<Button variant="danger">Delete</Button>
+			<Button variant="ghost">Ghost</Button>
+			<Button size="sm">Small</Button>
+			<Button square aria-label="Rotate">
+				↻
+			</Button>
 			<Button disabled>Disabled</Button>
 		</div>
 	),
@@ -30,6 +35,10 @@ export const Badges: StoryObj = {
 			<Badge tone="good">reviewed</Badge>
 			<Badge tone="warn">check</Badge>
 			<Badge tone="bad">failed</Badge>
+			<Badge tone="accent">16 stamps</Badge>
+			<Badge tone="info" dot>
+				reading…
+			</Badge>
 		</div>
 	),
 };
