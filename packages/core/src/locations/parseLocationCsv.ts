@@ -49,7 +49,10 @@ export function parseLocationCsv(text: string): LocationCsvResult {
 		const lonText = cell(cells, "lon");
 		const lat = Number(latText);
 		const lon = Number(lonText);
+		const countryCode = cell(cells, "country_code").toUpperCase();
 		if (
+			// Trips and charts work per country, so a row without one is dropped.
+			!/^[A-Z]{2}$/.test(countryCode) ||
 			!date ||
 			// ISO day first: the day is read as date.slice(0, 10) everywhere.
 			!isIsoDate(date.slice(0, 10)) ||
@@ -65,7 +68,7 @@ export function parseLocationCsv(text: string): LocationCsvResult {
 			date,
 			lat,
 			lon,
-			countryCode: cell(cells, "country_code").toUpperCase(),
+			countryCode,
 			country: cell(cells, "country"),
 			city: cell(cells, "city"),
 			source: cell(cells, "source"),
