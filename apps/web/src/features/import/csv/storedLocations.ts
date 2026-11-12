@@ -1,9 +1,12 @@
 import { type LocationSummary, summarizeLocations } from "@voyput/core";
 import type { VoyputDb } from "../../../db/db";
+import { DEMO_LOCATION_PREFIX } from "../../demo/loadDemo";
 
 export interface StoredLocations extends LocationSummary {
 	/** Distinct non-empty cities, counted per country. */
 	cityCount: number;
+	/** Rows that came with the demo data, included in the counts. */
+	demoCount: number;
 	/** Countries by number of locations, most first. */
 	countries: { code: string; name: string; rows: number }[];
 }
@@ -32,6 +35,8 @@ export async function summarizeStoredLocations(
 	return {
 		...summarizeLocations(rows),
 		cityCount: cities.size,
+		demoCount: rows.filter((row) => row.uuid.startsWith(DEMO_LOCATION_PREFIX))
+			.length,
 		countries: [...countries.values()].sort(
 			(a, b) => b.rows - a.rows || a.code.localeCompare(b.code),
 		),

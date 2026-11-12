@@ -15,7 +15,8 @@ export const DEMO_PASSPORT_ID = "demo-passport";
 /** Demo rows carry these id prefixes; only such rows are ever replaced or removed. */
 const DEMO_PHOTO_PREFIX = "demo-photo-";
 const DEMO_STAMP_PREFIX = "demo-stamp-";
-const DEMO_LOCATION_PREFIX = "demo-";
+/** uuid prefix of the demo locations. */
+export const DEMO_LOCATION_PREFIX = "demo-";
 const MANIFEST = "demo.json";
 const LOCATIONS = "photo_locations.csv";
 

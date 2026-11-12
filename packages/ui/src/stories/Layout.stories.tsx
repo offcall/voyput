@@ -3,6 +3,19 @@ import { Badge } from "../Badge";
 import { Button } from "../Button";
 import { Card } from "../Card";
 import { CountryChip } from "../CountryChip";
+
+/** Stand-in for core `countryColor`; the kit does not pick colours itself. */
+const colours = [
+	"#3b6fd8",
+	"#e07b39",
+	"#2a9a73",
+	"#d4465c",
+	"#8656d0",
+	"#b8941c",
+	"#1c98b8",
+	"#cc4f97",
+];
+
 import { Disclosure } from "../Disclosure";
 import { EmptyState } from "../EmptyState";
 import { Notice } from "../Notice";
@@ -93,8 +106,13 @@ export const CountryChips: StoryObj = {
 					["DE", "Germany"],
 					["PL", "Poland"],
 				] as const
-			).map(([code, name]) => (
-				<CountryChip key={code} code={code} name={name} />
+			).map(([code, name], index) => (
+				<CountryChip
+					key={code}
+					code={code}
+					name={name}
+					colour={colours[index]}
+				/>
 			))}
 			<CountryChip code="XK" />
 		</div>

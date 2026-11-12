@@ -1,4 +1,5 @@
 import {
+	countryColor,
 	type LocationSummary,
 	parseLocationCsv,
 	summarizeLocations,
@@ -180,7 +181,15 @@ function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
 	return (
 		<>
 			<StatGroup>
-				<Stat label="Locations" value={stored.rowCount.toLocaleString("en")} />
+				<Stat
+					label="Locations"
+					value={stored.rowCount.toLocaleString("en")}
+					hint={
+						stored.demoCount > 0
+							? `incl. ${stored.demoCount.toLocaleString("en")} demo`
+							: undefined
+					}
+				/>
 				<Stat
 					label="Period"
 					value={years}
@@ -196,7 +205,11 @@ function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
 			<ul className="import-countries" aria-label="Stored countries">
 				{stored.countries.map((country) => (
 					<li key={country.code} title={`${country.rows} locations`}>
-						<CountryChip code={country.code} name={country.name} />
+						<CountryChip
+							code={country.code}
+							name={country.name}
+							colour={countryColor(country.code)}
+						/>
 					</li>
 				))}
 			</ul>
