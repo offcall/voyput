@@ -1,4 +1,6 @@
 import { RouterProvider } from "@tanstack/react-router";
+import { AiProvider } from "../ai/AiContext";
+import type { AiClient } from "../ai/openrouter";
 import { DbProvider } from "../db/DbContext";
 import type { VoyputDb } from "../db/db";
 import { SettingsProvider } from "../settings/SettingsContext";
@@ -8,13 +10,16 @@ export interface AppProps {
 	router: ReturnType<typeof createAppRouter>;
 	db: VoyputDb;
 	storage: Storage;
+	ai: AiClient;
 }
 
-export function App({ router, db, storage }: AppProps) {
+export function App({ router, db, storage, ai }: AppProps) {
 	return (
 		<DbProvider db={db}>
 			<SettingsProvider storage={storage}>
-				<RouterProvider router={router} />
+				<AiProvider client={ai}>
+					<RouterProvider router={router} />
+				</AiProvider>
 			</SettingsProvider>
 		</DbProvider>
 	);
