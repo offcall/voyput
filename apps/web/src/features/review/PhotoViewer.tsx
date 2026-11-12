@@ -134,23 +134,47 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 					/>
 				) : null}
 			</div>
-			<div className="review-toolbar">
-				<Button aria-label="Rotate left" onClick={() => rotate(-90)}>
+			<div className="review-viewer-tools">
+				<Button
+					className="review-tool"
+					aria-label="Rotate left"
+					onClick={() => rotate(-90)}
+				>
 					↺
 				</Button>
-				<Button aria-label="Rotate right" onClick={() => rotate(90)}>
+				<Button
+					className="review-tool"
+					aria-label="Rotate right"
+					onClick={() => rotate(90)}
+				>
 					↻
 				</Button>
-				<Button aria-label="Zoom out" onClick={() => zoom(1 / 1.5)}>
+				<span className="review-tool-gap" />
+				<Button
+					className="review-tool"
+					aria-label="Zoom out"
+					onClick={() => zoom(1 / 1.5)}
+				>
 					−
 				</Button>
-				<Button aria-label="Zoom in" onClick={() => zoom(1.5)}>
+				<Button
+					className="review-tool"
+					aria-label="Zoom in"
+					onClick={() => zoom(1.5)}
+				>
 					+
 				</Button>
-				<Button onClick={() => setView(FITTED)} disabled={view.scale === 1}>
+				<Button
+					className="review-tool review-tool-zoom"
+					onClick={() => setView(FITTED)}
+					disabled={view.scale === 1}
+				>
 					{Math.round(view.scale * 100)}%
 				</Button>
 			</div>
+			<p className="review-viewer-hint">
+				Double-click or Ctrl + scroll to zoom, drag to pan.
+			</p>
 		</div>
 	);
 }

@@ -4,6 +4,7 @@ import {
 	checkStamp,
 	countryNamesToCodes,
 	type DateRange,
+	type DayRun,
 	nearbyPhotos,
 	type PhotoIndex,
 	type ReviewFilter,
@@ -35,25 +36,35 @@ const byDate = (a: CheckedStamp, b: CheckedStamp) =>
 	(a.stamp.date ?? "9999").localeCompare(b.stamp.date ?? "9999") ||
 	a.stamp.id.localeCompare(b.stamp.id);
 
-/** Photo list, the current photo and its stamps as editable cards. */
+/** Photo strip, then the current photo beside its stamps as editable cards. */
 export function PhotoReview({
 	records,
 	index,
+	dayRuns,
 	filter,
+	currentId,
+	focusStampId,
 	onFilter,
+	onSelect,
 	onDeleted,
 }: {
 	records: ReviewRecords;
 	index: PhotoIndex;
+	dayRuns: readonly DayRun[];
 	filter: ReviewFilter;
+	currentId: string | null;
+	/** A stamp opened from the timeline: shown open and scrolled to. */
+	focusStampId: string | null;
 	onFilter: (filter: ReviewFilter) => void;
+	onSelect: (photoId: string) => void;
 	onDeleted: (stamp: Stamp) => void;
 }) {
 	const db = useDb();
 	const ai = useAi();
 	const { settings } = useSettings();
-	const [currentId, setCurrentId] = useState<string | null>(null);
-	const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+	const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
+		focusStampId ? { [focusStampId]: true } : {},
+	);
 	const [validations, setValidations] = useState<Record<string, Validation>>(
 		{},
 	);
@@ -86,10 +97,13 @@ export function PhotoReview({
 		records.photos.find((p) => p.id === currentId) ?? records.photos[0];
 	if (!photo)
 		return (
-			<p>
-				No passport photos yet. <Link to="/import">Import photos</Link> or load
-				the demo first.
-			</p>
+			<div className="review-empty">
+				<strong>No passport photos yet</strong>
+				<span>Import photos of your stamp pages, or load the demo data.</span>
+				<Link to="/import" className="vp-button" data-variant="primary">
+					Import photos
+				</Link>
+			</div>
 		);
 
 	const passport = records.passports.find((p) => p.id === photo.passportId);
@@ -97,6 +111,7 @@ export function PhotoReview({
 		? { from: passport.validFrom, to: passport.validTo }
 		: NO_RANGE;
 	const items = stampsOf(photo.id);
+	const open = items.filter((item) => !item.stamp.reviewed).length;
 	const aiReady = Boolean(settings.openRouterKey);
 	const isExpanded = (stamp: Stamp) => expanded[stamp.id] ?? !stamp.reviewed;
 
@@ -121,88 +136,118 @@ export function PhotoReview({
 	};
 
 	return (
-		<div className="review-layout">
+		<div className="review-photos">
 			<PhotoList
 				photos={records.photos}
 				stampsOf={stampsOf}
 				filter={filter}
 				currentId={photo.id}
 				onFilter={onFilter}
-				onSelect={setCurrentId}
+				onSelect={onSelect}
 			/>
-			<section className="review-photo" aria-label="Photo">
-				<h2 className="review-photo-title">
-					{passport ? `${passport.name} / ` : ""}
-					{photo.name}
-				</h2>
-				<PhotoViewer photo={photo} />
-				{aiReady ? null : (
-					<p className="review-muted">
-						Validate and rescan need your OpenRouter key.{" "}
-						<Link to="/settings">Add it in Settings</Link>.
-					</p>
-				)}
-				<RescanPanel
-					key={photo.id}
-					onRescan={
-						aiReady
-							? (hint) =>
-									rescanPhoto(
-										ai,
-										settings,
-										photo,
-										range,
-										items.map((item) => item.stamp),
-										hint,
-									)
-							: undefined
-					}
-					onAccept={(found) => addFoundStamp(db, photo, found)}
-				/>
-			</section>
-			<section className="review-stamps" aria-label="Stamps">
-				<div className="review-toolbar">
-					<Button onClick={() => void addManualStamp(db, photo)}>
-						Add stamp
-					</Button>
-				</div>
-				{items.length === 0 ? (
-					<p className="review-muted">No stamps on this photo.</p>
-				) : null}
-				{items.map((item, i) => (
-					<StampCard
-						key={item.stamp.id}
-						item={item}
-						number={i + 1}
-						nearby={
-							isExpanded(item.stamp) ? nearbyPhotos(index, item.stamp.date) : []
+			<div className="review-split">
+				<section className="review-photo-pane" aria-label="Photo">
+					<h2 className="review-pane-title">
+						{passport ? (
+							<span className="review-muted">{passport.name} / </span>
+						) : null}
+						{photo.name}
+					</h2>
+					<PhotoViewer photo={photo} />
+					<RescanPanel
+						key={photo.id}
+						onRescan={
+							aiReady
+								? (hint) =>
+										rescanPhoto(
+											ai,
+											settings,
+											photo,
+											range,
+											items.map((item) => item.stamp),
+											hint,
+										)
+								: undefined
 						}
-						expanded={isExpanded(item.stamp)}
-						countryCodes={countryCodes}
-						countryNames={countryNames}
-						validation={validations[item.stamp.id]}
-						onToggle={() =>
-							setExpanded((e) => ({
-								...e,
-								[item.stamp.id]: !isExpanded(item.stamp),
-							}))
-						}
-						onEdit={(edit) => {
-							// Marking a stamp reviewed folds it away; unmarking opens it.
-							if (edit.reviewed !== undefined)
-								setExpanded((e) => ({ ...e, [item.stamp.id]: !edit.reviewed }));
-							void updateStamp(db, item.stamp.id, edit);
-						}}
-						onDelete={() =>
-							void deleteStamp(db, item.stamp).then(() => onDeleted(item.stamp))
-						}
-						onDismiss={(kind, value) =>
-							void setDismissed(db, item.stamp.id, kind, value)
-						}
-						onValidate={aiReady ? () => void validate(item) : undefined}
-					/>
-				))}
-			</section>
+						onAccept={(found) => addFoundStamp(db, photo, found)}
+					>
+						{aiReady ? null : (
+							<p className="review-muted">
+								Validate and rescan need your OpenRouter key.{" "}
+								<Link to="/settings">Add it in Settings</Link>.
+							</p>
+						)}
+					</RescanPanel>
+				</section>
+				<section className="review-stamps" aria-label="Stamps">
+					<div className="review-pane-head">
+						<h2 className="review-pane-title">
+							Stamps{" "}
+							<span className="review-muted">
+								{items.length === 0
+									? "none yet"
+									: open === 0
+										? `${items.length} · all reviewed`
+										: `${items.length} · ${open} to review`}
+							</span>
+						</h2>
+						<Button onClick={() => void addManualStamp(db, photo)}>
+							+ Add stamp
+						</Button>
+					</div>
+					{items.length === 0 ? (
+						<div className="review-empty" data-size="small">
+							<strong>No stamps on this photo</strong>
+							<span>
+								Add one by hand, or rescan the photo with AI to look for missed
+								stamps.
+							</span>
+						</div>
+					) : null}
+					{items.map((item, i) => (
+						<StampCard
+							key={item.stamp.id}
+							item={item}
+							number={i + 1}
+							dayRuns={dayRuns}
+							nearby={
+								isExpanded(item.stamp)
+									? nearbyPhotos(index, item.stamp.date)
+									: []
+							}
+							expanded={isExpanded(item.stamp)}
+							focused={item.stamp.id === focusStampId}
+							countryCodes={countryCodes}
+							countryNames={countryNames}
+							validation={validations[item.stamp.id]}
+							onToggle={() =>
+								setExpanded((e) => ({
+									...e,
+									[item.stamp.id]: !isExpanded(item.stamp),
+								}))
+							}
+							onEdit={(edit) => {
+								// Marking a stamp reviewed folds it away; unmarking opens it.
+								if (edit.reviewed !== undefined)
+									setExpanded((e) => ({
+										...e,
+										[item.stamp.id]: !edit.reviewed,
+									}));
+								void updateStamp(db, item.stamp.id, edit);
+							}}
+							onDelete={() =>
+								void deleteStamp(db, item.stamp).then(() =>
+									onDeleted(item.stamp),
+								)
+							}
+							onDismiss={(kind, value) =>
+								void setDismissed(db, item.stamp.id, kind, value)
+							}
+							onValidate={aiReady ? () => void validate(item) : undefined}
+						/>
+					))}
+				</section>
+			</div>
 			<datalist id={COUNTRY_LIST_ID}>
 				{[...countryCodes.keys()].sort().map((name) => (
 					<option key={name} value={name} />

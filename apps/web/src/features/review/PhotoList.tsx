@@ -5,6 +5,7 @@ import {
 	REVIEW_FILTERS,
 	type ReviewFilter,
 } from "@voyput/core";
+import { useEffect, useState } from "react";
 import type { PhotoRecord } from "../../db/db";
 
 const FILTER_LABELS: Record<ReviewFilter, string> = {
@@ -16,7 +17,29 @@ const FILTER_LABELS: Record<ReviewFilter, string> = {
 	reviewed: "Reviewed",
 };
 
-/** Photos with their stamps, filtered, as a navigation list. */
+/** A small picture of a page; the full photo scaled down by the browser. */
+function Thumb({ photo }: { photo: PhotoRecord }) {
+	const [url, setUrl] = useState<string | null>(null);
+	useEffect(() => {
+		const next = URL.createObjectURL(photo.blob);
+		setUrl(next);
+		return () => URL.revokeObjectURL(next);
+	}, [photo.blob]);
+	return (
+		<span className="review-thumb" data-rotation={photo.rotation}>
+			{url ? (
+				<img
+					src={url}
+					alt=""
+					loading="lazy"
+					style={{ transform: `rotate(${photo.rotation}deg)` }}
+				/>
+			) : null}
+		</span>
+	);
+}
+
+/** Photos with their stamps, filtered, as a strip of thumbnails. */
 export function PhotoList({
 	photos,
 	stampsOf,
@@ -43,20 +66,23 @@ export function PhotoList({
 						key={key}
 						type="button"
 						className="review-chip"
+						data-filter={key}
 						aria-pressed={filter === key}
 						onClick={() => onFilter(key)}
 					>
 						{FILTER_LABELS[key]}{" "}
-						<span className="review-muted">
+						<span className="review-chip-count">
 							{photos.filter((p) => photoMatches(stampsOf(p.id), key)).length}
 						</span>
 					</button>
 				))}
 			</fieldset>
 			{visible.length === 0 ? (
-				<p className="review-muted">No photos match this filter.</p>
+				<p className="review-empty" data-size="small">
+					No photos match this filter.
+				</p>
 			) : (
-				<ul>
+				<ul className="review-strip-list">
 					{visible.map((photo) => {
 						const items = stampsOf(photo.id);
 						const level = photoSeverity(items);
@@ -67,12 +93,14 @@ export function PhotoList({
 								<button
 									type="button"
 									className="review-photo-row"
-									data-severity={level}
+									data-severity={items.length === 0 ? "empty" : level}
+									data-done={done || undefined}
 									aria-current={photo.id === currentId || undefined}
 									onClick={() => onSelect(photo.id)}
 								>
-									<span>{photo.name}</span>
-									<span className="review-muted">
+									<Thumb photo={photo} />
+									<span className="review-photo-row-name">{photo.name}</span>
+									<span className="review-photo-row-meta">
 										{items.length === 0
 											? "no stamps"
 											: `${items.length} ${items.length === 1 ? "stamp" : "stamps"}`}

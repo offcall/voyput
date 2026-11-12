@@ -1,7 +1,8 @@
 import type { ReadStamp } from "@voyput/core";
 import { Badge, Button, TextField } from "@voyput/ui";
-import { useState } from "react";
-import { directionIcon, errorMessage, flagOf } from "./format";
+import { type ReactNode, useState } from "react";
+import { CountryTag } from "./CountryTag";
+import { directionIcon, errorMessage } from "./format";
 
 type RescanState =
 	| { status: "idle" }
@@ -13,10 +14,13 @@ type RescanState =
 export function RescanPanel({
 	onRescan,
 	onAccept,
+	children,
 }: {
 	/** Missing when no AI key is set. */
 	onRescan: ((hint: string) => Promise<ReadStamp[]>) | undefined;
 	onAccept: (stamp: ReadStamp) => Promise<void>;
+	/** Shown above the controls, e.g. why AI is unavailable. */
+	children?: ReactNode;
 }) {
 	const [hint, setHint] = useState("");
 	const [state, setState] = useState<RescanState>({ status: "idle" });
@@ -39,42 +43,57 @@ export function RescanPanel({
 
 	return (
 		<section className="review-rescan" aria-label="Rescan">
-			<TextField
-				label="Hint for the rescan"
-				value={hint}
-				onChange={setHint}
-				placeholder="e.g. a faint stamp in the bottom left corner"
-			/>
-			<Button
-				disabled={!onRescan || state.status === "running"}
-				onClick={() => void run()}
-			>
-				{state.status === "running" ? "Rescanning…" : "Rescan with AI"}
-			</Button>
-			{state.status === "error" ? <p role="alert">{state.message}</p> : null}
+			<h3 className="review-section-label">Missed a stamp?</h3>
+			{children}
+			<div className="review-rescan-row">
+				<TextField
+					label="Hint for the rescan"
+					value={hint}
+					onChange={setHint}
+					placeholder="e.g. a faint stamp in the bottom left corner"
+				/>
+				<Button
+					disabled={!onRescan || state.status === "running"}
+					onClick={() => void run()}
+				>
+					{state.status === "running" ? "Rescanning…" : "Rescan with AI"}
+				</Button>
+			</div>
+			{state.status === "error" ? (
+				<p role="alert" className="review-error">
+					{state.message}
+				</p>
+			) : null}
 			{state.status === "done" ? (
 				state.found.length === 0 ? (
-					<p role="status">No missed stamps found.</p>
+					<p role="status" className="review-muted">
+						No missed stamps found.
+					</p>
 				) : (
-					<ul aria-label="Missed stamps">
+					<ul aria-label="Missed stamps" className="review-drafts">
 						{state.found.map((stamp) => (
 							<li
 								key={`${stamp.date}-${stamp.countryCode}-${stamp.direction}-${stamp.dateText}`}
 								className="review-draft"
 							>
-								{flagOf(stamp.countryCode)} {directionIcon(stamp.direction)}{" "}
-								{stamp.date ?? "no date"} · {stamp.country ?? "?"}
-								{stamp.location ? ` · ${stamp.location}` : ""}{" "}
+								<CountryTag code={stamp.countryCode} />
+								<span className="review-draft-text">
+									{directionIcon(stamp.direction)} {stamp.date ?? "no date"} ·{" "}
+									{stamp.country ?? "?"}
+									{stamp.location ? ` · ${stamp.location}` : ""}
+								</span>
 								{stamp.problem ? (
 									<Badge tone="bad">{stamp.problem}</Badge>
-								) : null}{" "}
-								<Button
-									variant="primary"
-									onClick={() => void onAccept(stamp).then(() => drop(stamp))}
-								>
-									Add
-								</Button>{" "}
-								<Button onClick={() => drop(stamp)}>Discard</Button>
+								) : null}
+								<span className="review-draft-actions">
+									<Button
+										variant="primary"
+										onClick={() => void onAccept(stamp).then(() => drop(stamp))}
+									>
+										Add
+									</Button>
+									<Button onClick={() => drop(stamp)}>Discard</Button>
+								</span>
 							</li>
 						))}
 					</ul>

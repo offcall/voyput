@@ -1,6 +1,7 @@
 import {
 	type BorderCrossing,
 	type CheckedStamp,
+	type DayRun,
 	type Direction,
 	isCountryCode,
 	isValidDate,
@@ -10,8 +11,10 @@ import {
 	type ValidateResult,
 } from "@voyput/core";
 import { Badge, Button } from "@voyput/ui";
-import { useEffect, useState } from "react";
-import { CROSSINGS, DIRECTIONS, directionIcon, flagOf } from "./format";
+import { useEffect, useRef, useState } from "react";
+import { CountryTag } from "./CountryTag";
+import { DayStrip } from "./DayStrip";
+import { CROSSINGS, crossingIcon, DIRECTIONS, directionIcon } from "./format";
 import type { StampEdit } from "./reviewStore";
 
 export type Validation =
@@ -60,6 +63,18 @@ function DraftInput({
 	);
 }
 
+/** Photos of one day in one country, as one chip. */
+const groupNearby = (nearby: readonly NearbyPhoto[]) => {
+	const groups = new Map<string, { photo: NearbyPhoto; count: number }>();
+	for (const photo of nearby) {
+		const key = `${photo.date}-${photo.countryCode}`;
+		const group = groups.get(key);
+		if (group) group.count++;
+		else groups.set(key, { photo, count: 1 });
+	}
+	return [...groups.values()];
+};
+
 const NOTE_LABELS: Record<NoteKind, string> = {
 	problem: "Date check",
 	icloudCheck: "Location history",
@@ -69,8 +84,10 @@ const NOTE_LABELS: Record<NoteKind, string> = {
 export function StampCard({
 	item,
 	number,
+	dayRuns,
 	nearby,
 	expanded,
+	focused,
 	countryCodes,
 	countryNames,
 	validation,
@@ -82,8 +99,11 @@ export function StampCard({
 }: {
 	item: CheckedStamp;
 	number: number;
+	dayRuns: readonly DayRun[];
 	nearby: readonly NearbyPhoto[];
 	expanded: boolean;
+	/** Opened from the timeline: scrolled to and outlined. */
+	focused: boolean;
 	/** Country name → code, to keep name and code in step. */
 	countryCodes: ReadonlyMap<string, string>;
 	/** Code → country name. */
@@ -104,9 +124,20 @@ export function StampCard({
 		{ kind: "suggestion" as const, text: check.suggestion },
 	].filter((note) => note.text);
 	const label = `Stamp ${number}`;
+	const ref = useRef<HTMLElement>(null);
+	useEffect(() => {
+		if (focused) ref.current?.scrollIntoView?.({ block: "center" });
+	}, [focused]);
 
 	return (
-		<article className="review-stamp" data-severity={level} aria-label={label}>
+		<article
+			ref={ref}
+			className="review-stamp"
+			data-severity={level}
+			data-reviewed={stamp.reviewed || undefined}
+			data-focused={focused || undefined}
+			aria-label={label}
+		>
 			<div className="review-stamp-summary">
 				<button
 					type="button"
@@ -114,20 +145,34 @@ export function StampCard({
 					aria-expanded={expanded}
 					onClick={onToggle}
 				>
-					<span aria-hidden="true">{flagOf(stamp.countryCode)}</span>{" "}
-					{directionIcon(stamp.direction)} {stamp.date ?? "no date"} ·{" "}
-					{stamp.country ?? "unknown country"}
-					{stamp.location ? ` · ${stamp.location}` : ""}
+					<CountryTag code={stamp.countryCode} />
+					<span className="review-row-dir" data-direction={stamp.direction}>
+						{directionIcon(stamp.direction)} {stamp.direction}
+					</span>
+					<span className="review-stamp-date">{stamp.date ?? "no date"}</span>
+					<span className="review-stamp-place">
+						{stamp.country ?? "unknown country"}
+						{stamp.location ? (
+							<span className="review-muted"> · {stamp.location}</span>
+						) : null}
+					</span>
+					<span className="review-stamp-crossing" aria-hidden="true">
+						{crossingIcon(stamp.borderCrossing)}
+					</span>
+					<span className="review-chevron" aria-hidden="true">
+						▾
+					</span>
 				</button>
 				{level === "critical" ? <Badge tone="bad">issue</Badge> : null}
 				{level === "warning" ? <Badge tone="warn">location</Badge> : null}
 				{stamp.reviewed ? <Badge tone="good">reviewed</Badge> : null}
 				<Button
 					variant="danger"
+					className="review-icon-button"
 					aria-label={`Delete ${label.toLowerCase()}`}
 					onClick={onDelete}
 				>
-					🗑
+					<TrashIcon />
 				</Button>
 			</div>
 
@@ -224,16 +269,8 @@ export function StampCard({
 							}}
 						/>
 					</div>
-					<label className="review-check">
-						<input
-							type="checkbox"
-							checked={stamp.reviewed}
-							onChange={(event) => onEdit({ reviewed: event.target.checked })}
-						/>{" "}
-						Reviewed
-					</label>
 					{stamp.dateText ? (
-						<p className="review-muted">
+						<p className="review-muted review-printed">
 							Printed: <code>{stamp.dateText}</code>
 							{stamp.confidence !== null
 								? ` · confidence ${stamp.confidence}`
@@ -243,54 +280,111 @@ export function StampCard({
 					{stamp.notes ? <p className="review-muted">{stamp.notes}</p> : null}
 					{notes.map(({ kind, text }) =>
 						stamp.dismissed?.[kind] ? (
-							<p key={kind} className="review-muted">
-								{NOTE_LABELS[kind]} hidden.{" "}
-								<Button onClick={() => onDismiss(kind, false)}>
+							<p key={kind} className="review-note-hidden">
+								{NOTE_LABELS[kind]} hidden.
+								<button
+									type="button"
+									className="review-link"
+									onClick={() => onDismiss(kind, false)}
+								>
 									Show again
-								</Button>
+								</button>
 							</p>
 						) : (
 							<div key={kind} className="review-note" data-kind={kind}>
-								<strong>{NOTE_LABELS[kind]}:</strong> {text}{" "}
-								<Button
+								<span className="review-note-body">
+									<span className="review-note-tag">{NOTE_LABELS[kind]}</span>
+									{text}
+								</span>
+								<button
+									type="button"
+									className="review-note-hide"
 									aria-label={`Hide ${NOTE_LABELS[kind].toLowerCase()}`}
 									onClick={() => onDismiss(kind, true)}
 								>
 									Hide
-								</Button>
+								</button>
 							</div>
 						),
 					)}
-					{nearby.length > 0 ? (
-						<details>
-							<summary>Nearest photos</summary>
-							<ul>
-								{nearby.map((photo) => (
-									<li key={`${photo.date}-${photo.filename}`}>
-										{photo.date} · {flagOf(photo.countryCode)} {photo.country} ·{" "}
-										{photo.gap} day(s) away
-									</li>
-								))}
-							</ul>
-						</details>
+					{stamp.date ? (
+						<div className="review-evidence">
+							<h4 className="review-section-label">
+								Location history ±10 days
+							</h4>
+							<DayStrip
+								dayRuns={dayRuns}
+								date={stamp.date}
+								stampCode={stamp.countryCode}
+							/>
+							{nearby.length > 0 ? (
+								<ul className="review-nearby" aria-label="Nearest photos">
+									{groupNearby(nearby).map(({ photo, count }) => (
+										<li
+											key={`${photo.date}-${photo.countryCode}`}
+											data-match={
+												photo.countryCode === stamp.countryCode || undefined
+											}
+											title={photo.filename}
+										>
+											<CountryTag code={photo.countryCode} />
+											<span>{photo.date}</span>
+											<span className="review-muted">
+												{photo.gap === 0 ? "same day" : `${photo.gap} d`}
+												{count > 1 ? ` · ${count} photos` : ""}
+											</span>
+										</li>
+									))}
+								</ul>
+							) : null}
+						</div>
 					) : null}
-					<ValidateRow
-						validation={validation}
-						onValidate={onValidate}
-						onApply={(correction) =>
-							onEdit({
-								...correction,
-								...(correction.country && !correction.countryCode
-									? {
-											countryCode: countryCodes.get(correction.country) ?? null,
-										}
-									: {}),
-							})
-						}
-					/>
+					<div className="review-stamp-footer">
+						<label className="review-check">
+							<input
+								type="checkbox"
+								checked={stamp.reviewed}
+								onChange={(event) => onEdit({ reviewed: event.target.checked })}
+							/>{" "}
+							Reviewed
+						</label>
+						<ValidateRow
+							validation={validation}
+							onValidate={onValidate}
+							onApply={(correction) =>
+								onEdit({
+									...correction,
+									...(correction.country && !correction.countryCode
+										? {
+												countryCode:
+													countryCodes.get(correction.country) ?? null,
+											}
+										: {}),
+								})
+							}
+						/>
+					</div>
 				</div>
 			) : null}
 		</article>
+	);
+}
+
+function TrashIcon() {
+	return (
+		<svg
+			width="15"
+			height="15"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6" />
+		</svg>
 	);
 }
 

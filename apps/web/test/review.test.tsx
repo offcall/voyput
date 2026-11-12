@@ -141,6 +141,31 @@ describe("review", () => {
 		expect(await card(5)).toBeTruthy();
 	});
 
+	it("opens a stamp from the timeline on its photo", async () => {
+		const db = await demoDb();
+		const user = userEvent.setup();
+		renderApp("/review", { db });
+
+		await card(1);
+		await user.click(screen.getByRole("tab", { name: "Timeline" }));
+		const chronology = await screen.findByRole("list", {
+			name: "Stamps by date",
+		});
+		await user.click(
+			within(chronology).getByRole("button", {
+				name: "Open stamp: 2017-05-03 entry Poland",
+			}),
+		);
+
+		expect(
+			await screen.findByRole("heading", { name: /page-2\.png/ }),
+		).toBeTruthy();
+		const opened = within(await card(2));
+		expect(
+			opened.getByRole("button", { expanded: true }).textContent,
+		).toContain("2017-05-03");
+	});
+
 	it("keeps both of two overlapping saves", async () => {
 		const db = await demoDb();
 		await Promise.all([
