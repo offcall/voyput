@@ -9,6 +9,7 @@ export interface NavCounts {
 	toExtract: number;
 	/** Stamps not marked reviewed. */
 	toReview: number;
+	/** Saved trips only; suggestions on the Trips page are not counted. */
 	trips: number;
 }
 

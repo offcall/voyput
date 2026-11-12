@@ -46,7 +46,7 @@ const COUNT_TITLES: Partial<Record<Section["to"], string>> = {
 	"/import": "photos",
 	"/extract": "photos to extract",
 	"/review": "stamps to review",
-	"/trips": "trips",
+	"/trips": "saved trips",
 };
 
 export function Layout() {
@@ -71,7 +71,7 @@ export function Layout() {
 						aria-hidden="true"
 						title={`${count} ${COUNT_TITLES[section.to] ?? ""}`}
 					>
-						{count}
+						{section.to === "/trips" ? `${count} saved` : count}
 					</span>
 				) : null}
 			</Link>
