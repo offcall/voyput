@@ -253,4 +253,67 @@ describe("extract", () => {
 			await screen.findByRole("heading", { level: 1, name: "Settings" }),
 		).toBeTruthy();
 	});
+
+	it("re-extracts a photo that is already ok after confirmation", async () => {
+		localStorage.setItem(
+			"voyput:settings",
+			JSON.stringify({ openRouterKey: "sk-or-test" }),
+		);
+		const db = new VoyputDb(`extract-${++dbCount}`);
+		await seed(db);
+		await db.extractions.add({
+			photoId: "page-3",
+			status: "ok",
+			notes: "",
+			model: "old",
+			seconds: 1,
+			finishedAt: "2026-01-01T00:00:00Z",
+		});
+		await db.stamps.add({
+			id: "old-ai",
+			passportId: "pp1",
+			photoId: "page-3",
+			direction: "entry",
+			borderCrossing: "unknown",
+			dateText: "",
+			date: null,
+			country: null,
+			countryCode: null,
+			location: null,
+			confidence: 50,
+			notes: "",
+			problem: null,
+			source: "ai",
+			reviewed: false,
+		});
+		const sent: string[] = [];
+		const ai: AiClient = {
+			...offlineAi,
+			askAboutImage: async (_settings, question) => {
+				sent.push(question.text);
+				return {
+					cost: null,
+					text: stampJson([raw("entry", "MD", "2019-07-10", "10.07.19 5")]),
+				};
+			},
+		};
+		const user = userEvent.setup();
+		renderApp("/extract", { db, ai });
+		const row = await screen.findByRole("listitem", { name: "page-3" });
+		await user.click(within(row).getByRole("button", { name: "Re-extract" }));
+		const dialog = await screen.findByRole("dialog");
+		await user.click(
+			within(dialog).getByRole("button", { name: "Re-extract" }),
+		);
+
+		await waitFor(async () => {
+			const ids = (
+				await db.stamps.where("photoId").equals("page-3").toArray()
+			).map((s) => s.id);
+			expect(ids).not.toContain("old-ai");
+			expect(ids).toEqual(expect.arrayContaining(["manual", "reviewed"]));
+			expect(ids).toHaveLength(3);
+		});
+		expect(sent).toEqual(['Photo filename: "page-3"']);
+	});
 });

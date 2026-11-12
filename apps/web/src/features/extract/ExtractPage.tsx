@@ -7,7 +7,7 @@ import {
 	pairVisits,
 	type Stamp,
 } from "@voyput/core";
-import { Badge, Button, Card, Progress, Stack } from "@voyput/ui";
+import { Badge, Button, Card, Dialog, Progress, Stack } from "@voyput/ui";
 import {
 	useCallback,
 	useEffect,
@@ -44,6 +44,7 @@ export function ExtractPage() {
 	const [passports, setPassports] = useState<Passport[]>([]);
 	const [passportId, setPassportId] = useState("");
 	const [data, setData] = useState<PassportData>(EMPTY);
+	const [reextract, setReextract] = useState<PhotoRecord | null>(null);
 	const runs = runsFor(db);
 	const { active, progress } = useSyncExternalStore(
 		runs.subscribe,
@@ -186,12 +187,41 @@ export function ExtractPage() {
 								extraction={data.extractions.get(photo.id)}
 								stamps={data.stamps.filter((s) => s.photoId === photo.id)}
 								running={active.has(photo.id)}
+								canReextract={!busy && loaded}
+								onReextract={() => setReextract(photo)}
 							/>
 						))}
 					</ul>
 				</Card>
 			) : null}
 			<Conflicts stamps={data.stamps} />
+			<Dialog
+				open={reextract !== null}
+				onOpenChange={(open) => {
+					if (!open) setReextract(null);
+				}}
+				title={`Re-extract ${reextract?.name ?? ""}?`}
+				actions={
+					<>
+						<Button onClick={() => setReextract(null)}>Cancel</Button>
+						<Button
+							variant="primary"
+							onClick={() => {
+								if (reextract) run([reextract]);
+								setReextract(null);
+							}}
+						>
+							Re-extract
+						</Button>
+					</>
+				}
+			>
+				<p>
+					The photo is sent to {settings.model} again. Its unreviewed AI stamps
+					are replaced; reviewed and hand-added stamps stay, so a reviewed stamp
+					may appear twice.
+				</p>
+			</Dialog>
 		</Stack>
 	);
 }
@@ -201,11 +231,15 @@ function PhotoRow({
 	extraction,
 	stamps,
 	running,
+	canReextract,
+	onReextract,
 }: {
 	photo: PhotoRecord;
 	extraction: PhotoExtraction | undefined;
 	stamps: Stamp[];
 	running: boolean;
+	canReextract: boolean;
+	onReextract: () => void;
 }) {
 	const flagged = stamps.filter((stamp) => stamp.problem);
 	return (
@@ -216,9 +250,14 @@ function PhotoRow({
 			) : !extraction ? (
 				<Badge>not extracted</Badge>
 			) : extraction.status === "ok" ? (
-				<Badge tone="good">
-					ok · {stamps.length} {stamps.length === 1 ? "stamp" : "stamps"}
-				</Badge>
+				<>
+					<Badge tone="good">
+						ok · {stamps.length} {stamps.length === 1 ? "stamp" : "stamps"}
+					</Badge>{" "}
+					<Button disabled={!canReextract} onClick={onReextract}>
+						Re-extract
+					</Button>
+				</>
 			) : (
 				<>
 					<Badge tone="bad">failed</Badge> {extraction.notes.split("\n")[0]}
