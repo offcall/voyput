@@ -1,4 +1,4 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { LocationRow, Stamp } from "@voyput/core";
 import { describe, expect, it } from "vitest";
@@ -143,8 +143,9 @@ describe("trips", () => {
 
 		d = await openDetail("Romania");
 		await user.click(d.getByRole("button", { name: "Delete" }));
-		await screen.findByRole("heading", { name: "Trips (1)" });
+		await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(1));
 
+		await user.click(screen.getByRole("button", { name: "New trip" }));
 		await user.type(screen.getByLabelText("New trip title"), "Weekend in Kyiv");
 		fireEvent.change(screen.getByLabelText("New trip start"), {
 			target: { value: "2024-07-01" },
@@ -153,11 +154,11 @@ describe("trips", () => {
 			target: { value: "2024-07-03" },
 		});
 		await user.click(screen.getByRole("button", { name: "Add trip" }));
-		await screen.findByRole("heading", { name: "Trips (2)" });
+		await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(2));
 		first.unmount();
 
 		renderApp("/trips", { db });
-		await screen.findByRole("heading", { name: "Trips (2)" });
+		await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(2));
 		expect(screen.queryByRole("button", { name: "Romania" })).toBeNull();
 		expect(
 			screen.getByRole("button", { name: "Weekend in Kyiv" }),
@@ -170,5 +171,40 @@ describe("trips", () => {
 			arrival: { source: "manual", date: "2024-05-11" },
 		});
 		expect(japan?.stops.map((s) => s.cities)).toEqual([["Kyoto"]]);
+	});
+
+	it("flags a trip whose stamp disagrees with the photos or was deleted", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-problem-test");
+		await seed(db);
+		await db.stamps.put(
+			stamp("s5", "2024-05-11", "KR", "South Korea", "entry", "Incheon"),
+		);
+		const first = renderApp("/trips", { db });
+
+		const japan = (
+			await screen.findByRole("button", { name: "Japan → South Korea" })
+		).closest("article");
+		if (!japan) throw new Error("trip card not found");
+		expect(within(japan).getByText("1 issue")).toBeTruthy();
+		await user.click(
+			within(japan).getByRole("button", { name: "Japan → South Korea" }),
+		);
+		const detail = screen
+			.getByRole("heading", { name: "Trip: Japan → South Korea" })
+			.closest("section");
+		if (!detail) throw new Error("trip detail not found");
+		expect(within(detail).getByText("stamp-without-photos")).toBeTruthy();
+		await user.click(within(detail).getByRole("button", { name: "Confirm" }));
+		await screen.findAllByText("Confirmed");
+		first.unmount();
+
+		await db.stamps.delete("s5");
+		renderApp("/trips", { db });
+		const card = (
+			await screen.findByRole("button", { name: "Japan → South Korea" })
+		).closest("article");
+		if (!card) throw new Error("trip card not found");
+		expect(within(card).getByText("1 issue")).toBeTruthy();
 	});
 });

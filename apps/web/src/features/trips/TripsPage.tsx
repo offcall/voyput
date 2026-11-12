@@ -8,10 +8,16 @@ import {
 	usableStamps,
 	visibleTrips,
 } from "@voyput/core";
-import { Badge, Button, Card, Stack } from "@voyput/ui";
+import { Stack } from "@voyput/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDb } from "../../db/DbContext";
 import { AddTripForm } from "./AddTripForm";
+import { problemCount, tripProblems } from "./conflicts";
+import { dayCount, plural } from "./format";
+import { buildPhotoDays, photosAbroad } from "./photoDays";
+import { TripCard } from "./TripCard";
+import { TripsSummary } from "./TripsSummary";
+import "./trips.css";
 import { TripDetail } from "./TripDetail";
 import {
 	deleteTrip,
@@ -93,72 +99,124 @@ export function TripsPage() {
 	};
 
 	const selected = list.find((t) => t.trip.id === selectedId);
+	const photoDays = useMemo(
+		() => buildPhotoDays(data?.locations ?? []),
+		[data],
+	);
+	const usable = useMemo(() => new Map(stamps.map((s) => [s.id, s])), [stamps]);
+	const years = useMemo(() => {
+		const byYear = new Map<string, typeof list>();
+		for (const item of list) {
+			const year = item.trip.start.slice(0, 4);
+			byYear.set(year, [...(byYear.get(year) ?? []), item]);
+		}
+		return [...byYear].sort((a, b) => b[0].localeCompare(a[0]));
+	}, [list]);
 
 	return (
 		<Stack>
-			<h1>Trips</h1>
+			<div className="vp-trips-top">
+				<h1>Trips</h1>
+				{data ? (
+					<div className="vp-trips-toolbar">
+						<label className="vp-trips-home">
+							<span>Home country</span>
+							<select
+								className="vp-input"
+								value={home ?? ""}
+								onChange={(e) => void run(saveHome(db, e.target.value))}
+							>
+								{home ? null : (
+									<option value="">Choose your home country</option>
+								)}
+								{COUNTRY_CODES.map((cc) => (
+									<option key={cc} value={cc}>
+										{regionName(cc)}
+									</option>
+								))}
+							</select>
+						</label>
+						<AddTripForm onAdd={onAdd} />
+					</div>
+				) : null}
+			</div>
 			{error ? <p role="alert">{error}</p> : null}
 			{!data ? (
 				<p>Loading…</p>
 			) : (
 				<>
-					<label className="vp-field">
-						<span className="vp-field-label">Home country</span>
-						<select
-							className="vp-input"
-							value={home ?? ""}
-							onChange={(e) => void run(saveHome(db, e.target.value))}
-						>
-							{home ? null : <option value="">Choose your home country</option>}
-							{COUNTRY_CODES.map((cc) => (
-								<option key={cc} value={cc}>
-									{regionName(cc)}
-								</option>
-							))}
-						</select>
-					</label>
 					{home ? null : (
-						<p>
+						<p className="vp-trips-note">
 							No reviewed stamps or locations yet, so there is nothing to
 							suggest. Review stamps, import the location CSV or choose your
 							home country.
 						</p>
 					)}
-					<Card title={`Trips (${list.length})`}>
-						{list.length === 0 ? <p>No trips found.</p> : null}
-						<ul>
-							{list.map(({ trip, stored }) => (
-								<li key={trip.id}>
-									<Button
-										onClick={() => setSelectedId(trip.id)}
-										aria-pressed={trip.id === selectedId}
-									>
-										{trip.title}
-									</Button>{" "}
-									{trip.start} → {trip.end} ·{" "}
-									{trip.confirmed ? (
-										<Badge tone="good">Confirmed</Badge>
-									) : stored ? (
-										<Badge tone="warn">Draft</Badge>
-									) : (
-										<Badge>Suggested</Badge>
-									)}
-								</li>
+					<TripsSummary trips={list.map((t) => t.trip)} home={home} />
+					<div
+						className="vp-trips-layout"
+						data-open={selected ? true : undefined}
+					>
+						<div className="vp-trips-list">
+							{list.length === 0 ? (
+								<p className="vp-trips-empty">No trips found.</p>
+							) : null}
+							{years.map(([year, items]) => (
+								<section key={year} className="vp-trips-year">
+									<h2 className="vp-trips-year-head">
+										{year}
+										<span>
+											{plural(items.length, "trip")} ·{" "}
+											{plural(
+												items.reduce(
+													(sum, { trip }) =>
+														sum + dayCount(trip.start, trip.end),
+													0,
+												),
+												"day",
+											)}
+										</span>
+									</h2>
+									{items.map(({ trip, stored }) => (
+										<TripCard
+											key={trip.id}
+											trip={trip}
+											stored={stored}
+											photos={photosAbroad(
+												photoDays,
+												home ?? "",
+												trip.start,
+												trip.end,
+											)}
+											problems={problemCount(
+												tripProblems(trip.stampIds, usable, photoDays),
+											)}
+											selected={trip.id === selectedId}
+											onSelect={() => setSelectedId(trip.id)}
+										/>
+									))}
+								</section>
 							))}
-						</ul>
-					</Card>
-					{selected ? (
-						<TripDetail
-							key={`${selected.trip.id}:${selected.trip.title}:${selected.trip.start}:${selected.trip.end}`}
-							trip={selected.trip}
-							stored={selected.stored}
-							evidence={evidence}
-							stamps={data.stamps}
-							onSave={onSave}
-							onDelete={onDelete}
-						/>
-					) : null}
-					<AddTripForm onAdd={onAdd} />
+						</div>
+						<div className="vp-trips-pane">
+							{selected ? (
+								<TripDetail
+									key={`${selected.trip.id}:${selected.trip.title}:${selected.trip.start}:${selected.trip.end}`}
+									trip={selected.trip}
+									stored={selected.stored}
+									evidence={evidence}
+									stamps={data.stamps}
+									photoDays={photoDays}
+									onSave={onSave}
+									onDelete={onDelete}
+								/>
+							) : list.length > 0 ? (
+								<p className="vp-trips-empty">
+									Pick a trip to see its days, stops and stamps.
+								</p>
+							) : null}
+						</div>
+					</div>
 				</>
 			)}
 		</Stack>
