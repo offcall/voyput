@@ -4,6 +4,7 @@ import { photoDataUrl } from "./image";
 
 const API = "https://openrouter.ai/api/v1";
 const REQUEST_TIMEOUT_MS = 10 * 60_000; // busy pages can take minutes with reasoning
+const MODELS_TIMEOUT_MS = 30_000;
 
 export type AiSettings = Pick<
 	Settings,
@@ -73,54 +74,77 @@ const answerFrom = (body: unknown): AiAnswer => {
 		isObject(body) && Array.isArray(body.choices) ? body.choices[0] : null;
 	const message = isObject(choice) ? choice.message : null;
 	const text = isObject(message) ? message.content : null;
-	if (typeof text !== "string" || !text.trim()) {
-		const reason = isObject(choice) ? String(choice.finish_reason) : "unknown";
-		throw new Error(`the model returned no text (finish reason: ${reason})`);
-	}
+	const reason = isObject(choice) ? choice.finish_reason : null;
+	// "length", "content_filter", "error"…: the text is cut off or missing.
+	if (reason !== "stop")
+		throw new Error(
+			`the model stopped abnormally (finish reason: ${String(reason)})`,
+		);
+	if (typeof text !== "string" || !text.trim())
+		throw new Error("the model returned no text");
 	const usage = isObject(body) ? body.usage : null;
 	const cost =
 		isObject(usage) && typeof usage.cost === "number" ? usage.cost : null;
 	return { text, cost };
 };
 
-export function createOpenRouterClient(
-	fetchImpl: typeof fetch = (...args) => fetch(...args),
-): AiClient {
+/** Turns a stored photo into an upright data URL. */
+export type ImageEncoder = (blob: Blob, rotation: Rotation) => Promise<string>;
+
+export function createOpenRouterClient({
+	fetchImpl = (...args) => fetch(...args),
+	encodeImage = photoDataUrl,
+}: {
+	fetchImpl?: typeof fetch;
+	encodeImage?: ImageEncoder;
+} = {}): AiClient {
+	const post = (body: object, key: string) =>
+		fetchImpl(`${API}/chat/completions`, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${key}`,
+				"Content-Type": "application/json",
+				"X-Title": "voyput",
+			},
+			signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+			body: JSON.stringify(body),
+		});
+
 	return {
 		async askAboutImage(settings, question) {
-			const response = await fetchImpl(`${API}/chat/completions`, {
-				method: "POST",
-				headers: {
-					Authorization: `Bearer ${settings.openRouterKey}`,
-					"Content-Type": "application/json",
-					"X-Title": "voyput",
-				},
-				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-				body: JSON.stringify({
-					model: settings.model,
+			const request = {
+				model: settings.model,
+				usage: { include: true },
+				messages: [
+					{ role: "system", content: question.system },
+					{
+						role: "user",
+						content: [
+							{ type: "text", text: question.text },
+							{
+								type: "image_url",
+								image_url: {
+									url: await encodeImage(
+										question.image.blob,
+										question.image.rotation,
+									),
+								},
+							},
+						],
+					},
+				],
+			};
+			let response = await post(
+				{
+					...request,
 					reasoning: { effort: settings.reasoningEffort },
 					response_format: { type: "json_object" },
-					usage: { include: true },
-					messages: [
-						{ role: "system", content: question.system },
-						{
-							role: "user",
-							content: [
-								{ type: "text", text: question.text },
-								{
-									type: "image_url",
-									image_url: {
-										url: await photoDataUrl(
-											question.image.blob,
-											question.image.rotation,
-										),
-									},
-								},
-							],
-						},
-					],
-				}),
-			});
+				},
+				settings.openRouterKey,
+			);
+			// Some models reject reasoning or JSON mode; the prompt alone asks for JSON.
+			if (response.status === 400)
+				response = await post(request, settings.openRouterKey);
 			const body = await readJson(response);
 			if (!response.ok) {
 				const detail = errorDetail(body);
@@ -135,7 +159,9 @@ export function createOpenRouterClient(
 		},
 
 		async listImageModels() {
-			const response = await fetchImpl(`${API}/models`);
+			const response = await fetchImpl(`${API}/models`, {
+				signal: AbortSignal.timeout(MODELS_TIMEOUT_MS),
+			});
 			if (!response.ok)
 				throw new Error(httpErrorMessage(response.status, response.statusText));
 			const body = await readJson(response);

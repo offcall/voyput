@@ -14,8 +14,12 @@ export const blobToDataUrl = async (blob: Blob): Promise<string> =>
 		new Uint8Array(await blob.arrayBuffer()),
 	)}`;
 
-/** Draws the image turned clockwise by `rotation` degrees. Needs a browser canvas. */
-const rotate = async (blob: Blob, rotation: Rotation): Promise<Blob> => {
+/**
+ * Redraws the image turned clockwise by `rotation` degrees. Going through a bitmap
+ * also applies the file's EXIF orientation, so the model sees what the user sees.
+ * Needs a browser canvas.
+ */
+const redraw = async (blob: Blob, rotation: Rotation): Promise<Blob> => {
 	const bitmap = await createImageBitmap(blob);
 	const sideways = rotation === 90 || rotation === 270;
 	const canvas = document.createElement("canvas");
@@ -42,5 +46,4 @@ const rotate = async (blob: Blob, rotation: Rotation): Promise<Blob> => {
 export const photoDataUrl = async (
 	blob: Blob,
 	rotation: Rotation,
-): Promise<string> =>
-	blobToDataUrl(rotation === 0 ? blob : await rotate(blob, rotation));
+): Promise<string> => blobToDataUrl(await redraw(blob, rotation));
