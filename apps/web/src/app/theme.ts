@@ -7,22 +7,19 @@ const STORAGE_KEY = "voyput:theme";
 function readMode(): ThemeMode {
 	try {
 		const stored = localStorage.getItem(STORAGE_KEY);
-		return stored === "light" || stored === "dark" ? stored : "system";
+		return stored === "light" || stored === "system" ? stored : "dark";
 	} catch {
-		return "system";
+		return "dark";
 	}
 }
 
-/** Light, dark or the system's choice; kept in localStorage and set as `data-theme` on <html>. */
+/** Light, dark (the default) or the system's choice; kept in localStorage and set as `data-theme` on <html> (ADR 0012). */
 export function useTheme(): [ThemeMode, (mode: ThemeMode) => void] {
 	const [mode, setMode] = useState<ThemeMode>(readMode);
 	useEffect(() => {
-		const root = document.documentElement;
-		if (mode === "system") root.removeAttribute("data-theme");
-		else root.setAttribute("data-theme", mode);
+		document.documentElement.setAttribute("data-theme", mode);
 		try {
-			if (mode === "system") localStorage.removeItem(STORAGE_KEY);
-			else localStorage.setItem(STORAGE_KEY, mode);
+			localStorage.setItem(STORAGE_KEY, mode);
 		} catch {
 			// Not saved; the choice still holds for this tab.
 		}

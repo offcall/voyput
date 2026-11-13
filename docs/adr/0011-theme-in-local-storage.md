@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The "no key means follow the system" line is superseded by [ADR 0012](0012-pixel-retro-visual-style.md).
 
 ## Context
 

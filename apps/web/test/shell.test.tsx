@@ -20,19 +20,26 @@ describe("app shell", () => {
 		}
 	});
 
-	it("switches the theme and remembers it", async () => {
+	it("starts dark, switches the theme and remembers it", async () => {
 		const user = userEvent.setup();
 		const first = renderApp("/import");
-		await user.click(await screen.findByRole("button", { name: "Dark theme" }));
-		expect(document.documentElement.dataset.theme).toBe("dark");
-		first.unmount();
-
-		renderApp("/import");
 		const dark = await screen.findByRole("button", { name: "Dark theme" });
 		expect(dark.getAttribute("aria-pressed")).toBe("true");
+		await user.click(screen.getByRole("button", { name: "Light theme" }));
+		expect(document.documentElement.dataset.theme).toBe("light");
+		first.unmount();
+
+		const second = renderApp("/import");
+		const light = await screen.findByRole("button", { name: "Light theme" });
+		expect(light.getAttribute("aria-pressed")).toBe("true");
 		await user.click(screen.getByRole("button", { name: "System theme" }));
-		expect(document.documentElement.dataset.theme).toBeUndefined();
-		expect(localStorage.getItem("voyput:theme")).toBeNull();
+		expect(document.documentElement.dataset.theme).toBe("system");
+		expect(localStorage.getItem("voyput:theme")).toBe("system");
+		second.unmount();
+
+		renderApp("/import");
+		const system = await screen.findByRole("button", { name: "System theme" });
+		expect(system.getAttribute("aria-pressed")).toBe("true");
 	});
 
 	it("keeps the OpenRouter key and model after a reload", async () => {
