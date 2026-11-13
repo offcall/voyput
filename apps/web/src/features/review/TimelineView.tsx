@@ -10,7 +10,7 @@ import {
 	type Stamp,
 	severity,
 } from "@voyput/core";
-import { Button } from "@voyput/ui";
+import { Button, EmptyState, PixelArt } from "@voyput/ui";
 import {
 	type CSSProperties,
 	Fragment,
@@ -94,13 +94,13 @@ export function TimelineView({
 	const from = start ?? (first ? dayNumber(first) : null);
 	if (from === null && undated.length === 0)
 		return (
-			<div className="review-empty">
-				<strong>Nothing to show yet</strong>
-				<span>
-					Stamps with a date and the location history appear here once they are
-					imported.
-				</span>
-			</div>
+			<EmptyState
+				art={<PixelArt name="stamp" scale={5} />}
+				title="Nothing to show yet"
+			>
+				Stamps with a date and the location history appear here once they are
+				imported.
+			</EmptyState>
 		);
 
 	const countries = new Set(dated.map((s) => s.countryCode).filter(Boolean));
@@ -200,6 +200,7 @@ export function TimelineView({
 								className="review-row"
 								data-jump
 								data-severity={levels.get(stamp.id)}
+								data-reviewed={stamp.reviewed || undefined}
 								aria-label={`Open stamp: ${stampLabel(stamp)}`}
 								onClick={() => onOpen(stamp)}
 							>
@@ -300,6 +301,7 @@ function StampRow({
 			className="review-row"
 			data-jump
 			data-severity={level}
+			data-reviewed={stamp.reviewed || undefined}
 			aria-label={`Open stamp: ${stampLabel(stamp)}`}
 			onClick={() => onOpen(stamp)}
 		>
@@ -424,6 +426,7 @@ function OverviewBand({
 								data-jump
 								data-direction={s.direction}
 								data-severity={levels.get(s.id)}
+								data-reviewed={s.reviewed || undefined}
 								aria-label={`Open stamp: ${stampLabel(s)}`}
 								title={`${s.date} ${s.direction} ${s.country ?? s.countryCode ?? ""}`}
 								style={{

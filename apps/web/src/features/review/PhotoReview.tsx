@@ -10,7 +10,7 @@ import {
 	type ReviewFilter,
 	type Stamp,
 } from "@voyput/core";
-import { Button } from "@voyput/ui";
+import { Button, EmptyState, PixelArt } from "@voyput/ui";
 import { type Dispatch, type SetStateAction, useMemo } from "react";
 import { useAi } from "../../ai/AiContext";
 import { useDb } from "../../db/DbContext";
@@ -101,13 +101,17 @@ export function PhotoReview({
 		records.photos.find((p) => p.id === currentId) ?? records.photos[0];
 	if (!photo)
 		return (
-			<div className="review-empty">
-				<strong>No passport photos yet</strong>
-				<span>Import photos of your stamp pages, or load the demo data.</span>
-				<Link to="/import" className="vp-button" data-variant="primary">
-					Import photos
-				</Link>
-			</div>
+			<EmptyState
+				art={<PixelArt name="passport" scale={5} />}
+				title="No passport photos yet"
+				action={
+					<Link to="/import" className="vp-button" data-variant="primary">
+						Import photos
+					</Link>
+				}
+			>
+				Import photos of your stamp pages, or load the demo data.
+			</EmptyState>
 		);
 
 	const passport = records.passports.find((p) => p.id === photo.passportId);
@@ -201,6 +205,7 @@ export function PhotoReview({
 					</div>
 					{items.length === 0 ? (
 						<div className="review-empty" data-size="small">
+							<PixelArt name="stamp" scale={3} />
 							<strong>No stamps on this photo</strong>
 							<span>
 								Add one by hand, or rescan the photo with AI to look for missed
