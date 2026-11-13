@@ -12,6 +12,7 @@ import { MapChart } from "./charts/MapChart";
 import { MatrixChart } from "./charts/MatrixChart";
 import { MovementsTable } from "./charts/MovementsTable";
 import { SankeyChart } from "./charts/SankeyChart";
+import { ExploreTab } from "./explore/ExploreTab";
 import { RouteTab } from "./route/RouteTab";
 
 /** What a tab gets to draw from; the Visualize layout loads it once for all tabs. */
@@ -69,6 +70,13 @@ export const VIZ_TABS: readonly VizTab[] = [
 		icon: <PixelArt name="plane" scale={1} />,
 		usesTripFilter: false,
 		render: () => <RouteTab />,
+	},
+	{
+		id: "explore",
+		label: "Explore",
+		icon: <PixelArt name="suitcase" scale={1} />,
+		usesTripFilter: false,
+		render: () => <ExploreTab />,
 	},
 	chartTab(
 		"movements",
