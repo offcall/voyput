@@ -174,32 +174,54 @@ function ImportStatus({ state }: { state: ImportState }) {
 	}
 }
 
-function HowToGetFile() {
+/** Where the export script lives; the "Get the script" link stays hidden while this is null. */
+export const EXPORT_SCRIPT_URL: string | null = null;
+
+/** Steps to write photo_locations.csv on a Mac with the export script. */
+export function HowToGetFile({
+	scriptUrl = EXPORT_SCRIPT_URL,
+}: {
+	scriptUrl?: string | null;
+}) {
 	return (
 		<Disclosure summary="How to get this file">
 			<p>
-				The file comes from the Apple Photos library on a Mac. It lists every
-				photo and video that has GPS coordinates; nothing is downloaded from
-				iCloud.
+				A small script reads the Apple Photos library on your Mac and writes one
+				row per photo or video with GPS coordinates. Nothing is downloaded from
+				iCloud and nothing leaves your Mac.
+				{scriptUrl ? (
+					<>
+						{" "}
+						<a href={scriptUrl} target="_blank" rel="noreferrer">
+							Get the script
+						</a>
+						.
+					</>
+				) : null}
 			</p>
 			<ol>
 				<li>
-					On macOS, give your terminal app Full Disk Access (System Settings →
-					Privacy &amp; Security → Full Disk Access), so it can read the Photos
-					library.
+					Install <code>uv</code>, the Python tool runner (for example{" "}
+					<code>brew install uv</code>).
 				</li>
 				<li>
-					Read the library with osxphotos and write one row per geotagged photo
-					to photo_locations.csv. Photos without GPS are left out.
+					Give your terminal app Full Disk Access (System Settings → Privacy
+					&amp; Security → Full Disk Access), so it can read the Photos library.
 				</li>
 				<li>
-					Columns: <code>date</code>, <code>lat</code>, <code>lon</code>,{" "}
-					<code>country_code</code>, <code>country</code>, <code>city</code>,{" "}
-					<code>source</code>, <code>is_video</code>, <code>filename</code>,{" "}
-					<code>uuid</code>. The first four are required; <code>date</code> is
-					ISO 8601.
+					In the script's folder, run{" "}
+					<code>uv run export_photo_locations.py</code>. It writes
+					photo_locations.csv.
 				</li>
+				<li>Import that CSV here: drop it above or pick it.</li>
 			</ol>
+			<p>
+				Columns: <code>date</code>, <code>lat</code>, <code>lon</code>,{" "}
+				<code>country_code</code>, <code>country</code>, <code>city</code>,{" "}
+				<code>source</code>, <code>is_video</code>, <code>filename</code>,{" "}
+				<code>uuid</code>. The first four are required; <code>date</code> is ISO
+				8601.
+			</p>
 		</Disclosure>
 	);
 }
