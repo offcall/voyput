@@ -80,7 +80,7 @@ export function SankeyChart({ data }: { data: VizData }) {
 				aria-label="Moves between countries"
 				className="vp-viz-svg"
 			>
-				<g fill="none" opacity={0.35}>
+				<g fill="none" opacity={0.45}>
 					{transitions.map((t) => {
 						const a = left.get(bucket(t.from));
 						const b = right.get(bucket(t.to));
@@ -92,7 +92,7 @@ export function SankeyChart({ data }: { data: VizData }) {
 							<path
 								key={`${t.from}-${t.to}`}
 								d={`M ${x1},${y1} C 480,${y1} 520,${y2} ${RIGHT_X},${y2}`}
-								stroke={color(t.to)}
+								style={{ stroke: color(t.to) }}
 								strokeWidth={Math.max(1, (t.count * 14) / maxCount)}
 							>
 								<title>{`${name(t.from)} → ${name(t.to)} · ${t.count}×`}</title>
@@ -112,7 +112,7 @@ export function SankeyChart({ data }: { data: VizData }) {
 								width={NODE_W}
 								height={n.h}
 								rx={3}
-								fill={color(n.code)}
+								style={{ fill: color(n.code) }}
 							/>
 							<text
 								x={side === "left" ? x - 8 : x + NODE_W + 8}

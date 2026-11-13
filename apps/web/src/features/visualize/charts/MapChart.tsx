@@ -2,13 +2,14 @@ import {
 	COUNTRY_CENTROIDS,
 	projectEquirect,
 	type VizData,
-	WORLD_HEIGHT,
 	WORLD_WIDTH,
 	type WorldShapes,
 } from "@voyput/core";
+import { TwinkleStars } from "@voyput/ui";
 import { useMemo } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { NoData } from "./format";
+import { fitView } from "./view";
 
 interface Arc {
 	key: string;
@@ -60,53 +61,84 @@ export function MapChart({
 		() => buildArcs(data.moves, countryColor),
 		[data.moves, countryColor],
 	);
+	const view = useMemo(
+		() => fitView(data.countries.map((c) => c.code)),
+		[data.countries],
+	);
 	if (data.countries.length === 0) return <NoData />;
+	// World-box units per screen-ish unit at this zoom, for marks of a fixed size.
+	const unit = view[2] / WORLD_WIDTH;
 	return (
 		<figure className="vp-viz-figure">
-			<svg
-				viewBox={`0 0 ${WORLD_WIDTH} ${WORLD_HEIGHT}`}
-				role="img"
-				aria-label="Route map"
-				className="vp-viz-svg"
-			>
-				{world ? (
-					<path d={world.landPath} className="vp-viz-land" fillRule="evenodd" />
-				) : null}
-				{world
-					? data.countries.map((country) => {
-							const d = world.countryPaths[country.code];
-							if (!d) return null;
-							const color = countryColor(country.code);
+			<div className="vp-viz-sky">
+				<TwinkleStars count={28} seed={11} />
+				<svg
+					viewBox={view.map((n) => n.toFixed(1)).join(" ")}
+					role="img"
+					aria-label="Route map"
+					className="vp-viz-svg"
+				>
+					{world ? (
+						<path
+							d={world.landPath}
+							className="vp-viz-land"
+							fillRule="evenodd"
+						/>
+					) : null}
+					{world
+						? data.countries.map((country) => {
+								const d = world.countryPaths[country.code];
+								if (!d) return null;
+								const color = countryColor(country.code);
+								return (
+									<path
+										key={country.code}
+										d={d}
+										style={{ fill: color, stroke: color }}
+										fillOpacity={0.55}
+										strokeWidth={0.6 * unit}
+										fillRule="evenodd"
+									>
+										<title>{country.country}</title>
+									</path>
+								);
+							})
+						: null}
+					<g fill="none">
+						{arcs.map((arc) => (
+							<path
+								key={arc.key}
+								d={arc.d}
+								style={{ stroke: arc.color }}
+								strokeWidth={1.6 * unit}
+								strokeLinecap="round"
+								opacity={0.9}
+							>
+								<title>{arc.title}</title>
+							</path>
+						))}
+					</g>
+					<g className="vp-viz-spots" shapeRendering="crispEdges">
+						{data.countries.map((country) => {
+							const c = COUNTRY_CENTROIDS[country.code];
+							if (!c) return null;
+							const [x, y] = projectEquirect(c[0], c[1]);
 							return (
-								<path
+								<rect
 									key={country.code}
-									d={d}
-									fill={color}
-									fillOpacity={0.25}
-									stroke={color}
-									strokeOpacity={0.6}
-									strokeWidth={0.6}
-									fillRule="evenodd"
+									x={x - 3 * unit}
+									y={y - 3 * unit}
+									width={6 * unit}
+									height={6 * unit}
+									strokeWidth={1.5 * unit}
 								>
 									<title>{country.country}</title>
-								</path>
+								</rect>
 							);
-						})
-					: null}
-				<g fill="none">
-					{arcs.map((arc) => (
-						<path
-							key={arc.key}
-							d={arc.d}
-							stroke={arc.color}
-							strokeWidth={1.3}
-							opacity={0.6}
-						>
-							<title>{arc.title}</title>
-						</path>
-					))}
-				</g>
-			</svg>
+						})}
+					</g>
+				</svg>
+			</div>
 			<figcaption className="vp-viz-muted">
 				Highlighted countries were visited · arcs are moves between them
 			</figcaption>

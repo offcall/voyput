@@ -1,5 +1,6 @@
 import type { VizData } from "@voyput/core";
 import { formatInt, NoData } from "./format";
+import { LineChart } from "./LineChart";
 
 const CELL = 11;
 const GAP = 2;
@@ -22,11 +23,20 @@ const MONTHS = [
 ];
 const DAY_LABELS = ["Mon", "", "Wed", "", "Fri", "", ""];
 const LEVELS = [
-	{ min: 0, color: "var(--vp-border)" },
-	{ min: 1, color: "#9cc0f5" },
-	{ min: 2, color: "#5b8def" },
-	{ min: 6, color: "#2f6fc9" },
-	{ min: 21, color: "#1d4b94" },
+	{ min: 0, color: "var(--vp-surface-3)" },
+	{
+		min: 1,
+		color: "color-mix(in srgb, var(--vp-accent) 30%, var(--vp-surface-3))",
+	},
+	{
+		min: 2,
+		color: "color-mix(in srgb, var(--vp-accent) 55%, var(--vp-surface-3))",
+	},
+	{
+		min: 6,
+		color: "color-mix(in srgb, var(--vp-accent) 80%, var(--vp-surface-3))",
+	},
+	{ min: 21, color: "var(--vp-accent-hover)" },
 ] as const;
 
 function levelColor(count: number): string {
@@ -61,7 +71,7 @@ function YearGrid({
 				width={CELL}
 				height={CELL}
 				rx={2}
-				fill={levelColor(count)}
+				style={{ fill: levelColor(count) }}
 			>
 				<title>{`${iso} · ${count ? `${formatInt(count)} photos` : "no photos"}`}</title>
 			</rect>,
@@ -69,7 +79,7 @@ function YearGrid({
 	}
 	return (
 		<div className="vp-viz-calendar-year">
-			<strong>{year}</strong>
+			<strong className="vp-viz-year">{year}</strong>
 			<svg
 				width={LEFT + weeks * PITCH}
 				height={TOP + 7 * PITCH}
@@ -99,10 +109,36 @@ function YearGrid({
 	);
 }
 
+/** Every month from the first to the last year with photos, empty months as zero. */
+function monthPoints(data: VizData) {
+	const perMonth = new Map<string, number>();
+	for (const [day, count] of Object.entries(data.dayCounts)) {
+		const month = day.slice(0, 7);
+		perMonth.set(month, (perMonth.get(month) ?? 0) + count);
+	}
+	return data.years.flatMap((year) =>
+		MONTHS.map((name, m) => {
+			const key = `${year}-${String(m + 1).padStart(2, "0")}`;
+			return {
+				label: m === 0 ? year : name,
+				title: `${name} ${year}`,
+				value: perMonth.get(key) ?? 0,
+			};
+		}),
+	);
+}
+
 export function CalendarChart({ data }: { data: VizData }) {
 	if (data.years.length === 0) return <NoData />;
 	return (
 		<figure className="vp-viz-figure">
+			<h3 className="vp-viz-subtitle">Photos per month</h3>
+			<LineChart
+				label="Photos per month"
+				points={monthPoints(data)}
+				format={(n) => `${formatInt(n)} photos`}
+			/>
+			<h3 className="vp-viz-subtitle">Photos per day</h3>
 			<div className="vp-viz-calendar-years">
 				{data.years.map((year) => (
 					<YearGrid key={year} year={Number(year)} dayCounts={data.dayCounts} />

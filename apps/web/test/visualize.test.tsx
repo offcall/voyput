@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { LocationRow, Trip } from "@voyput/core";
 import { describe, expect, it, vi } from "vitest";
@@ -36,6 +36,14 @@ const trip = (id: string, title: string, start: string, end: string): Trip => ({
 	stops: [],
 	stampIds: [],
 });
+
+/** Value of a summary tile, e.g. "4" for "Countries". */
+const stat = (label: string) =>
+	screen.queryByText(label, { selector: ".vp-stat-label" })?.nextElementSibling
+		?.textContent;
+
+const expectCountries = (count: string) =>
+	waitFor(() => expect(stat("Countries")).toBe(count));
 
 describe("visualize", () => {
 	it("points to Import when there are no locations", async () => {
@@ -75,7 +83,9 @@ describe("visualize", () => {
 			trip("t3", "Lost weekend", "2024-09-01", "2024-09-02"),
 		]);
 		renderApp("/visualize", { db });
-		expect(await screen.findByText(/^4 countries/)).toBeTruthy();
+		await expectCountries("4");
+		expect(stat("Photos")).toBe("6");
+		expect(stat("Days with photos")).toBe("6");
 
 		const panel = () => within(screen.getByRole("tabpanel"));
 		const tabs: [string, () => unknown][] = [
@@ -97,14 +107,21 @@ describe("visualize", () => {
 			],
 			[
 				"Calendar",
-				() => panel().getByRole("img", { name: "Photos per day in 2024" }),
+				() =>
+					panel().getByRole("img", { name: "Photos per day in 2024" }) &&
+					panel().getByRole("img", { name: "Photos per month" }),
 			],
 			[
 				"Moves",
 				() => panel().getByRole("img", { name: "Moves between countries" }),
 			],
 			["Years", () => panel().getByRole("img", { name: "Countries in 2024" })],
-			["Distance", () => panel().getByText("Total distance")],
+			[
+				"Distance",
+				() =>
+					panel().getByText("Total distance") &&
+					panel().getByRole("img", { name: "Kilometres per year" }),
+			],
 		];
 		for (const [name, content] of tabs) {
 			await user.click(screen.getByRole("tab", { name }));
@@ -112,7 +129,7 @@ describe("visualize", () => {
 		}
 
 		await user.click(screen.getByRole("checkbox", { name: /East Asia/ }));
-		expect(await screen.findByText(/^2 countries/)).toBeTruthy();
+		await expectCountries("2");
 		await user.click(screen.getByRole("tab", { name: "Moves" }));
 		// A single Japan → Korea move is still a chart.
 		expect(
@@ -120,7 +137,7 @@ describe("visualize", () => {
 		).toBeTruthy();
 
 		await user.click(screen.getByRole("checkbox", { name: /Romania/ }));
-		expect(await screen.findByText(/^3 countries/)).toBeTruthy();
+		await expectCountries("3");
 
 		await user.click(screen.getByRole("button", { name: "Show all data" }));
 		await user.click(screen.getByRole("checkbox", { name: /Lost weekend/ }));

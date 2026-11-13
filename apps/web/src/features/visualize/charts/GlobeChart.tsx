@@ -3,9 +3,10 @@ import {
 	type VizData,
 	type WorldShapes,
 } from "@voyput/core";
-import { Button } from "@voyput/ui";
+import { Button, TwinkleStars } from "@voyput/ui";
 import { useEffect, useRef, useState } from "react";
-import { useCanvasCountryColour } from "../../../app/countryColours";
+import { useCountryColour } from "../../../app/countryColours";
+import { fade, type Painter, usePainter } from "../themeColours";
 import { NoData } from "./format";
 
 const SIZE = 640;
@@ -57,21 +58,36 @@ function drawGlobe(
 	data: VizData,
 	world: WorldShapes | null,
 	rotY: number,
+	paint: Painter,
 	countryColor: (code: string) => string,
 ) {
 	const p = (lat: number, lon: number, radius = R) =>
 		project(lat, lon, radius, rotY);
 	ctx.clearRect(0, 0, SIZE, SIZE);
-	ctx.fillStyle = "rgba(128,128,140,0.12)";
-	ctx.strokeStyle = "rgba(128,128,140,0.5)";
+	const accent = paint("var(--vp-accent)");
+	const ocean = ctx.createRadialGradient(
+		SIZE / 2 - R * 0.35,
+		SIZE / 2 - R * 0.35,
+		R * 0.1,
+		SIZE / 2,
+		SIZE / 2,
+		R,
+	);
+	ocean.addColorStop(0, paint("var(--vp-viz-ocean-light)"));
+	ocean.addColorStop(1, paint("var(--vp-viz-ocean)"));
+	ctx.fillStyle = ocean;
+	ctx.strokeStyle = fade(accent, 0.55);
+	ctx.shadowColor = fade(accent, 0.45);
+	ctx.shadowBlur = 24;
 	ctx.lineWidth = 1.5;
 	ctx.beginPath();
 	ctx.arc(SIZE / 2, SIZE / 2, R, 0, Math.PI * 2);
 	ctx.fill();
 	ctx.stroke();
+	ctx.shadowBlur = 0;
 
 	ctx.lineWidth = 1;
-	ctx.strokeStyle = "rgba(128,128,140,0.25)";
+	ctx.strokeStyle = fade(paint("var(--vp-viz-land-edge)"), 0.35);
 	for (let lon = -180; lon <= 180; lon += 30) {
 		const line: Projected[] = [];
 		for (let lat = -90; lat <= 90; lat += 5) line.push(p(lat, lon));
@@ -84,8 +100,8 @@ function drawGlobe(
 	}
 
 	if (world) {
-		ctx.strokeStyle = "rgba(128,128,140,0.7)";
-		ctx.lineWidth = 0.9;
+		ctx.strokeStyle = paint("var(--vp-viz-coast)");
+		ctx.lineWidth = 1;
 		for (const ring of world.rings) {
 			const line = ring.map(([lat, lon]) => p(lat, lon));
 			const first = line[0];
@@ -94,8 +110,9 @@ function drawGlobe(
 		}
 	}
 
-	ctx.lineWidth = 1.3;
-	ctx.globalAlpha = 0.6;
+	ctx.lineWidth = 1.6;
+	ctx.lineCap = "round";
+	ctx.globalAlpha = 0.9;
 	for (const { from, to } of data.moves) {
 		const c1 = COUNTRY_CENTROIDS[from.code];
 		const c2 = COUNTRY_CENTROIDS[to.code];
@@ -111,7 +128,7 @@ function drawGlobe(
 				),
 			);
 		}
-		ctx.strokeStyle = countryColor(to.code);
+		ctx.strokeStyle = paint(countryColor(to.code));
 		polyline(ctx, line, 0);
 	}
 
@@ -121,7 +138,7 @@ function drawGlobe(
 	for (const city of points) {
 		const [x, y, depth] = p(city.lat, city.lon);
 		if (depth < R * 0.05) continue;
-		ctx.fillStyle = countryColor(city.code);
+		ctx.fillStyle = paint(countryColor(city.code));
 		ctx.beginPath();
 		ctx.arc(x, y, 1 + (3 * Math.log1p(city.photos)) / logMax, 0, Math.PI * 2);
 		ctx.fill();
@@ -137,9 +154,10 @@ export function GlobeChart({
 	data: VizData;
 	world: WorldShapes | null;
 }) {
-	const countryColor = useCanvasCountryColour();
 	const ref = useRef<HTMLCanvasElement>(null);
 	const [paused, setPaused] = useState(false);
+	const painter = usePainter();
+	const countryColor = useCountryColour();
 	const pausedRef = useRef(paused);
 	pausedRef.current = paused;
 
@@ -151,6 +169,7 @@ export function GlobeChart({
 		canvas.width = SIZE * dpr;
 		canvas.height = SIZE * dpr;
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		const paint = painter(canvas.parentElement ?? document.body);
 
 		let rotY = -Math.PI / 2;
 		let dragX: number | null = null;
@@ -159,7 +178,7 @@ export function GlobeChart({
 			frame = requestAnimationFrame(tick);
 			if (document.hidden) return;
 			if (!pausedRef.current && dragX === null) rotY += 0.0016;
-			drawGlobe(ctx, data, world, rotY, countryColor);
+			drawGlobe(ctx, data, world, rotY, paint, countryColor);
 		};
 		const down = (e: PointerEvent) => {
 			dragX = e.clientX;
@@ -185,19 +204,26 @@ export function GlobeChart({
 			canvas.removeEventListener("pointerup", up);
 			canvas.removeEventListener("pointercancel", up);
 		};
-	}, [data, world, countryColor]);
+	}, [data, world, painter, countryColor]);
 
 	if (data.cityPoints.length === 0) return <NoData />;
 	return (
 		<figure className="vp-viz-figure vp-viz-globe">
-			<canvas
-				ref={ref}
-				className="vp-viz-canvas"
-				role="img"
-				aria-label="Globe"
-			/>
-			<figcaption className="vp-viz-muted">
-				<Button onClick={() => setPaused((p) => !p)}>
+			<div className="vp-viz-sky">
+				<TwinkleStars count={36} seed={3} />
+				<canvas
+					ref={ref}
+					className="vp-viz-canvas"
+					role="img"
+					aria-label="Globe"
+				/>
+			</div>
+			<figcaption className="vp-viz-caption">
+				<Button
+					variant="secondary"
+					size="sm"
+					onClick={() => setPaused((p) => !p)}
+				>
 					{paused ? "Rotate" : "Pause"}
 				</Button>{" "}
 				Dots are photo spots · arcs are moves · drag to turn

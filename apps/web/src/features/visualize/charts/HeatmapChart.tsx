@@ -4,40 +4,39 @@ import {
 	WORLD_WIDTH,
 	type WorldShapes,
 } from "@voyput/core";
+import { TwinkleStars } from "@voyput/ui";
 import { useEffect, useRef } from "react";
-import { useCanvasCountryColour } from "../../../app/countryColours";
+import { useCountryColour } from "../../../app/countryColours";
+import { channels, type Painter, usePainter } from "../themeColours";
 import { NoData } from "./format";
+import { type Box, fitView } from "./view";
 
 /** Heat cell size in world-box pixels (1000 × 500). */
 const CELL_PX = 6;
-const RAMP: [number, [number, number, number]][] = [
-	[0, [29, 78, 216]],
-	[0.4, [6, 182, 212]],
-	[0.65, [34, 197, 94]],
-	[0.85, [250, 204, 21]],
-	[1, [239, 68, 68]],
-];
+type Rgb = [number, number, number];
 
-function rampColor(t: number): [number, number, number] {
-	for (let s = 1; s < RAMP.length; s++) {
-		const b = RAMP[s];
-		const a = RAMP[s - 1];
-		if (!a || !b || t > b[0]) continue;
-		const f = (t - a[0]) / (b[0] - a[0]);
-		const [r0, g0, b0] = a[1];
-		const [r1, g1, b1] = b[1];
-		return [
-			Math.round(r0 + (r1 - r0) * f),
-			Math.round(g0 + (g1 - g0) * f),
-			Math.round(b0 + (b1 - b0) * f),
-		];
-	}
-	return [239, 68, 68];
+/** Heat ramp from the theme: pale sun, gold, then red for the densest spots; warm, so it stands out on the green land. */
+function rampLut(paint: Painter): Rgb[] {
+	const red = channels(paint("var(--vp-pixel-red)"));
+	const stops: [number, Rgb][] = [
+		[0, channels(paint("var(--vp-sun)"))],
+		[0.45, channels(paint("var(--vp-pixel-gold)"))],
+		[1, red],
+	];
+	return Array.from({ length: 256 }, (_, alpha) => {
+		const t = alpha / 255;
+		for (let s = 1; s < stops.length; s++) {
+			const a = stops[s - 1];
+			const b = stops[s];
+			if (!a || !b || t > b[0]) continue;
+			const f = (t - a[0]) / (b[0] - a[0]);
+			return a[1].map((v, i) =>
+				Math.round(v + ((b[1][i] ?? v) - v) * f),
+			) as Rgb;
+		}
+		return red;
+	});
 }
-
-const RAMP_LUT = Array.from({ length: 256 }, (_, alpha) =>
-	rampColor(alpha / 255),
-);
 
 /** Photo density grid: cell index → photo count. */
 function bucketPoints(points: Float32Array): Map<number, number> {
@@ -59,6 +58,8 @@ function draw(
 	buckets: Map<number, number>,
 	world: WorldShapes | null,
 	codes: readonly string[],
+	paint: Painter,
+	view: Box,
 	countryColor: (code: string) => string,
 ) {
 	const ctx = canvas.getContext("2d");
@@ -68,23 +69,25 @@ function draw(
 	heat.height = canvas.height;
 	const hctx = heat.getContext("2d", { willReadFrequently: true });
 	if (!hctx) return;
-	const scale = canvas.width / WORLD_WIDTH;
+	const [vx, vy, vw] = view;
+	const scale = canvas.width / vw;
 
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	if (world) {
 		ctx.save();
 		ctx.scale(scale, scale);
+		ctx.translate(-vx, -vy);
 		const land = new Path2D(world.landPath);
-		ctx.fillStyle = "rgba(128,128,140,0.18)";
+		ctx.fillStyle = paint("var(--vp-viz-land)");
 		ctx.fill(land);
-		ctx.strokeStyle = "rgba(128,128,140,0.45)";
-		ctx.lineWidth = 0.5;
+		ctx.strokeStyle = paint("var(--vp-viz-land-edge)");
+		ctx.lineWidth = (0.5 * vw) / WORLD_WIDTH;
 		ctx.stroke(land);
 		for (const code of codes) {
 			const d = world.countryPaths[code];
 			if (!d) continue;
-			ctx.globalAlpha = 0.14;
-			ctx.fillStyle = countryColor(code);
+			ctx.globalAlpha = 0.3;
+			ctx.fillStyle = paint(countryColor(code));
 			ctx.fill(new Path2D(d));
 		}
 		ctx.restore();
@@ -95,8 +98,8 @@ function draw(
 	const radius = CELL_PX * scale * 2.1;
 	hctx.globalCompositeOperation = "lighter";
 	for (const [key, count] of buckets) {
-		const x = ((key % cols) + 0.5) * CELL_PX * scale;
-		const y = (Math.floor(key / cols) + 0.5) * CELL_PX * scale;
+		const x = (((key % cols) + 0.5) * CELL_PX - vx) * scale;
+		const y = ((Math.floor(key / cols) + 0.5) * CELL_PX - vy) * scale;
 		const alpha = Math.min(0.85, 0.1 + 0.6 * Math.sqrt(count / max));
 		const g = hctx.createRadialGradient(x, y, 0, x, y, radius);
 		g.addColorStop(0, `rgba(255,255,255,${alpha})`);
@@ -107,12 +110,13 @@ function draw(
 		hctx.fill();
 	}
 	// Recolour the accumulated white alpha through the ramp.
+	const lut = rampLut(paint);
 	const image = hctx.getImageData(0, 0, heat.width, heat.height);
 	const px = image.data;
 	for (let p = 3; p < px.length; p += 4) {
 		const alpha = px[p] ?? 0;
 		if (alpha === 0) continue;
-		const [r, g, b] = RAMP_LUT[alpha] ?? [0, 0, 0];
+		const [r, g, b] = lut[alpha] ?? [0, 0, 0];
 		px[p - 3] = r;
 		px[p - 2] = g;
 		px[p - 1] = b;
@@ -131,8 +135,9 @@ export function HeatmapChart({
 	data: VizData;
 	world: WorldShapes | null;
 }) {
-	const countryColor = useCanvasCountryColour();
 	const ref = useRef<HTMLCanvasElement>(null);
+	const painter = usePainter();
+	const countryColor = useCountryColour();
 	useEffect(() => {
 		const canvas = ref.current;
 		if (!canvas) return;
@@ -144,19 +149,24 @@ export function HeatmapChart({
 			bucketPoints(data.heatPoints),
 			world,
 			data.countries.map((c) => c.code),
+			painter(canvas.parentElement ?? document.body),
+			fitView(data.countries.map((c) => c.code)),
 			countryColor,
 		);
-	}, [data, world, countryColor]);
+	}, [data, world, painter, countryColor]);
 
 	if (data.heatPoints.length === 0) return <NoData />;
 	return (
 		<figure className="vp-viz-figure">
-			<canvas
-				ref={ref}
-				className="vp-viz-canvas"
-				role="img"
-				aria-label="Photo heatmap"
-			/>
+			<div className="vp-viz-sky">
+				<TwinkleStars count={28} seed={5} />
+				<canvas
+					ref={ref}
+					className="vp-viz-canvas"
+					role="img"
+					aria-label="Photo heatmap"
+				/>
+			</div>
 			<figcaption className="vp-viz-legend">
 				Few photos <span className="vp-viz-ramp" /> Many photos
 			</figcaption>

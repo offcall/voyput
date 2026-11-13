@@ -1,5 +1,7 @@
 import type { VizData } from "@voyput/core";
+import { Stat, StatGroup } from "@voyput/ui";
 import { flag, formatInt, NoData } from "./format";
+import { LineChart } from "./LineChart";
 
 function gap(hours: number): string {
 	return hours < 48
@@ -21,67 +23,54 @@ export function DistanceChart({ data }: { data: VizData }) {
 		["Time span", `${d.spanDays} days`],
 		["Photo-to-photo steps", formatInt(d.segmentCount)],
 	];
-	const maxYear = Math.max(1, ...d.perYear.map((y) => y.km));
 
 	return (
 		<figure className="vp-viz-figure">
-			<dl className="vp-viz-stats">
+			<StatGroup>
 				{stats.map(([label, value]) => (
-					<div key={label}>
-						<dt>{label}</dt>
-						<dd>{value}</dd>
-					</div>
+					<Stat key={label} label={label} value={value} />
 				))}
-			</dl>
-			<div className="vp-viz-bars" role="img" aria-label="Kilometres per year">
-				{d.perYear.map((y) => (
-					<div
-						key={y.year}
-						className="vp-viz-bar-col"
-						title={`${y.year} · ${formatInt(y.km)} km`}
-					>
-						<span>{formatInt(y.km)}</span>
-						<div
-							className="vp-viz-bar"
-							style={{
-								height: `${Math.max(3, Math.round((y.km / maxYear) * 100))}%`,
-							}}
-						/>
-						<span className="vp-viz-muted">{y.year}</span>
-					</div>
-				))}
-			</div>
-			<table className="vp-viz-table">
-				<caption className="vp-viz-muted">
-					Ten longest jumps between consecutive photos
-				</caption>
-				<thead>
-					<tr>
-						<th>#</th>
-						<th>From</th>
-						<th>To</th>
-						<th>Distance</th>
-						<th>Date</th>
-						<th>Gap</th>
-					</tr>
-				</thead>
-				<tbody>
-					{d.top.map((s, i) => (
-						<tr key={`${s.fromDate}-${s.toDate}-${s.km}`}>
-							<td>{i + 1}</td>
-							<td>
-								{flag(s.fromCode)} {s.fromCountry}
-							</td>
-							<td>
-								{flag(s.toCode)} {s.toCountry}
-							</td>
-							<td>{formatInt(s.km)} km</td>
-							<td>{s.fromDate}</td>
-							<td>{gap(s.hours)}</td>
+			</StatGroup>
+			<h3 className="vp-viz-subtitle">Kilometres per year</h3>
+			<LineChart
+				label="Kilometres per year"
+				points={d.perYear.map((y) => ({ label: y.year, value: y.km }))}
+				format={(km) => `${formatInt(km)} km`}
+				showValues
+			/>
+			<div className="vp-viz-scroll">
+				<table className="vp-viz-table">
+					<caption className="vp-viz-muted">
+						Ten longest jumps between consecutive photos
+					</caption>
+					<thead>
+						<tr>
+							<th>#</th>
+							<th>From</th>
+							<th>To</th>
+							<th>Distance</th>
+							<th>Date</th>
+							<th>Gap</th>
 						</tr>
-					))}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{d.top.map((s, i) => (
+							<tr key={`${s.fromDate}-${s.toDate}-${s.km}`}>
+								<td>{i + 1}</td>
+								<td>
+									{flag(s.fromCode)} {s.fromCountry}
+								</td>
+								<td>
+									{flag(s.toCode)} {s.toCountry}
+								</td>
+								<td>{formatInt(s.km)} km</td>
+								<td>{s.fromDate}</td>
+								<td>{gap(s.hours)}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
 		</figure>
 	);
 }

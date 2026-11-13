@@ -73,10 +73,11 @@ export function DonutChart({ data }: { data: VizData }) {
 			<div className="vp-viz-donuts">
 				{rings.map((ring) => (
 					<svg
+						className="vp-viz-donut"
 						key={ring.year}
 						viewBox="0 0 150 150"
-						width={150}
-						height={150}
+						width={170}
+						height={170}
 						role="img"
 						aria-label={`Countries in ${ring.year}`}
 					>
@@ -84,9 +85,11 @@ export function DonutChart({ data }: { data: VizData }) {
 							<path
 								key={arc.code || "other"}
 								d={arc.d}
-								fill={arc.code ? countryColor(arc.code) : OTHER_COLOR}
+								style={{
+									fill: arc.code ? countryColor(arc.code) : OTHER_COLOR,
+								}}
 								stroke="var(--vp-surface)"
-								strokeWidth={1.5}
+								strokeWidth={2.5}
 								className="vp-viz-donut-seg"
 							>
 								<title>
@@ -96,7 +99,7 @@ export function DonutChart({ data }: { data: VizData }) {
 						))}
 						<text
 							x={C}
-							y={72}
+							y={74}
 							textAnchor="middle"
 							className="vp-viz-donut-year"
 						>
@@ -104,7 +107,7 @@ export function DonutChart({ data }: { data: VizData }) {
 						</text>
 						<text
 							x={C}
-							y={88}
+							y={92}
 							textAnchor="middle"
 							className="vp-viz-donut-total"
 						>
