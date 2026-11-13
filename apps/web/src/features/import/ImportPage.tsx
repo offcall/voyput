@@ -1,10 +1,12 @@
 import { PageHeader, Stack } from "@voyput/ui";
+import { useState } from "react";
 import { DemoLoader } from "../demo/DemoLoader";
-import { CsvImport } from "./csv/CsvImport";
+import { CsvImport, type DemoLoaded } from "./csv/CsvImport";
 import { PhotoImport } from "./photos/PhotoImport";
 import "./import.css";
 
 export function ImportPage() {
+	const [demoLoaded, setDemoLoaded] = useState<DemoLoaded | null>(null);
 	return (
 		<Stack>
 			<PageHeader
@@ -12,10 +14,20 @@ export function ImportPage() {
 				title="Import"
 				description="Bring your passport photos and the location CSV. Everything stays in this browser."
 			/>
-			<PhotoImport />
-			<div className="import-row">
-				<CsvImport />
-				<DemoLoader />
+			<div className="import-layout">
+				<div className="import-photos">
+					<PhotoImport />
+				</div>
+				<div className="import-csv-slot">
+					<CsvImport demoLoaded={demoLoaded} />
+				</div>
+				<div className="import-demo-slot">
+					<DemoLoader
+						onLoaded={(summary) =>
+							setDemoLoaded({ summary: summary.locationSummary })
+						}
+					/>
+				</div>
 			</div>
 		</Stack>
 	);

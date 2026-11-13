@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderApp } from "./renderApp";
@@ -40,9 +40,23 @@ describe("import location CSV", () => {
 			]),
 		);
 
+		await screen.findByText(
+			"Imported 2 locations · 2 countries · 2019. Skipped 1 rows with a bad date, coordinates or country code.",
+		);
+		const stored = screen.getByRole("region", { name: "Stored locations" });
+		expect(document.activeElement).toBe(stored);
+		await within(stored).findByText("2019–2019");
 		expect(
-			(await screen.findByText(/Imported 2 locations/)).textContent,
-		).toMatch(/from 2019-05-01 to 2019-06-10 in 2 countries\. Skipped 1 rows/);
+			within(stored)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual(["🇲🇩MDMoldova, Republic of", "🇹🇷TRTürkiye"]);
+		within(stored).getByRole("img", {
+			name: "Locations per month, 2019-05 to 2019-06, coloured by country",
+		});
+		await within(screen.getByRole("link", { name: /^Import/ })).findByText(
+			"2 loc",
+		);
 		const rows = await db.locations.orderBy("date").toArray();
 		expect(rows.map((r) => [r.uuid, r.country, r.isVideo])).toEqual([
 			["u1", "Moldova, Republic of", false],

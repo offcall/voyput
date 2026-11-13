@@ -1,6 +1,7 @@
 import { Button, Card, Dialog, Notice } from "@voyput/ui";
 import { useState } from "react";
 import { useDb } from "../../db/DbContext";
+import { focusStoredLocations, locationLine } from "../import/csv/locationLine";
 import {
 	type DemoSummary,
 	type FetchFile,
@@ -28,7 +29,12 @@ type LoadState =
 type Confirming = "replace" | "remove" | null;
 
 /** One-click demo data: a fictional passport, its stamps and matching locations. */
-export function DemoLoader() {
+export function DemoLoader({
+	onLoaded,
+}: {
+	/** Called after a successful load, e.g. to report it beside the location summary. */
+	onLoaded?: (summary: DemoSummary) => void;
+} = {}) {
 	const db = useDb();
 	const [state, setState] = useState<LoadState>({ kind: "idle" });
 	const [confirming, setConfirming] = useState<Confirming>(null);
@@ -38,10 +44,10 @@ export function DemoLoader() {
 		setState({ kind: "busy" });
 		try {
 			if (action === "load") {
-				setState({
-					kind: "loaded",
-					summary: await loadDemo(db, fetchDemoFile),
-				});
+				const summary = await loadDemo(db, fetchDemoFile);
+				setState({ kind: "loaded", summary });
+				onLoaded?.(summary);
+				focusStoredLocations();
 			} else {
 				await removeDemo(db);
 				setState({ kind: "removed" });
@@ -148,10 +154,11 @@ function LoadStatus({ state }: { state: LoadState }) {
 		case "removed":
 			return <Notice role="status">Demo data removed.</Notice>;
 		case "loaded": {
-			const { photos, stamps, locations } = state.summary;
+			const { photos, stamps, locationSummary } = state.summary;
 			return (
 				<Notice tone="good" role="status">
-					Loaded {photos} demo pages, {stamps} stamps and {locations} locations.
+					Loaded {photos} demo pages, {stamps} stamps and{" "}
+					{locationLine(locationSummary)}.
 				</Notice>
 			);
 		}

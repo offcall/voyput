@@ -13,10 +13,16 @@ import {
 	Stat,
 	StatGroup,
 } from "@voyput/ui";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
 import { useLiveQuery } from "../photos/useLiveQuery";
+import { LocationStrip } from "./LocationStrip";
+import {
+	focusStoredLocations,
+	locationLine,
+	STORED_LOCATIONS_ID,
+} from "./locationLine";
 import {
 	type StoredLocations,
 	summarizeStoredLocations,
@@ -26,6 +32,7 @@ type ImportState =
 	| { kind: "idle" }
 	| { kind: "busy" }
 	| { kind: "done"; summary: LocationSummary; skipped: number }
+	| { kind: "demo"; summary: LocationSummary }
 	| { kind: "error"; message: string };
 
 /** Parses the file and replaces all stored locations in one transaction. */
@@ -61,10 +68,23 @@ async function importLocationCsv(
 	};
 }
 
+/** A demo load; a new object for every load, so the card reports each one. */
+export interface DemoLoaded {
+	summary: LocationSummary;
+}
+
 /** Location CSV upload: photo_locations.csv from the Apple Photos export. */
-export function CsvImport() {
+export function CsvImport({
+	demoLoaded = null,
+}: {
+	/** Latest demo load, reported here next to the summary it changed. */
+	demoLoaded?: DemoLoaded | null;
+} = {}) {
 	const db = useDb();
 	const [state, setState] = useState<ImportState>({ kind: "idle" });
+	useEffect(() => {
+		if (demoLoaded) setState({ kind: "demo", summary: demoLoaded.summary });
+	}, [demoLoaded]);
 	const { data: stored } = useLiveQuery(
 		useCallback(() => summarizeStoredLocations(db), [db]),
 	);
@@ -74,7 +94,9 @@ export function CsvImport() {
 		if (!file || state.kind === "busy") return;
 		setState({ kind: "busy" });
 		try {
-			setState(await importLocationCsv(db, file));
+			const next = await importLocationCsv(db, file);
+			setState(next);
+			if (next.kind === "done") focusStoredLocations();
 		} catch (error) {
 			setState({
 				kind: "error",
@@ -89,14 +111,21 @@ export function CsvImport() {
 			description="Where your photos were taken, from the Apple Photos library."
 		>
 			<div className="import-csv">
-				<StoredSummary stored={stored} />
+				<section
+					id={STORED_LOCATIONS_ID}
+					className="import-stored"
+					tabIndex={-1}
+					aria-label="Stored locations"
+				>
+					<StoredSummary stored={stored} />
+				</section>
+				<ImportStatus state={state} />
 				<Dropzone
 					accept=".csv,text/csv"
 					label="Drop photo_locations.csv here or pick it"
 					hint="A new file replaces the locations imported before."
 					onFiles={onFiles}
 				/>
-				<ImportStatus state={state} />
 				<HowToGetFile />
 			</div>
 		</Card>
@@ -119,16 +148,20 @@ function ImportStatus({ state }: { state: ImportState }) {
 					{state.message}
 				</Notice>
 			);
+		case "demo":
+			return (
+				<Notice tone="good" role="status">
+					Demo locations loaded: {locationLine(state.summary)}.
+				</Notice>
+			);
 		case "done": {
 			const { summary, skipped } = state;
 			return (
 				<Notice tone="good" role="status">
-					Imported {summary.rowCount} locations
-					{summary.firstDay
-						? ` from ${summary.firstDay} to ${summary.lastDay}`
-						: ""}{" "}
-					in {summary.countryCount} countries. Skipped {skipped} rows with a bad
-					date or coordinates.
+					Imported {locationLine(summary)}.
+					{skipped > 0
+						? ` Skipped ${skipped.toLocaleString("en")} rows with a bad date, coordinates or country code.`
+						: ""}
 				</Notice>
 			);
 		}
@@ -213,6 +246,7 @@ function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
 					</li>
 				))}
 			</ul>
+			<LocationStrip periods={stored.periods} />
 		</>
 	);
 }

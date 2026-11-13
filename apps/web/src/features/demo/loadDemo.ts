@@ -1,10 +1,12 @@
 import {
 	type LocationRow,
+	type LocationSummary,
 	type Passport,
 	type PassportPhoto,
 	type PhotoExtraction,
 	parseLocationCsv,
 	type Stamp,
+	summarizeLocations,
 } from "@voyput/core";
 import type { VoyputDb } from "../../db/db";
 
@@ -30,6 +32,8 @@ export interface DemoSummary {
 	photos: number;
 	stamps: number;
 	locations: number;
+	/** Period and countries of the demo locations. */
+	locationSummary: LocationSummary;
 }
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -179,6 +183,7 @@ export async function loadDemo(
 		photos: photos.length,
 		stamps: manifest.stamps.length,
 		locations: locations.length,
+		locationSummary: summarizeLocations(locations),
 	};
 }
 

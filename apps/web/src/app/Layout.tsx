@@ -3,7 +3,7 @@ import { AppShell } from "@voyput/ui";
 import type { ReactNode } from "react";
 import { BrandMark, icons } from "./icons";
 import "./layout.css";
-import { type NavCounts, useNavCounts } from "./navCounts";
+import { locationCountLabel, type NavCounts, useNavCounts } from "./navCounts";
 import { type ThemeMode, useTheme } from "./theme";
 
 export const SECTIONS = [
@@ -72,6 +72,15 @@ export function Layout() {
 						title={`${count} ${COUNT_TITLES[section.to] ?? ""}`}
 					>
 						{section.to === "/trips" ? `${count} saved` : count}
+					</span>
+				) : null}
+				{section.to === "/import" && counts && counts.locations > 0 ? (
+					<span
+						className="vp-nav-count"
+						aria-hidden="true"
+						title={`${counts.locations.toLocaleString("en")} locations`}
+					>
+						{locationCountLabel(counts.locations)}
 					</span>
 				) : null}
 			</Link>

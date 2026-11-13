@@ -1,14 +1,38 @@
-/* Import page: passports with their photo grids, the CSV card and the demo card. */
+/* Import page: passports with their photo grids beside the CSV card and the
+   demo card. Narrow screens stack them: locations first, so a load shows. */
 
-.import-row {
+.import-layout {
 	display: grid;
-	grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+	grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+	grid-template-rows: auto 1fr;
+	grid-template-areas:
+		"photos csv"
+		"photos demo";
 	gap: var(--vp-space-4);
 	align-items: start;
 }
+.import-photos {
+	grid-area: photos;
+	display: grid;
+	gap: var(--vp-space-4);
+	min-width: 0;
+}
+.import-csv-slot {
+	grid-area: csv;
+	min-width: 0;
+}
+.import-demo-slot {
+	grid-area: demo;
+	min-width: 0;
+}
 @media (max-width: 960px) {
-	.import-row {
+	.import-layout {
 		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: none;
+		grid-template-areas:
+			"csv"
+			"photos"
+			"demo";
 	}
 }
 
@@ -190,4 +214,65 @@
 .import-csv .vp-stat-value {
 	font-size: var(--vp-text-lg);
 	white-space: nowrap;
+}
+
+/* Stored summary: focused after an import or a demo load. */
+.import-stored {
+	display: grid;
+	gap: var(--vp-space-3);
+	border-radius: var(--vp-radius);
+	outline-offset: 6px;
+	scroll-margin-top: var(--vp-space-6);
+}
+/* Clear the sticky top bar the shell uses on narrow screens. */
+@media (max-width: 860px) {
+	.import-stored {
+		scroll-margin-top: 112px;
+	}
+}
+/* Two by two: the card sits in the narrow column beside the passports. */
+.import-stored .vp-stats {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.import-stored:focus-visible,
+.import-stored:focus {
+	outline: 2px solid var(--vp-accent);
+}
+.import-stored:not(:focus-visible):focus {
+	outline-color: color-mix(in srgb, var(--vp-accent) 60%, transparent);
+}
+
+/* Month strip: one bar per month, stacked by country. */
+.import-strip {
+	margin: 0;
+	display: grid;
+	gap: 4px;
+}
+.import-strip-bars {
+	display: flex;
+	align-items: flex-end;
+	gap: 1px;
+	height: 56px;
+	padding: 4px;
+	border-radius: var(--vp-radius-sm);
+	background: var(--vp-surface-2);
+}
+.import-strip-bar {
+	flex: 1 1 0;
+	min-width: 1px;
+	display: flex;
+	flex-direction: column-reverse;
+	border-radius: 2px 2px 0 0;
+	overflow: hidden;
+}
+.import-strip-bar > span {
+	flex-basis: 0;
+	min-height: 1px;
+}
+.import-strip-axis {
+	display: flex;
+	justify-content: space-between;
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted);
+	font-variant-numeric: tabular-nums;
 }
