@@ -97,3 +97,18 @@
 .extract-conflicts li + li {
 	margin-top: 4px;
 }
+
+.extract-summary-count {
+	margin-right: 2px;
+	font-family: var(--vp-font-pixel);
+	font-size: 16px;
+	font-weight: 400;
+	color: var(--vp-accent-ink);
+}
+.extract-row[data-state="ok"] .extract-row-name::before {
+	content: "✓ ";
+	color: var(--vp-good);
+}
+.vp-empty-action .vp-button {
+	text-decoration: none;
+}

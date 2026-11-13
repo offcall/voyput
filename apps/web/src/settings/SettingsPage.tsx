@@ -1,9 +1,18 @@
-import { Card, Notice, PageHeader, Stack, TextField } from "@voyput/ui";
+import {
+	Badge,
+	Card,
+	Notice,
+	PageHeader,
+	PixelArt,
+	Stack,
+	TextField,
+} from "@voyput/ui";
 import { useEffect, useState } from "react";
 import { useAi } from "../ai/AiContext";
 import type { ModelOption } from "../ai/openrouter";
 import { useSettings } from "./SettingsContext";
 import type { ReasoningEffort } from "./settings";
+import "./settings.css";
 
 export function SettingsPage() {
 	const { settings, persisted, update } = useSettings();
@@ -27,6 +36,7 @@ export function SettingsPage() {
 		<Stack>
 			<PageHeader
 				title="Settings"
+				art={<PixelArt name="globe" scale={4} />}
 				description="Stamps are read by a vision model through OpenRouter, with your own key."
 			/>
 			{persisted ? null : (
@@ -35,9 +45,18 @@ export function SettingsPage() {
 					close the tab.
 				</Notice>
 			)}
-			<div style={{ maxWidth: 760 }}>
+			<div className="settings-column">
 				<Card
 					title="OpenRouter"
+					art={<PixelArt name="plane" scale={3} />}
+					variant={settings.openRouterKey ? "selected" : "default"}
+					actions={
+						settings.openRouterKey ? (
+							<Badge tone="good">key set</Badge>
+						) : (
+							<Badge tone="warn">no key yet</Badge>
+						)
+					}
 					description={
 						<>
 							Get a key at{" "}

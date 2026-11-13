@@ -14,6 +14,7 @@ import {
 	Dialog,
 	EmptyState,
 	PageHeader,
+	PixelArt,
 	Progress,
 	Stack,
 	Toolbar,
@@ -126,10 +127,21 @@ export function ExtractPage() {
 	if (!settings.openRouterKey) {
 		return (
 			<Stack>
-				<PageHeader eyebrow="Step 2 of 5" title="Extract" />
-				<EmptyState icon="🔑" title="An API key is needed">
-					Extraction needs your OpenRouter API key.{" "}
-					<Link to="/settings">Add it in Settings</Link>.
+				<PageHeader
+					eyebrow="Step 2 of 5"
+					title="Extract"
+					art={<PixelArt name="stamp" scale={4} />}
+				/>
+				<EmptyState
+					art={<PixelArt name="stamp" scale={6} />}
+					title="An API key is needed"
+					action={
+						<Link to="/settings" className="vp-button" data-variant="primary">
+							Add it in Settings
+						</Link>
+					}
+				>
+					Extraction needs your OpenRouter API key.
 				</EmptyState>
 			</Stack>
 		);
@@ -140,6 +152,7 @@ export function ExtractPage() {
 			<PageHeader
 				eyebrow="Step 2 of 5"
 				title="Extract"
+				art={<PixelArt name="stamp" scale={4} />}
 				description={
 					<>
 						Read stamps from passport photos with{" "}
@@ -148,8 +161,16 @@ export function ExtractPage() {
 				}
 			/>
 			{passports.length === 0 ? (
-				<EmptyState icon="📷" title="No passports yet">
-					<Link to="/import">Import photos</Link> first.
+				<EmptyState
+					art={<PixelArt name="passport" scale={6} />}
+					title="No passports yet"
+					action={
+						<Link to="/import" className="vp-button" data-variant="primary">
+							Import photos
+						</Link>
+					}
+				>
+					Add a passport and photos of its stamp pages first.
 				</EmptyState>
 			) : (
 				<Card>
@@ -186,7 +207,9 @@ export function ExtractPage() {
 							<ToolbarSpacer />
 							{loaded ? (
 								<span className="extract-summary">
-									{data.photos.length - notOk.length} of {data.photos.length}{" "}
+									<strong className="extract-summary-count">
+										{data.photos.length - notOk.length}/{data.photos.length}
+									</strong>{" "}
 									photos read
 								</span>
 							) : null}

@@ -1,0 +1,8 @@
+.settings-column {
+	max-width: 760px;
+}
+@media (max-width: 560px) {
+	.settings-column .vp-card-art {
+		display: none;
+	}
+}
