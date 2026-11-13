@@ -331,12 +331,19 @@ const isEmpty = (s: Draft) =>
 	s.stampIds.length === 0 &&
 	s.photoIds.length === 0;
 
-/** Neighbouring stays in one country (a stamp and photos told the same story) become one. */
+/**
+ * Neighbouring stays in one country that touch or overlap (a stamp and
+ * photos told the same story) become one. Across unknown days they stay two
+ * visits with a gap between.
+ */
 function mergeSameCountry(list: readonly Draft[]): Draft[] {
 	const out: Draft[] = [];
 	for (const s of list) {
 		const last = out.at(-1);
-		if (last && last.countryCode === s.countryCode) {
+		const until = last ? (last.departure?.date ?? null) : null;
+		const touches =
+			until === null || s.arrival.date === null || s.arrival.date <= until;
+		if (last && last.countryCode === s.countryCode && touches) {
 			last.departure = s.departure;
 			last.stampIds.push(...s.stampIds);
 			last.photoIds.push(...s.photoIds);

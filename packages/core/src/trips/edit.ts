@@ -7,8 +7,6 @@ const manual = (date: string | null): StayEdge => ({
 	method: "unknown",
 });
 
-const exact = (e: StayEdge) => e.source === "stamp" || e.source === "manual";
-
 /** An id not used by any of `stays`: `base`, else `base-2`, `base-3`… */
 function freeId(stays: readonly TravelStay[], base: string): string {
 	const used = new Set(stays.map((s) => s.id));
@@ -18,10 +16,12 @@ function freeId(stays: readonly TravelStay[], base: string): string {
 }
 
 /**
- * The history with a first stay "since birth" in the birth country, when
- * both the country and the date are known and no stay is since birth yet.
- * A first stay in that country whose arrival is only estimated becomes the
- * stay since birth; otherwise a new one ends where the first stay begins.
+ * The history matched to the birth setting. With both the birth country and
+ * date, it begins with a stay there "since birth" up to the first stay's
+ * arrival, unless some stay is since birth already. The stay added for it
+ * (`sinceBirth`) follows the setting while the user has not edited it: a new
+ * country moves it, an incomplete setting removes it. An edited one is the
+ * user's and stays as it is.
  */
 export function withBirthStay(
 	stays: readonly TravelStay[],
@@ -29,14 +29,12 @@ export function withBirthStay(
 ): TravelStay[] {
 	const { birthCountry } = birth;
 	const first = stays[0];
-	if (!birthCountry || !birth.birth || first?.arrival.date === null)
-		return [...stays];
-	if (first && first.countryCode === birthCountry && !exact(first.arrival))
-		return [
-			{ ...first, arrival: { ...first.arrival, date: null } },
-			...stays.slice(1),
-		];
-	const end = first?.arrival.date ?? null;
+	const generated = first?.sinceBirth && !first.edited ? first : null;
+	if (!birthCountry || !birth.birth)
+		return generated ? stays.slice(1) : [...stays];
+	if (generated)
+		return [{ ...generated, countryCode: birthCountry }, ...stays.slice(1)];
+	if (first?.arrival.date === null) return [...stays];
 	return [
 		{
 			id: freeId(stays, `stay-birth-${birthCountry.toLowerCase()}`),
@@ -44,10 +42,15 @@ export function withBirthStay(
 			place: "",
 			kind: "stay",
 			arrival: { date: null, source: "estimated", method: "unknown" },
-			departure: { date: end, source: "estimated", method: "unknown" },
+			departure: {
+				date: first?.arrival.date ?? null,
+				source: "estimated",
+				method: "unknown",
+			},
 			stampIds: [],
 			photoIds: [],
 			approved: false,
+			sinceBirth: true,
 		},
 		...stays,
 	];

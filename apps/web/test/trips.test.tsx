@@ -55,6 +55,7 @@ async function seed(db: VoyputDb) {
 	);
 	await db.locations.bulkPut([
 		...home,
+		photo("2024-02-29", "MD", "Moldova", "Chișinău"),
 		photo("2024-03-02", "RO", "Romania", "Bucharest"),
 		photo("2024-03-03", "RO", "Romania", "Brașov"),
 		photo("2024-03-10", "MD", "Moldova", "Chișinău"),
@@ -217,7 +218,7 @@ describe("trips", () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-settings");
 		await seed(db);
-		renderApp("/collect/trips", { db });
+		const first = renderApp("/collect/trips", { db });
 
 		const born = () => screen.getByText(/Born in/).closest("p");
 		await screen.findByText(/Born in/);
@@ -228,25 +229,83 @@ describe("trips", () => {
 			"MD",
 		);
 		// A country alone does not start a stay since birth.
-		expect((await row(1, "Moldova")).textContent).toContain("1 Jan");
+		expect((await row(1, "Moldova")).textContent).toContain("1 Jan → 1 Mar");
 		fireEvent.change(screen.getByLabelText("Birth date"), {
 			target: { value: "1997-05-21" },
 		});
 		expect((await row(1, "Moldova")).textContent).toContain(
-			"21 May 1997 → 1 Mar 2024",
+			"21 May 1997 → 1 Jan 2024",
 		);
+		expect((await row(2, "Moldova")).textContent).toContain("1 Jan → 1 Mar");
+		expect(stat("Stays")).toBe("6");
+
+		// A new country moves the stay since birth.
+		await user.selectOptions(
+			screen.getByRole("combobox", { name: "Birth country" }),
+			"RO",
+		);
+		expect((await row(1, "Romania")).textContent).toContain("21 May 1997");
+		expect(stat("Stays")).toBe("6");
+		// Clearing the date removes it.
+		fireEvent.change(screen.getByLabelText("Birth date"), {
+			target: { value: "" },
+		});
+		expect((await row(1, "Moldova")).textContent).toContain("1 Jan → 1 Mar");
+		expect(stat("Stays")).toBe("5");
+		// Undo brings it back, redo removes it again, undo once more.
+		await user.click(screen.getByRole("button", { name: "← Undo" }));
+		expect((await row(1, "Romania")).textContent).toContain("21 May 1997");
+		await user.click(screen.getByRole("button", { name: "Redo →" }));
+		expect(stat("Stays")).toBe("5");
+		await user.click(screen.getByRole("button", { name: "← Undo" }));
 		await user.click(screen.getByRole("button", { name: "Done" }));
-		expect(born()?.textContent).toMatch(/Born in 🇲🇩 Moldova · 21 May 1997/);
+		expect(born()?.textContent).toMatch(/Born in 🇷🇴 Romania · 21 May 1997/);
 		await waitFor(async () => {
 			expect((await db.kv.get("trips:birth"))?.value).toBe("1997-05-21");
-			expect((await db.kv.get("trips:birthCountry"))?.value).toBe("MD");
+			expect((await db.kv.get("trips:birthCountry"))?.value).toBe("RO");
+			expect((await storedStays(db))[0]).toMatchObject({
+				countryCode: "RO",
+				sinceBirth: true,
+			});
 		});
-		// Undo takes back the date and the stay since birth.
-		await user.click(screen.getByRole("button", { name: "← Undo" }));
-		expect((await row(1, "Moldova")).textContent).toContain("1 Jan");
-		await waitFor(async () =>
-			expect(await db.kv.get("trips:birth")).toBeUndefined(),
+		first.unmount();
+
+		// After a reload the stay still follows the setting.
+		renderApp("/collect/trips", { db });
+		expect((await row(1, "Romania")).textContent).toContain("21 May 1997");
+		await user.click(screen.getByRole("button", { name: "change" }));
+		await user.selectOptions(
+			screen.getByRole("combobox", { name: "Birth country" }),
+			"MD",
 		);
+		expect((await row(1, "Moldova")).textContent).toContain(
+			"21 May 1997 → 1 Jan 2024",
+		);
+	});
+
+	it("leaves a stay since birth the user edited when the birth setting changes", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-birth-edited");
+		await seed(db);
+		await db.kv.bulkPut([
+			{ key: "trips:birth", value: "1997-05-21" },
+			{ key: "trips:birthCountry", value: "MD" },
+		]);
+		renderApp("/collect/trips", { db });
+
+		const birthRow = (await row(1, "Moldova")).closest(".vp-stay");
+		if (!(birthRow instanceof HTMLElement)) throw new Error("no row");
+		expect(birthRow.textContent).toContain("21 May 1997");
+		await user.click(within(birthRow).getByRole("button", { name: "Transit" }));
+		await user.click(screen.getByRole("button", { name: "change" }));
+		await user.selectOptions(
+			screen.getByRole("combobox", { name: "Birth country" }),
+			"RO",
+		);
+		expect((await row(1, "Moldova")).textContent).toContain("21 May 1997");
+		expect(
+			screen.queryByRole("button", { name: /^\d+\. Romania, 21 May/ }),
+		).toBeNull();
 	});
 
 	it("shows days without evidence as a gap row and adds a stay in it", async () => {

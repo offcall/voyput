@@ -56,4 +56,6 @@ export interface TravelStay {
 	approved: boolean;
 	/** The user changed, split or added this stay: a rebuild keeps it. */
 	edited?: boolean;
+	/** Added for the birth country and date: follows them until the user edits it. */
+	sinceBirth?: boolean;
 }

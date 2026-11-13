@@ -334,6 +334,12 @@
 	background: var(--vp-bg);
 	border-bottom: 2px solid var(--vp-border);
 }
+/* Narrow screens: the shell's top bar (50px) is sticky too; stay under it. */
+@media (max-width: 860px) {
+	.vp-stays-bar {
+		top: 50px;
+	}
+}
 .vp-stays-born {
 	margin: 0;
 	font-size: var(--vp-text-md);

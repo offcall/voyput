@@ -265,6 +265,23 @@ describe("suggestStays", () => {
 		]);
 	});
 
+	it("keeps repeated visits to one country apart across a gap", () => {
+		const stays = suggest([
+			stamp("a", "2020-01-01", "ES", "entry"),
+			stamp("b", "2020-01-05", "ES", "exit"),
+			stamp("c", "2020-03-01", "ES", "entry"),
+			stamp("d", "2020-03-05", "ES", "exit"),
+		]);
+		expect(brief(stays).map((s) => s.slice(0, 3))).toEqual([
+			["ES", "2020-01-01", "2020-01-05"],
+			["ES", "2020-03-01", "2020-03-05"],
+		]);
+		expect(stays.map((s) => s.stampIds)).toEqual([
+			["a", "b"],
+			["c", "d"],
+		]);
+	});
+
 	it("fills an unknown method from the other side of the same crossing", () => {
 		const stays = suggest([
 			stamp("a", "2020-01-01", "UA", "exit", "unknown"),
@@ -619,38 +636,38 @@ describe("editing stays", () => {
 
 	it("starts the history since birth only with a birth country and date", () => {
 		const list = [stay("es", "ES", "2016-08-10", "2016-08-24")];
+		const md = { birthCountry: "MD", birth: "1997-05-21" };
 		expect(withBirthStay(list, { birthCountry: "MD", birth: null })).toEqual(
 			list,
 		);
 		expect(
 			withBirthStay(list, { birthCountry: null, birth: "1997-05-21" }),
 		).toEqual(list);
-		const born = withBirthStay(list, {
-			birthCountry: "MD",
-			birth: "1997-05-21",
-		});
+		const born = withBirthStay(list, md);
 		expect(brief(born).map((s) => s.slice(0, 4))).toEqual([
 			["MD", null, "2016-08-10", "estimated/estimated"],
 			["ES", "2016-08-10", "2016-08-24", "stamp/stamp"],
 		]);
-		// Already since birth: nothing changes.
-		expect(
-			withBirthStay(born, { birthCountry: "MD", birth: "1997-05-21" }),
-		).toEqual(born);
-		// A first stay there by estimate becomes the stay since birth.
-		const photos = [
-			stay("md", "MD", "2010-01-01", "2016-08-10", {
-				arrival: { date: "2010-01-01", source: "photos", method: "unknown" },
-			}),
-			...list,
-		];
-		const since = withBirthStay(photos, {
-			birthCountry: "MD",
-			birth: "1997-05-21",
-		});
-		expect(since.map((s) => [s.id, s.arrival.date])).toEqual([
-			["md", null],
-			["es", "2016-08-10"],
+		expect(born[0]?.sinceBirth).toBe(true);
+		// The same setting again changes nothing.
+		expect(withBirthStay(born, md)).toEqual(born);
+		// The generated stay follows a new country and goes with the setting.
+		const ro = withBirthStay(born, { ...md, birthCountry: "RO" });
+		expect(ro.map((s) => [s.id, s.countryCode])).toEqual([
+			[born[0]?.id, "RO"],
+			["es", "ES"],
 		]);
+		expect(withBirthStay(ro, { ...md, birth: null })).toEqual(list);
+		// Once the user edits it, it is theirs.
+		const edited = [{ ...(born[0] as TravelStay), edited: true }, ...list];
+		expect(withBirthStay(edited, { ...md, birthCountry: "RO" })).toEqual(
+			edited,
+		);
+		expect(withBirthStay(edited, { birthCountry: null, birth: null })).toEqual(
+			edited,
+		);
+		// A stay of the user's own since birth is left alone.
+		const own = [stay("mine", "UA", null, "2016-08-10"), ...list];
+		expect(withBirthStay(own, md)).toEqual(own);
 	});
 });
