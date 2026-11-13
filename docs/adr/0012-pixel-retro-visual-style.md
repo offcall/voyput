@@ -27,5 +27,6 @@ The maintainer chose a new look: a modern dark UI with pixel-art accents (8-bit 
 
 - The web bundle grows by the font files (about 70 kB of woff2 for the latin subsets; other subsets load only when a page uses their characters).
 - Colour tokens are `light-dark()` values switched by `color-scheme`, so there is one list for both themes. `getComputedStyle` on a token returns the raw `light-dark(...)` text, so code that needs the colour (canvas) reads it from an element that uses the token.
+- `light-dark()` needs Chrome/Edge 123+, Safari 17.5+ (iOS 17.5+) or Firefox 120+. Older browsers drop every colour token; there is no fallback.
 - A user who never picked a theme now gets dark even with a light system theme.
 - New sprites are added as grids in `packages/ui/src/pixel/`.
