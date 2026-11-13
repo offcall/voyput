@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	dateMatchesText,
 	findConflicts,
 	pairVisits,
 	parsePhotoResponse,
@@ -124,5 +125,34 @@ ${JSON.stringify({
 			"date 2012-05-17 is outside passport validity",
 		]);
 		expect(stamps.map((s) => s.borderCrossing)).toEqual(["unknown", "plane"]);
+	});
+});
+
+describe("dateMatchesText", () => {
+	it.each([
+		["2021-06-14", "◁ 14 06 21 03"],
+		["2022-05-17", "17.05.22 41"],
+		["2020-02-28", "28 02 20 9 <"],
+		["2019-12-02", "2 DEC 2019"],
+		["2019-07-15", "1 5 07 1 9 9 <"],
+		["2023-03-24", "MAR 24 2023"],
+		["2023-03-24", "Mar 24, 23"],
+		["2026-06-06", "2026/06/06"],
+		["2026-06-07", "2026-6-7 12"],
+	])("accepts %s for %j", (date, text) => {
+		expect(dateMatchesText(date, text)).toBe(true);
+	});
+
+	it.each([
+		// The officer number read as the year.
+		["2021-06-03", "◁ 14 06 21 03"],
+		["2016-03-24", "MAR 24 23 16"],
+		// Month first only with a month name.
+		["2023-03-24", "03 24 23"],
+		// Year first only with all four digits.
+		["2026-06-07", "26/06/07"],
+		["2023-03-24", ""],
+	])("rejects %s for %j", (date, text) => {
+		expect(dateMatchesText(date, text)).toBe(false);
 	});
 });
