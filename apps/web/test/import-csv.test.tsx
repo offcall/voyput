@@ -27,7 +27,7 @@ const OLD_ROW = {
 describe("import location CSV", () => {
 	it("stores the rows and shows a summary", async () => {
 		const user = userEvent.setup();
-		const { db } = renderApp("/");
+		const { db } = renderApp("/collect/locations");
 		await db.locations.add(OLD_ROW);
 
 		await user.upload(
@@ -54,9 +54,9 @@ describe("import location CSV", () => {
 		within(stored).getByRole("img", {
 			name: "Locations per month, 2019-05 to 2019-06, coloured by country",
 		});
-		await within(screen.getByRole("link", { name: /^Import/ })).findByText(
-			"2 loc",
-		);
+		await screen.findByRole("link", {
+			name: "Step 2: Locations, done, 2 places",
+		});
 		const rows = await db.locations.orderBy("date").toArray();
 		expect(rows.map((r) => [r.uuid, r.country, r.isVideo])).toEqual([
 			["u1", "Moldova, Republic of", false],
@@ -66,7 +66,7 @@ describe("import location CSV", () => {
 
 	it("keeps stored locations when a file is unusable", async () => {
 		const user = userEvent.setup();
-		const { db } = renderApp("/");
+		const { db } = renderApp("/collect/locations");
 		await db.locations.add(OLD_ROW);
 		const picker = await screen.findByLabelText(PICKER);
 

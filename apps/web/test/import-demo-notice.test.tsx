@@ -17,16 +17,25 @@ describe("location card after a demo load", () => {
 		stubDemoFetch();
 		stubObjectUrls();
 		const user = userEvent.setup();
-		renderApp("/import");
+		renderApp("/collect/passports");
+		const step = (name: RegExp) => screen.getByRole("link", { name });
 
 		await user.click(
 			await screen.findByRole("button", { name: "Load demo data" }),
 		);
+		await screen.findByText(/Loaded 5 demo pages/);
+		// The demo card is on the passports step; the locations step reports the load.
+		await user.click(step(/^Step 2: Locations/));
 		await screen.findByText(DEMO_NOTICE);
 
-		await user.click(screen.getByRole("button", { name: "Remove demo data" }));
+		await user.click(step(/^Step 1: Passports/));
+		await user.click(
+			await screen.findByRole("button", { name: "Remove demo data" }),
+		);
 		await user.click(await screen.findByRole("button", { name: "Remove" }));
 		await screen.findByText("Demo data removed.");
+		await user.click(step(/^Step 2: Locations/));
+		await screen.findByRole("region", { name: "Stored locations" });
 		await waitFor(() => expect(screen.queryByText(DEMO_NOTICE)).toBeNull());
 	});
 });

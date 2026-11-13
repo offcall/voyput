@@ -176,7 +176,7 @@ describe("extract", () => {
 
 		await user.click(screen.getByRole("link", { name: "Settings" }));
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
-		await user.click(screen.getByRole("link", { name: "Extract" }));
+		await user.click(screen.getByRole("link", { name: /^Collect/ }));
 
 		expect(await screen.findByText("reading…")).toBeTruthy();
 		const extract = screen.getByRole("button", { name: "Extract" });

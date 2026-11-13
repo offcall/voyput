@@ -1,27 +1,52 @@
 import type { Trip } from "@voyput/core";
 
+/** The Collect steps in wizard order; `/collect/<id>` opens one. */
+export const STEP_IDS = [
+	"passports",
+	"locations",
+	"extract",
+	"review",
+	"trips",
+] as const;
+
+export type StepId = (typeof STEP_IDS)[number];
+
+export function isStepId(value: unknown): value is StepId {
+	return (STEP_IDS as readonly unknown[]).includes(value);
+}
+
 /** What the plan is built from; all of it is read from the database. */
 export interface PlanInput {
+	passports: number;
 	photos: number;
+	/** Location rows stored (CSV and demo). */
+	locations: number;
+	/** Country codes found in the stored locations. */
+	locationCountries: readonly string[];
 	/** Photos with a successful extraction. */
 	extracted: number;
+	/** Photos whose last extraction failed. */
+	failed: number;
 	stamps: number;
 	/** Stamps not marked reviewed. */
 	toReview: number;
+	/** Unreviewed stamps with a problem the extraction flagged. */
+	problems: number;
 	/** Saved trips. */
 	trips: readonly Pick<Trip, "start" | "end" | "stops">[];
 	/** Home country chosen on Trips, or null. */
 	home: string | null;
-	/** Visualize was opened while saved trips existed. */
-	visualized: boolean;
 }
 
-export type StepKey = "import" | "extract" | "review" | "trips" | "visualize";
+/**
+ * `done`: nothing left to do here. `attention`: something went wrong and needs the user
+ * (failed extractions, flagged stamps). `todo`: not done yet.
+ */
+export type StepState = "done" | "attention" | "todo";
 
 export interface PlanStep {
-	key: StepKey;
-	label: string;
-	to: `/${StepKey}`;
+	id: StepId;
+	state: StepState;
 	done: boolean;
 }
 
@@ -30,10 +55,17 @@ export interface Plan {
 	doneCount: number;
 	/** First step not done yet, or null when all are done. */
 	next: PlanStep | null;
-	toReview: number;
+	/** The raw numbers, for step counts and the next call to action. */
+	input: PlanInput;
+	/** Photos without a successful extraction. */
+	toExtract: number;
+	/** Countries outside home: from saved trips, or from the locations before any trip is saved. */
 	countries: number;
+	countriesFrom: "trips" | "locations";
 	daysAbroad: number;
 	trips: number;
+	/** Open items: photos to extract, stamps to review, plus one per empty step. */
+	toDo: number;
 }
 
 const DAY_MS = 86_400_000;
@@ -63,36 +95,48 @@ export function daysAbroad(
 	return total;
 }
 
-/** The five workflow steps, each done or not, and the counters for the plan card. */
+/** The five Collect steps, each done or not, and the counters for the success header. */
 export function buildPlan(input: PlanInput): Plan {
 	const tripCount = input.trips.length;
-	const done: Record<StepKey, boolean> = {
-		import: input.photos > 0,
-		extract: input.photos > 0 && input.extracted >= input.photos,
+	const toExtract = Math.max(0, input.photos - input.extracted);
+	const done: Record<StepId, boolean> = {
+		passports: input.photos > 0,
+		locations: input.locations > 0,
+		extract: input.photos > 0 && toExtract === 0,
 		review: input.stamps > 0 && input.toReview === 0,
 		trips: tripCount > 0,
-		visualize: tripCount > 0 && input.visualized,
 	};
-	const steps: PlanStep[] = (
-		[
-			["import", "Import"],
-			["extract", "Extract"],
-			["review", "Review"],
-			["trips", "Trips"],
-			["visualize", "Visualize"],
-		] as const
-	).map(([key, label]) => ({ key, label, to: `/${key}`, done: done[key] }));
-	const countries = new Set(
+	const attention: Record<StepId, boolean> = {
+		passports: false,
+		locations: false,
+		extract: input.failed > 0,
+		review: input.problems > 0,
+		trips: false,
+	};
+	const steps: PlanStep[] = STEP_IDS.map((id) => ({
+		id,
+		done: done[id],
+		state: done[id] ? "done" : attention[id] ? "attention" : "todo",
+	}));
+	const fromTrips = new Set(
 		input.trips.flatMap((trip) => trip.stops.map((stop) => stop.countryCode)),
 	);
+	const countries =
+		tripCount > 0 ? fromTrips : new Set(input.locationCountries);
 	if (input.home) countries.delete(input.home);
+	const emptySteps = (["passports", "locations", "trips"] as const).filter(
+		(id) => !done[id],
+	).length;
 	return {
 		steps,
 		doneCount: steps.filter((step) => step.done).length,
 		next: steps.find((step) => !step.done) ?? null,
-		toReview: input.toReview,
+		input,
+		toExtract,
 		countries: countries.size,
+		countriesFrom: tripCount > 0 ? "trips" : "locations",
 		daysAbroad: daysAbroad(input.trips),
 		trips: tripCount,
+		toDo: toExtract + input.toReview + emptySteps,
 	};
 }

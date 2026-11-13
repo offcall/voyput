@@ -106,7 +106,12 @@ export function PhotoReview({
 				art={<PixelArt name="passport" scale={5} />}
 				title="No passport photos yet"
 				action={
-					<Link to="/import" className="vp-button" data-variant="primary">
+					<Link
+						to="/collect/$step"
+						params={{ step: "passports" }}
+						className="vp-button"
+						data-variant="primary"
+					>
 						Import photos
 					</Link>
 				}

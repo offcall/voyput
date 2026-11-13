@@ -16,7 +16,7 @@ const file = (name: string, type: string) =>
 describe("import passport photos", () => {
 	it("adds JPEG/PNG photos, rejects HEIC and keeps the rotation", async () => {
 		const user = userEvent.setup({ applyAccept: false });
-		const first = renderApp("/");
+		const first = renderApp("/collect/passports");
 
 		await user.type(await screen.findByLabelText("Passport name"), "Moldova 1");
 		await user.type(screen.getByLabelText("Valid from"), "2014-03-01");
@@ -53,7 +53,7 @@ describe("import passport photos", () => {
 		);
 		first.unmount();
 
-		renderApp("/", { db: first.db });
+		renderApp("/collect/passports", { db: first.db });
 		const img = await screen.findByRole("img", { name: "page-1.jpg" });
 		expect(img.dataset.rotation).toBe("180");
 		expect(
@@ -63,7 +63,7 @@ describe("import passport photos", () => {
 
 	it("deletes a photo and then the passport with everything read from them", async () => {
 		const user = userEvent.setup();
-		const { db } = renderApp("/");
+		const { db } = renderApp("/collect/passports");
 
 		await user.type(await screen.findByLabelText("Passport name"), "Old");
 		await user.click(screen.getByRole("button", { name: "Add passport" }));

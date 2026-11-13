@@ -67,117 +67,21 @@
 	}
 }
 
-/* Count badges on the tab icons; the phone tab bar has no room for the
-   sidebar's count pills, which the kit hides there. */
-.vp-nav-badges {
+/* Collect is one item (ADR 0016). Desktop: Collect, then the Visualize tabs.
+   Phones: Collect and a "Visualize" link in Collect; in Visualize every tab,
+   with Collect pinned at the start of the scrolling bar. */
+.vp-shell-nav a.vp-nav-phone {
 	display: none;
 }
 @media (max-width: 860px) {
-	.vp-shell-nav .vp-nav-icon {
-		position: relative;
-	}
-	.vp-nav-badges {
-		position: absolute;
-		top: -5px;
-		left: calc(50% + 5px);
+	.vp-shell-nav a.vp-nav-phone {
 		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 1px;
-		pointer-events: none;
 	}
-	.vp-nav-badge {
-		min-width: 15px;
-		box-sizing: border-box;
-		padding: 0 4px;
-		border-radius: 999px;
-		border: 1.5px solid var(--vp-surface);
-		background: var(--vp-accent);
-		color: var(--vp-accent-text);
-		font-size: 9.5px;
-		font-weight: 700;
-		line-height: 13px;
-		font-variant-numeric: tabular-nums;
-		text-align: center;
-		white-space: nowrap;
-	}
-	.vp-nav-badge[data-kind="locations"] {
-		display: inline-flex;
-		align-items: center;
-		gap: 2px;
-		background: var(--vp-surface-2);
-		color: var(--vp-text);
-		border-color: var(--vp-surface);
-	}
-	.vp-nav-icon .vp-nav-badge svg {
-		width: 8px;
-		height: 8px;
-	}
-}
-
-/* Collect / Visualize switch (ADR 0015): a segmented pill at the top of the
-   sidebar, the active area in green. */
-.vp-area-switch {
-	display: flex;
-	gap: 2px;
-	margin: 0 0 var(--vp-space-2);
-	padding: 3px;
-	min-width: 0;
-	border: 1px solid var(--vp-border);
-	border-radius: var(--vp-radius-full);
-	background: var(--vp-surface-2);
-}
-.vp-shell-nav .vp-area-switch a {
-	flex: 1;
-	justify-content: center;
-	padding: 7px 6px;
-	border-radius: var(--vp-radius-full);
-	font-family: var(--vp-font-pixel);
-	font-size: 11px;
-	font-weight: 400;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
-	box-shadow: none;
-	background: transparent;
-	color: var(--vp-muted);
-}
-.vp-shell-nav .vp-area-switch a:hover {
-	color: var(--vp-text);
-}
-.vp-shell-nav .vp-area-switch a[aria-current] {
-	background: var(--vp-accent);
-	color: var(--vp-accent-text);
-	box-shadow: 0 0 12px -2px var(--vp-accent);
-}
-.vp-area-switch .vp-nav-icon {
-	display: none;
-}
-.vp-area-switch .vp-nav-label {
-	flex: none;
-}
-
-@media (max-width: 860px) {
-	/* Phones: the switch is just the other area, as the first tab. */
-	.vp-area-switch {
-		display: contents;
-	}
-	.vp-shell-nav .vp-area-switch a[aria-current] {
+	.vp-shell-nav a.vp-nav-desktop {
 		display: none;
 	}
-	.vp-area-switch .vp-nav-icon {
-		display: grid;
-	}
-	.vp-shell-header > .vp-shell-nav .vp-area-switch a {
-		font-family: var(--vp-font);
-		font-size: 11px;
-		font-weight: 700;
-		text-transform: none;
-		letter-spacing: 0;
-		border-radius: 0;
-	}
-	/* In Visualize the bar holds every tab: it scrolls, the switch stays put. */
 	.vp-shell-header
-	> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"]) {
+		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"]) {
 		justify-content: flex-start;
 		padding-left: 0;
 		overflow-x: auto;
@@ -185,15 +89,13 @@
 	}
 	.vp-shell-header
 		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"])
-		> a,
-	.vp-shell-header
-		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"])
-		.vp-area-switch
-		a {
+		> a {
 		flex: none;
 		min-width: 68px;
 	}
-	.vp-shell-header > .vp-shell-nav .vp-area-switch a:not([aria-current]) {
+	.vp-shell-header
+		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"])
+		> a[data-area="collect"] {
 		position: sticky;
 		left: 0;
 		z-index: 1;

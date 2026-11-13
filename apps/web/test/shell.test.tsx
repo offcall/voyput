@@ -1,7 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { COLLECT_SECTIONS } from "../src/app/Layout";
 import type { VoyputDb } from "../src/db/db";
 import { renderApp } from "./renderApp";
 
@@ -32,52 +31,38 @@ async function seedCounts(db: VoyputDb) {
 	});
 }
 
-const badgesOf = (label: string) =>
-	[
-		...screen
-			.getByRole("link", { name: new RegExp(`^${label}`) })
-			.querySelectorAll(".vp-nav-badge"),
-	].map((badge) => badge.textContent);
-
 describe("app shell", () => {
-	it("opens on Import and reaches every Collect page and Settings from the nav", async () => {
+	it("opens on the first Collect step and reaches Visualize and Settings from the nav", async () => {
 		const user = userEvent.setup();
 		renderApp("/");
 		expect(
-			await screen.findByRole("heading", { level: 1, name: "Import" }),
+			await screen.findByRole("heading", { level: 1, name: "Collect" }),
+		).toBeTruthy();
+		expect(
+			screen.getByRole("heading", { level: 2, name: "Passports" }),
 		).toBeTruthy();
 
-		for (const section of [
-			...COLLECT_SECTIONS,
-			{ to: "/settings", label: "Settings" },
-		]) {
-			await user.click(screen.getByRole("link", { name: section.label }));
-			// Extract and Review are Collect steps without a page title of their own.
-			if (section.to === "/extract" || section.to === "/review")
-				await waitFor(() =>
-					expect(
-						screen
-							.getByRole("link", { name: section.label })
-							.getAttribute("aria-current"),
-					).toBe("page"),
-				);
-			else
-				expect(
-					await screen.findByRole("heading", { level: 1, name: section.label }),
-				).toBeTruthy();
-		}
+		await user.click(screen.getByRole("link", { name: "Settings" }));
+		await screen.findByRole("heading", { level: 1, name: "Settings" });
+		await user.click(screen.getByRole("link", { name: "Route" }));
+		await screen.findByRole("heading", { level: 1, name: "Visualize" });
+		await user.click(screen.getByRole("link", { name: /^Collect/ }));
+		await screen.findByRole("heading", { level: 1, name: "Collect" });
 	});
 
-	it("puts the nav counts as badges on the tab icons", async () => {
+	it("shows Collect progress on the nav item", async () => {
 		const { db } = renderApp("/settings");
 		await seedCounts(db);
-		await waitFor(() => expect(badgesOf("Import")).toEqual(["1", "2.5k"]));
-		expect(badgesOf("Extract")).toEqual(["1"]);
-		expect(badgesOf("Review")).toEqual([]);
+		// A photo and locations: the first two of five steps are done.
+		await waitFor(() =>
+			expect(screen.getByRole("link", { name: /^Collect/ }).textContent).toBe(
+				"Collect2/5",
+			),
+		);
 	});
 
 	it("gives countries distinct palette colours from the stored data", async () => {
-		const { db } = renderApp("/import");
+		const { db } = renderApp("/collect/locations");
 		await seedCounts(db);
 		const stored = await screen.findByRole("region", {
 			name: "Stored locations",

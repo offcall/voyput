@@ -5,10 +5,8 @@ import {
 	type RouterHistory,
 	redirect,
 } from "@tanstack/react-router";
-import { ExtractPage } from "../features/extract/ExtractPage";
-import { ImportPage } from "../features/import/ImportPage";
-import { ReviewPage } from "../features/review/ReviewPage";
-import { TripsPage } from "../features/trips/TripsPage";
+import { CollectPage } from "../features/collect/CollectPage";
+import { findStep } from "../features/collect/steps";
 import { findVizTab, firstVizTab } from "../features/visualize/tabs";
 import { VisualizePage } from "../features/visualize/VisualizePage";
 import { SettingsPage } from "../settings/SettingsPage";
@@ -20,7 +18,7 @@ const indexRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/",
 	beforeLoad: () => {
-		throw redirect({ to: "/import" });
+		throw redirect({ to: "/collect", replace: true });
 	},
 });
 
@@ -41,36 +39,88 @@ export interface ReviewSearch {
 	stamp?: string;
 }
 
-const reviewRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: "/review",
-	component: ReviewPage,
-	validateSearch: (search: Record<string, unknown>): ReviewSearch => ({
-		...(search.tab === "photos" || search.tab === "timeline"
-			? { tab: search.tab }
-			: {}),
-		...(typeof search.photo === "string" && search.photo
-			? { photo: search.photo }
-			: {}),
-		...(typeof search.stamp === "string" && search.stamp
-			? { stamp: search.stamp }
-			: {}),
-	}),
+const validateReviewSearch = (
+	search: Record<string, unknown>,
+): ReviewSearch => ({
+	...(search.tab === "photos" || search.tab === "timeline"
+		? { tab: search.tab }
+		: {}),
+	...(typeof search.photo === "string" && search.photo
+		? { photo: search.photo }
+		: {}),
+	...(typeof search.stamp === "string" && search.stamp
+		? { stamp: search.stamp }
+		: {}),
 });
 
-/** Trips stays mounted while the selected trip changes; the children only carry the id. */
-const tripsRoute = createRoute({
+/**
+ * Collect (ADR 0016): one layout for every step. It renders the step itself, so the
+ * children only carry the step id and the trip id; `/collect` opens the first step
+ * that is not done (the layout reads the database for that).
+ */
+const collectRoute = createRoute({
 	getParentRoute: () => rootRoute,
-	path: "/trips",
-	component: TripsPage,
+	path: "/collect",
+	component: CollectPage,
 });
-const tripsIndexRoute = createRoute({
-	getParentRoute: () => tripsRoute,
+const collectIndexRoute = createRoute({
+	getParentRoute: () => collectRoute,
 	path: "/",
 });
-const tripRoute = createRoute({
-	getParentRoute: () => tripsRoute,
-	path: "$tripId",
+/** Any step; the Review search params ride along on every step and are kept by Review. */
+const collectStepRoute = createRoute({
+	getParentRoute: () => collectRoute,
+	path: "$step",
+	validateSearch: validateReviewSearch,
+	beforeLoad: ({ params }) => {
+		if (!findStep(params.step))
+			throw redirect({ to: "/collect", replace: true });
+	},
+});
+const collectTripRoute = createRoute({
+	getParentRoute: () => collectRoute,
+	path: "trips/$tripId",
+});
+
+/** URLs from before the wizard (ADR 0013) lead to their step, keeping params. */
+const legacy = <TPath extends string>(
+	path: TPath,
+	step: "passports" | "extract" | "trips",
+) =>
+	createRoute({
+		getParentRoute: () => rootRoute,
+		path,
+		beforeLoad: () => {
+			throw redirect({
+				to: "/collect/$step",
+				params: { step },
+				replace: true,
+			});
+		},
+	});
+const legacyReviewRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/review",
+	validateSearch: validateReviewSearch,
+	beforeLoad: ({ search }) => {
+		throw redirect({
+			to: "/collect/$step",
+			params: { step: "review" },
+			search,
+			replace: true,
+		});
+	},
+});
+const legacyTripRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/trips/$tripId",
+	beforeLoad: ({ params }) => {
+		throw redirect({
+			to: "/collect/trips/$tripId",
+			params: { tripId: params.tripId },
+			replace: true,
+		});
+	},
 });
 
 /** Visualize stays mounted while the tab changes: data and the trip filter survive the switch. */
@@ -102,10 +152,16 @@ const visualizeTabRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
 	indexRoute,
-	page("/import", ImportPage),
-	page("/extract", ExtractPage),
-	reviewRoute,
-	tripsRoute.addChildren([tripsIndexRoute, tripRoute]),
+	collectRoute.addChildren([
+		collectIndexRoute,
+		collectStepRoute,
+		collectTripRoute,
+	]),
+	legacy("/import", "passports"),
+	legacy("/extract", "extract"),
+	legacyReviewRoute,
+	legacy("/trips", "trips"),
+	legacyTripRoute,
 	visualizeRoute.addChildren([visualizeIndexRoute, visualizeTabRoute]),
 	page("/settings", SettingsPage),
 ]);

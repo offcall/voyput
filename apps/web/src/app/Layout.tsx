@@ -1,50 +1,17 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { AppShell } from "@voyput/ui";
 import { type ReactNode, useEffect, useState } from "react";
-import { useDb } from "../db/DbContext";
+import { stepIdOf } from "../features/collect/CollectPage";
+import { firstUnfinishedStep } from "../features/collect/steps";
+import { isStepId, type StepId } from "../features/import/plan/planProgress";
+import { usePlan } from "../features/import/plan/usePlan";
 import { findVizTab, firstVizTab, VIZ_TABS } from "../features/visualize/tabs";
 import { CountryColoursProvider } from "./countryColours";
 import { BrandMark, icons } from "./icons";
 import "./layout.css";
-import {
-	compactCount,
-	locationCountLabel,
-	type NavCounts,
-	useNavCounts,
-} from "./navCounts";
-import { markVisualized } from "./planStore";
 import { type ThemeMode, useTheme } from "./theme";
 
-/** The Collect area's pages, in workflow order. */
-export const COLLECT_SECTIONS = [
-	{ to: "/import", label: "Import" },
-	{ to: "/extract", label: "Extract" },
-	{ to: "/review", label: "Review" },
-	{ to: "/trips", label: "Trips" },
-] as const;
-
-const SETTINGS = { to: "/settings", label: "Settings" } as const;
-
-type Section = (typeof COLLECT_SECTIONS)[number] | typeof SETTINGS;
-type CollectPath = (typeof COLLECT_SECTIONS)[number]["to"];
-
 export type Area = "collect" | "visualize";
-
-const ICONS: Record<Section["to"], ReactNode> = {
-	"/import": icons.import,
-	"/extract": icons.extract,
-	"/review": icons.review,
-	"/trips": icons.trips,
-	"/settings": icons.settings,
-};
-
-/** The Collect page a path belongs to (`/trips/abc` → `/trips`), if any. */
-function collectPathOf(pathname: string): CollectPath | undefined {
-	return COLLECT_SECTIONS.find(
-		(section) =>
-			pathname === section.to || pathname.startsWith(`${section.to}/`),
-	)?.to;
-}
 
 /** The Visualize tab id in a path (`/visualize/map` → `map`), if it is a known tab. */
 function vizTabOf(pathname: string): string | undefined {
@@ -54,118 +21,43 @@ function vizTabOf(pathname: string): string | undefined {
 }
 
 /**
- * The active area and where each area's switch leads: the last page visited there,
- * or its first page. Settings belongs to neither and keeps the last area.
+ * The active area and where each area's link leads: the last step or tab visited
+ * there. Settings belongs to neither and keeps the last area.
  */
 function useAreas(pathname: string) {
 	const [last, setLast] = useState<{
 		area: Area;
-		collect: CollectPath;
+		step: StepId | null;
 		tab: string;
-	}>({ area: "collect", collect: "/import", tab: firstVizTab().id });
-	const collect = collectPathOf(pathname);
+	}>({ area: "collect", step: null, tab: firstVizTab().id });
+	const id = stepIdOf(pathname);
+	const step = isStepId(id) ? id : null;
 	const tab = vizTabOf(pathname);
+	const inCollect = pathname === "/collect" || pathname.startsWith("/collect/");
 	const inVisualize =
 		pathname === "/visualize" || pathname.startsWith("/visualize/");
 	useEffect(() => {
-		if (collect) setLast((prev) => ({ ...prev, area: "collect", collect }));
+		if (step) setLast((prev) => ({ ...prev, area: "collect", step }));
 		else if (tab) setLast((prev) => ({ ...prev, area: "visualize", tab }));
-	}, [collect, tab]);
-	const area: Area = collect
+	}, [step, tab]);
+	const area: Area = inCollect
 		? "collect"
 		: inVisualize
 			? "visualize"
 			: last.area;
-	return { area, collect: last.collect, tab: last.tab };
+	return { area, step: last.step, tab: last.tab };
 }
-
-/** The number next to a section, or null when there is nothing worth showing. */
-function countFor(to: Section["to"], counts: NavCounts | undefined) {
-	if (!counts) return null;
-	const value =
-		to === "/import"
-			? counts.photos
-			: to === "/extract"
-				? counts.toExtract
-				: to === "/review"
-					? counts.toReview
-					: to === "/trips"
-						? counts.trips
-						: 0;
-	return value > 0 ? value : null;
-}
-
-const COUNT_TITLES: Partial<Record<Section["to"], string>> = {
-	"/import": "photos",
-	"/extract": "photos to extract",
-	"/review": "stamps to review",
-	"/trips": "saved trips",
-};
 
 export function Layout() {
-	const counts = useNavCounts();
+	const plan = usePlan();
 	const [theme, setTheme] = useTheme();
-	const db = useDb();
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
-	const trips = counts?.trips ?? 0;
-	// Opening Visualize with saved trips ticks the last step of the Import plan.
-	useEffect(() => {
-		if (pathname.startsWith("/visualize") && trips > 0)
-			void markVisualized(db).catch(() => undefined);
-	}, [db, pathname, trips]);
 	const areas = useAreas(pathname);
-	const navLink = (section: Section) => {
-		const count = countFor(section.to, counts);
-		const locations =
-			section.to === "/import" && counts && counts.locations > 0
-				? counts.locations
-				: null;
-		return (
-			<Link
-				key={section.to}
-				to={section.to}
-				activeProps={{ "aria-current": "page" }}
-			>
-				<span className="vp-nav-icon">
-					{ICONS[section.to]}
-					{count !== null || locations !== null ? (
-						<span className="vp-nav-badges" aria-hidden="true">
-							{count !== null ? (
-								<span className="vp-nav-badge">{compactCount(count)}</span>
-							) : null}
-							{locations !== null ? (
-								<span className="vp-nav-badge" data-kind="locations">
-									{icons.pin}
-									{compactCount(locations)}
-								</span>
-							) : null}
-						</span>
-					) : null}
-				</span>
-				<span className="vp-nav-label">{section.label}</span>
-				{count !== null ? (
-					<span
-						className="vp-nav-count"
-						aria-hidden="true"
-						title={`${count} ${COUNT_TITLES[section.to] ?? ""}`}
-					>
-						{section.to === "/trips" ? `${count} saved` : count}
-					</span>
-				) : null}
-				{locations !== null ? (
-					<span
-						className="vp-nav-count"
-						aria-hidden="true"
-						title={`${locations.toLocaleString("en")} locations`}
-					>
-						{locationCountLabel(locations)}
-					</span>
-				) : null}
-			</Link>
-		);
-	};
+	const inCollect = pathname === "/collect" || pathname.startsWith("/collect/");
+	const collectStep =
+		areas.step ?? (plan ? firstUnfinishedStep(plan) : "passports");
 
 	return (
 		<AppShell
@@ -177,42 +69,64 @@ export function Layout() {
 			}
 			nav={
 				<>
-					<AreaSwitch
-						area={areas.area}
-						collect={areas.collect}
-						tab={areas.tab}
-					/>
+					<Link
+						to="/collect/$step"
+						params={{ step: collectStep }}
+						data-area="collect"
+						aria-current={inCollect ? "page" : undefined}
+					>
+						<span className="vp-nav-icon">{icons.collect}</span>
+						<span className="vp-nav-label">Collect</span>
+						{plan ? (
+							<span
+								className="vp-nav-count"
+								aria-hidden="true"
+								title={`${plan.doneCount} of ${plan.steps.length} steps done`}
+							>
+								{plan.doneCount}/{plan.steps.length}
+							</span>
+						) : null}
+					</Link>
 					{areas.area === "collect" ? (
-						<>
-							<span className="vp-nav-group" aria-hidden="true">
-								Collect
-							</span>
-							{COLLECT_SECTIONS.map(navLink)}
-						</>
-					) : (
-						<>
-							<span className="vp-nav-group" aria-hidden="true">
-								Visualize
-							</span>
-							{VIZ_TABS.map((tab) => (
-								<Link
-									key={tab.id}
-									ref={tab.id === areas.tab ? keepInView : undefined}
-									to="/visualize/$tab"
-									params={{ tab: tab.id }}
-									activeProps={{ "aria-current": "page" }}
-								>
-									<span className="vp-nav-icon">{tab.icon}</span>
-									<span className="vp-nav-label">{tab.label}</span>
-								</Link>
-							))}
-						</>
-					)}
+						// Phones only: the bar shows Collect and this way to Visualize.
+						<Link
+							to="/visualize/$tab"
+							params={{ tab: areas.tab }}
+							className="vp-nav-phone"
+							data-area="visualize"
+						>
+							<span className="vp-nav-icon">{icons.visualize}</span>
+							<span className="vp-nav-label">Visualize</span>
+						</Link>
+					) : null}
+					<span className="vp-nav-group" aria-hidden="true">
+						Visualize
+					</span>
+					{VIZ_TABS.map((tab) => (
+						<Link
+							key={tab.id}
+							ref={tab.id === areas.tab ? keepInView : undefined}
+							to="/visualize/$tab"
+							params={{ tab: tab.id }}
+							className={
+								areas.area === "collect" ? "vp-nav-desktop" : undefined
+							}
+							activeProps={{ "aria-current": "page" }}
+						>
+							<span className="vp-nav-icon">{tab.icon}</span>
+							<span className="vp-nav-label">{tab.label}</span>
+						</Link>
+					))}
 				</>
 			}
 			footer={
 				<>
-					<div className="vp-shell-nav">{navLink(SETTINGS)}</div>
+					<div className="vp-shell-nav">
+						<Link to="/settings" activeProps={{ "aria-current": "page" }}>
+							<span className="vp-nav-icon">{icons.settings}</span>
+							<span className="vp-nav-label">Settings</span>
+						</Link>
+					</div>
 					<ThemeSwitch mode={theme} onChange={setTheme} />
 				</>
 			}
@@ -221,41 +135,6 @@ export function Layout() {
 				<Outlet />
 			</CountryColoursProvider>
 		</AppShell>
-	);
-}
-
-/**
- * The Collect / Visualize switch: a segmented pill in the sidebar; on phones only the
- * other area shows, as the first tab of the bottom bar.
- */
-function AreaSwitch({
-	area,
-	collect,
-	tab,
-}: {
-	area: Area;
-	collect: CollectPath;
-	tab: string;
-}) {
-	const current = (value: Area) =>
-		area === value ? ({ "aria-current": "true" } as const) : {};
-	return (
-		<fieldset className="vp-area-switch">
-			<legend className="vp-visually-hidden">Area</legend>
-			<Link to={collect} className="vp-area-link" {...current("collect")}>
-				<span className="vp-nav-icon">{icons.collect}</span>
-				<span className="vp-nav-label">Collect</span>
-			</Link>
-			<Link
-				to="/visualize/$tab"
-				params={{ tab }}
-				className="vp-area-link"
-				{...current("visualize")}
-			>
-				<span className="vp-nav-icon">{icons.visualize}</span>
-				<span className="vp-nav-label">Visualize</span>
-			</Link>
-		</fieldset>
 	);
 }
 

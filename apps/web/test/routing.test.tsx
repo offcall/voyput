@@ -39,7 +39,7 @@ describe("routing", () => {
 	beforeEach(() => stubObjectUrls());
 
 	it("opens the trip named in the path", async () => {
-		renderApp("/trips/t2", { db: await tripsDb() });
+		renderApp("/collect/trips/t2", { db: await tripsDb() });
 		expect(
 			await screen.findByRole("heading", { name: "Trip: Osaka" }),
 		).toBeTruthy();
@@ -47,7 +47,7 @@ describe("routing", () => {
 	});
 
 	it("shows the list for an unknown trip id", async () => {
-		renderApp("/trips/nope", { db: await tripsDb() });
+		renderApp("/collect/trips/nope", { db: await tripsDb() });
 		expect(await screen.findByRole("button", { name: "Lisbon" })).toBeTruthy();
 		expect(
 			screen.getByText("Pick a trip to see its days, stops and stamps."),
@@ -56,15 +56,15 @@ describe("routing", () => {
 
 	it("puts the selected trip in the path and follows back and forward", async () => {
 		const user = userEvent.setup();
-		const { router } = renderApp("/trips", { db: await tripsDb() });
+		const { router } = renderApp("/collect/trips", { db: await tripsDb() });
 
 		await user.click(await screen.findByRole("button", { name: "Lisbon" }));
 		await waitFor(() =>
-			expect(router.state.location.pathname).toBe("/trips/t1"),
+			expect(router.state.location.pathname).toBe("/collect/trips/t1"),
 		);
 		await user.click(screen.getByRole("button", { name: "Osaka" }));
 		await waitFor(() =>
-			expect(router.state.location.pathname).toBe("/trips/t2"),
+			expect(router.state.location.pathname).toBe("/collect/trips/t2"),
 		);
 		expect(detailHeading("Osaka")).toBeTruthy();
 
@@ -72,17 +72,21 @@ describe("routing", () => {
 		await waitFor(() => expect(detailHeading("Lisbon")).toBeTruthy());
 		act(() => router.history.back());
 		await waitFor(() => expect(detailHeading("Lisbon")).toBeNull());
-		expect(router.state.location.pathname).toBe("/trips");
+		expect(router.state.location.pathname).toBe("/collect/trips");
 		act(() => router.history.forward());
 		await waitFor(() => expect(detailHeading("Lisbon")).toBeTruthy());
 	});
 
-	it("changes the path when moving between sections", async () => {
+	it("changes the path when moving between steps and sections", async () => {
 		const user = userEvent.setup();
 		const { router } = renderApp("/");
-		await waitFor(() => expect(router.state.location.pathname).toBe("/import"));
-		await user.click(screen.getByRole("link", { name: /Trips/ }));
-		await waitFor(() => expect(router.state.location.pathname).toBe("/trips"));
+		await waitFor(() =>
+			expect(router.state.location.pathname).toBe("/collect/passports"),
+		);
+		await user.click(screen.getByRole("link", { name: /^Step 5: Trips/ }));
+		await waitFor(() =>
+			expect(router.state.location.pathname).toBe("/collect/trips"),
+		);
 		await user.click(screen.getByRole("link", { name: /Settings/ }));
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/settings"),
@@ -97,7 +101,7 @@ describe("routing", () => {
 		const second = photos.find((p) => p.name === "page-2.png");
 		if (!second) throw new Error("demo page-2.png missing");
 
-		const { router } = renderApp(`/review?photo=${second.id}`, { db });
+		const { router } = renderApp(`/collect/review?photo=${second.id}`, { db });
 		const current = await screen.findByRole("button", { current: true });
 		expect(current.textContent).toContain("page-2.png");
 

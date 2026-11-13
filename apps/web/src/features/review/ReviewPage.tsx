@@ -33,8 +33,8 @@ export function ReviewPage() {
 	const [uiError, setUiError] = useState<string | null>(null);
 	const [deleted, setDeleted] = useState<Stamp | null>(null);
 	/** Open tab and photo live in the URL (`?tab=timeline&photo=<id>`); an unknown photo falls back to the first. */
-	const search = useSearch({ from: "/review" });
-	const navigate = useNavigate({ from: "/review" });
+	const search = useSearch({ from: "/collect/$step" });
+	const navigate = useNavigate({ from: "/collect/$step" });
 	const currentId = search.photo ?? null;
 	const setCurrentId = (photo: string) =>
 		void navigate({ search: (s) => ({ ...s, photo }) });

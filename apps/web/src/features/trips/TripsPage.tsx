@@ -35,12 +35,14 @@ export function TripsPage() {
 	const db = useDb();
 	const [data, setData] = useState<TripsData | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	/** The selected trip lives in the URL (`/trips/<id>`); an unknown id selects nothing. */
+	/** The selected trip lives in the URL (`/collect/trips/<id>`); an unknown id selects nothing. */
 	const selectedId = useParams({ strict: false }).tripId ?? null;
 	const navigate = useNavigate();
 	const setSelectedId = (tripId: string | null) =>
 		void navigate(
-			tripId ? { to: "/trips/$tripId", params: { tripId } } : { to: "/trips" },
+			tripId
+				? { to: "/collect/trips/$tripId", params: { tripId } }
+				: { to: "/collect/$step", params: { step: "trips" } },
 		);
 
 	const reload = useCallback(
@@ -138,9 +140,8 @@ export function TripsPage() {
 
 	return (
 		<Stack>
-			<div className="vp-trips-top">
-				<h1>Trips</h1>
-				{data ? (
+			{data ? (
+				<div className="vp-trips-top">
 					<div className="vp-trips-toolbar">
 						<label className="vp-trips-home">
 							<span>Home country</span>
@@ -161,8 +162,8 @@ export function TripsPage() {
 						</label>
 						<AddTripForm onAdd={onAdd} />
 					</div>
-				) : null}
-			</div>
+				</div>
+			) : null}
 			{error ? <p role="alert">{error}</p> : null}
 			{!data ? (
 				<p>Loading…</p>

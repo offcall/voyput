@@ -153,7 +153,12 @@ export function ExtractPage() {
 					art={<PixelArt name="passport" scale={6} />}
 					title="No passports yet"
 					action={
-						<Link to="/import" className="vp-button" data-variant="primary">
+						<Link
+							to="/collect/$step"
+							params={{ step: "passports" }}
+							className="vp-button"
+							data-variant="primary"
+						>
 							Import photos
 						</Link>
 					}
@@ -356,7 +361,8 @@ function PhotoRow({
 									Retry
 								</Button>
 								<Link
-									to="/review"
+									to="/collect/$step"
+									params={{ step: "review" }}
 									search={{ photo: photo.id }}
 									className="vp-button"
 									data-size="sm"
@@ -386,7 +392,8 @@ function PhotoRow({
 								<Badge tone="warn">check</Badge>
 								<span className="extract-flag-text">{stamp.problem}</span>
 								<Link
-									to="/review"
+									to="/collect/$step"
+									params={{ step: "review" }}
 									search={{ photo: photo.id, stamp: stamp.id }}
 									className="extract-flag-link"
 								>

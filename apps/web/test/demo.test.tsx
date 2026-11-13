@@ -72,7 +72,7 @@ describe("demo data", () => {
 		stubDemoFetch();
 		stubObjectUrls();
 		const user = userEvent.setup();
-		const { db } = renderApp("/");
+		const { db } = renderApp("/collect/passports");
 		await seedOwnData(db);
 
 		await user.click(
@@ -81,11 +81,11 @@ describe("demo data", () => {
 		await screen.findByText(
 			"Loaded 5 demo pages, 16 stamps and 2,467 locations · 6 countries · 2016–2019.",
 		);
+		await user.click(screen.getByRole("link", { name: /^Step 2: Locations/ }));
 		await screen.findByText(
 			"Demo locations loaded: 2,467 locations · 6 countries · 2016–2019.",
 		);
 		const stored = screen.getByRole("region", { name: "Stored locations" });
-		expect(document.activeElement).toBe(stored);
 		await within(stored).findByText("2,468");
 		for (const code of ["UA", "ES", "PL", "GE", "IT", "FR"]) {
 			within(stored).getByText(code);
@@ -93,9 +93,10 @@ describe("demo data", () => {
 		within(stored).getByRole("img", {
 			name: "Locations per month, 2016-01 to 2020-02, coloured by country",
 		});
-		await within(screen.getByRole("link", { name: /^Import/ })).findByText(
-			"2.5k loc",
-		);
+		await screen.findByRole("link", {
+			name: "Step 2: Locations, done, 2.5k places",
+		});
+		await user.click(screen.getByRole("link", { name: /^Step 1: Passports/ }));
 		const counts = async () => ({
 			passports: await db.passports.count(),
 			photos: await db.photos.count(),

@@ -18,38 +18,6 @@ function Icon({ children }: { children: ReactNode }) {
 }
 
 export const icons = {
-	/** Tiny map pin for the location badge on the phone tab bar. */
-	pin: (
-		<svg aria-hidden="true" viewBox="0 0 8 8" shapeRendering="crispEdges">
-			<path
-				fill="currentColor"
-				d="M2 0h4v1h1v3h-1v1h-1v2h-2v-2h-1v-1h-1v-3h1zM3 2v1h2v-1z"
-			/>
-		</svg>
-	),
-	import: (
-		<Icon>
-			<path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
-		</Icon>
-	),
-	extract: (
-		<Icon>
-			<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" />
-			<path d="M8 12h8M8 9h5M8 15h6" />
-		</Icon>
-	),
-	review: (
-		<Icon>
-			<rect x="4" y="4" width="16" height="16" rx="3" />
-			<path d="m8.5 12 2.5 2.5 4.5-5" />
-		</Icon>
-	),
-	trips: (
-		<Icon>
-			<path d="M3.5 13.5 21 6l-4.5 14-4-6.5-9-0z" />
-			<path d="m12.5 13.5 3-3" />
-		</Icon>
-	),
 	/** A stack of photos: the Collect area. */
 	collect: (
 		<Icon>

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the hash history part of ADR 0006.
+Accepted. Supersedes the hash history part of ADR 0006. Collect URLs superseded by ADR 0016.
 
 ## Context
 

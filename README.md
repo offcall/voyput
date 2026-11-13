@@ -15,7 +15,13 @@ npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/d
 
 ## Deploy
 
-`apps/web/dist` is a static site with path routes (`/trips/<id>`, see [ADR 0013](docs/adr/0013-browser-history-routes.md)). The server (Coolify, nginx, any static host) must serve `index.html` for unknown paths, and the app must live at the domain root. Files that exist (`/assets/...`, `/demo/...`) are served as they are.
+`apps/web/dist` is a static site with path routes (`/collect/trips/<id>`, see [ADR 0013](docs/adr/0013-browser-history-routes.md)). The server (Coolify, nginx, any static host) must serve `index.html` for unknown paths, and the app must live at the domain root. Files that exist (`/assets/...`, `/demo/...`) are served as they are.
+
+## Navigation
+
+- **Collect** (`/collect/<step>`): one wizard — passports, locations, extract, review, trips — with a success header and a stepper on top. `/` opens the first step that is not done. Old URLs (`/import`, `/review?photo=…`, `/trips/<id>`, …) redirect. See [ADR 0016](docs/adr/0016-collect-wizard.md).
+- **Visualize** (`/visualize/<tab>`): one route per tab ([ADR 0015](docs/adr/0015-collect-and-visualize-navigation.md)).
+- **Settings** (`/settings`).
 
 ## Layout
 

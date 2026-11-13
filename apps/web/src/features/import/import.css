@@ -1,39 +1,43 @@
-/* Import page: passports with their photo grids beside the CSV card and the
-   demo card. Narrow screens stack them: locations first, so a load shows. */
+/* Passports step: passports with their photo grids beside the demo card.
+   Narrow screens stack them, the demo card last. */
 
 .import-layout {
 	display: grid;
-	grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
-	grid-template-rows: auto 1fr;
-	grid-template-areas:
-		"photos csv"
-		"photos demo";
+	grid-template-columns: minmax(0, 3fr) minmax(280px, 1.4fr);
 	gap: var(--vp-space-4);
 	align-items: start;
 }
 .import-photos {
-	grid-area: photos;
 	display: grid;
 	gap: var(--vp-space-4);
 	min-width: 0;
 	container-type: inline-size;
 }
-.import-csv-slot {
-	grid-area: csv;
-	min-width: 0;
-}
 .import-demo-slot {
-	grid-area: demo;
 	min-width: 0;
 }
 @media (max-width: 960px) {
 	.import-layout {
 		grid-template-columns: minmax(0, 1fr);
-		grid-template-rows: none;
-		grid-template-areas:
-			"csv"
-			"photos"
-			"demo";
+	}
+}
+
+/* Locations step: what is stored on the left, the drop zone and the how-to
+   on the right; one column in narrow containers. */
+.import-locations {
+	container-type: inline-size;
+}
+@container (min-width: 760px) {
+	.import-csv {
+		grid-template-columns: minmax(0, 3fr) minmax(260px, 2fr);
+		align-items: start;
+	}
+	.import-csv > .import-stored {
+		grid-column: 1;
+		grid-row: 1 / span 3;
+	}
+	.import-csv > :not(.import-stored) {
+		grid-column: 2;
 	}
 }
 
@@ -98,37 +102,6 @@
 }
 .import-messages:empty {
 	display: none;
-}
-
-/* Banner: a pixel sky with the title, the description below it. */
-.import-banner {
-	display: grid;
-	gap: var(--vp-space-1);
-}
-.import-banner-content {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	gap: var(--vp-space-4);
-}
-.import-banner h1 {
-	text-shadow: 2px 2px 0 light-dark(rgb(255 255 255 / 0.6), rgb(0 0 0 / 0.5));
-}
-.import-banner .vp-page-eyebrow {
-	color: light-dark(var(--vp-accent-text), var(--vp-accent-ink));
-}
-.import-banner-art {
-	flex: none;
-	margin-right: 18%;
-	rotate: -8deg;
-	filter: drop-shadow(3px 3px 0 rgb(0 0 0 / 0.25));
-}
-@media (max-width: 860px) {
-	.import-banner-art {
-		margin-right: 4px;
-		width: 48px;
-		height: auto;
-	}
 }
 
 /* Photo grid: the drop tile first, then one tile per page. */
