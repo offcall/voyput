@@ -181,7 +181,7 @@ describe("collect wizard", () => {
 			),
 		);
 		expect(stepLink(2).getAttribute("aria-label")).toBe(
-			"Step 2: Locations, done, 2.5k places",
+			"Step 2: Photo locations, done, 2.5k locations",
 		);
 		expect(stepLink(3).getAttribute("aria-label")).toBe(
 			"Step 3: Extract, needs attention, 1 failed",
@@ -230,7 +230,7 @@ describe("collect wizard", () => {
 		const stepNav = () =>
 			within(screen.getByRole("navigation", { name: "Step" }));
 		await user.click(
-			stepNav().getByRole("link", { name: "Next: Locations →" }),
+			stepNav().getByRole("link", { name: "Next: Photo locations →" }),
 		);
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/collect/locations"),

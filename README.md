@@ -19,7 +19,7 @@ npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/d
 
 ## Navigation
 
-- **Collect** (`/collect/<step>`): one wizard — passports, locations, extract, review, trips — with a success header and a stepper on top. `/` opens the first step that is not done. Old URLs (`/import`, `/review?photo=…`, `/trips/<id>`, …) redirect. See [ADR 0016](docs/adr/0016-collect-wizard.md).
+- **Collect** (`/collect/<step>`): one wizard — passports, photo locations, extract, review, trips — with a success header and a stepper on top. `/` opens the first step that is not done. Old URLs (`/import`, `/review?photo=…`, `/trips/<id>`, …) redirect. See [ADR 0016](docs/adr/0016-collect-wizard.md).
 - **Visualize** (`/visualize/<tab>`): one route per tab ([ADR 0015](docs/adr/0015-collect-and-visualize-navigation.md)).
 - **Settings** (`/settings`).
 

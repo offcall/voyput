@@ -65,7 +65,7 @@ describe("app shell", () => {
 		const { db } = renderApp("/collect/locations");
 		await seedCounts(db);
 		const stored = await screen.findByRole("region", {
-			name: "Stored locations",
+			name: "Stored photo locations",
 		});
 		const colours = () =>
 			Object.fromEntries(

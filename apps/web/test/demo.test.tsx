@@ -81,11 +81,15 @@ describe("demo data", () => {
 		await screen.findByText(
 			"Loaded 5 demo pages, 16 stamps and 2,467 locations · 6 countries · 2016–2019.",
 		);
-		await user.click(screen.getByRole("link", { name: /^Step 2: Locations/ }));
-		await screen.findByText(
-			"Demo locations loaded: 2,467 locations · 6 countries · 2016–2019.",
+		await user.click(
+			screen.getByRole("link", { name: /^Step 2: Photo locations/ }),
 		);
-		const stored = screen.getByRole("region", { name: "Stored locations" });
+		await screen.findByText(
+			"Demo photo locations loaded: 2,467 locations · 6 countries · 2016–2019.",
+		);
+		const stored = screen.getByRole("region", {
+			name: "Stored photo locations",
+		});
 		await within(stored).findByText("2,468");
 		for (const code of ["UA", "ES", "PL", "GE", "IT", "FR"]) {
 			within(stored).getByText(code);
@@ -94,7 +98,7 @@ describe("demo data", () => {
 			name: "Locations per month, 2016-01 to 2020-02, coloured by country",
 		});
 		await screen.findByRole("link", {
-			name: "Step 2: Locations, done, 2.5k places",
+			name: "Step 2: Photo locations, done, 2.5k locations",
 		});
 		await user.click(screen.getByRole("link", { name: /^Step 1: Passports/ }));
 		const counts = async () => ({

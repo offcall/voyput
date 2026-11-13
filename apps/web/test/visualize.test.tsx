@@ -48,10 +48,12 @@ const expectCountries = (count: string) =>
 describe("visualize", () => {
 	it("points to Import when there are no locations", async () => {
 		renderApp("/visualize/map");
-		expect(await screen.findByText("No location history yet")).toBeTruthy();
+		expect(
+			await screen.findByText("No photo location history yet"),
+		).toBeTruthy();
 		expect(
 			screen
-				.getByRole("link", { name: "Import locations" })
+				.getByRole("link", { name: "Import photo locations" })
 				.getAttribute("href"),
 		).toBe("/collect/locations");
 	});
@@ -65,7 +67,7 @@ describe("visualize", () => {
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"disk is gone",
 		);
-		expect(screen.queryByText("No location history yet")).toBeNull();
+		expect(screen.queryByText("No photo location history yet")).toBeNull();
 	});
 
 	it("fails only the trip tabs when the stays cannot be read", async () => {

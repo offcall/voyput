@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 const DEMO_NOTICE =
-	"Demo locations loaded: 2,467 locations · 6 countries · 2016–2019.";
+	"Demo photo locations loaded: 2,467 locations · 6 countries · 2016–2019.";
 
 describe("location card after a demo load", () => {
 	it("drops the demo notice once demo data is removed", async () => {
@@ -25,7 +25,7 @@ describe("location card after a demo load", () => {
 		);
 		await screen.findByText(/Loaded 5 demo pages/);
 		// The demo card is on the passports step; the locations step reports the load.
-		await user.click(step(/^Step 2: Locations/));
+		await user.click(step(/^Step 2: Photo locations/));
 		await screen.findByText(DEMO_NOTICE);
 
 		await user.click(step(/^Step 1: Passports/));
@@ -34,8 +34,8 @@ describe("location card after a demo load", () => {
 		);
 		await user.click(await screen.findByRole("button", { name: "Remove" }));
 		await screen.findByText("Demo data removed.");
-		await user.click(step(/^Step 2: Locations/));
-		await screen.findByRole("region", { name: "Stored locations" });
+		await user.click(step(/^Step 2: Photo locations/));
+		await screen.findByRole("region", { name: "Stored photo locations" });
 		await waitFor(() => expect(screen.queryByText(DEMO_NOTICE)).toBeNull());
 	});
 });

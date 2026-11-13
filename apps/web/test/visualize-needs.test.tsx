@@ -69,7 +69,7 @@ describe("visualize placeholders", () => {
 			db: await seed("needs-empty", { locations: false, trips: false }),
 		});
 		expect(await screen.findByText("No trips yet")).toBeTruthy();
-		expect(hrefOf("Import locations")).toBe("/collect/locations");
+		expect(hrefOf("Import photo locations")).toBe("/collect/locations");
 		expect(screen.queryByText(/Step \d of \d/)).toBeNull();
 	});
 
@@ -86,9 +86,11 @@ describe("visualize placeholders", () => {
 		renderApp("/visualize/map", {
 			db: await seed("needs-chart", { locations: false, trips: true }),
 		});
-		expect(await screen.findByText("No location history yet")).toBeTruthy();
+		expect(
+			await screen.findByText("No photo location history yet"),
+		).toBeTruthy();
 		expect(main().getByText(/You have 1 trip, but this view/)).toBeTruthy();
-		expect(hrefOf("Import locations")).toBe("/collect/locations");
+		expect(hrefOf("Import photo locations")).toBe("/collect/locations");
 		expect(screen.queryByRole("group", { name: "Route map" })).toBeNull();
 	});
 
@@ -99,7 +101,7 @@ describe("visualize placeholders", () => {
 		expect(
 			await screen.findByRole("img", { name: "Route player map" }),
 		).toBeTruthy();
-		expect(hrefOf("Import locations")).toBe("/collect/locations");
+		expect(hrefOf("Import photo locations")).toBe("/collect/locations");
 		expect(screen.queryByText("No trips yet")).toBeNull();
 	});
 

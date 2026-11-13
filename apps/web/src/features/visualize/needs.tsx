@@ -40,20 +40,20 @@ function placeholderFor(need: VizNeed, have: VizHave): Placeholder {
 	if (need === "locations") {
 		return {
 			sprite: "plane",
-			title: "No location history yet",
+			title: "No photo location history yet",
 			why:
 				have.trips > 0
-					? `You have ${plural(have.trips, "trip")}, but this view is drawn from photo locations. Import your location history to see where you went.`
-					: "Import your location history to see where you went: this view is drawn from your photo locations.",
-			action: { step: "locations", label: "Import locations" },
+					? `You have ${plural(have.trips, "trip")}, but this view is drawn from photo locations. Import your photo locations to see where you went.`
+					: "Import your photo locations to see where you went: this view is drawn from them.",
+			action: { step: "locations", label: "Import photo locations" },
 		};
 	}
 	if (have.locations === 0) {
 		return {
 			sprite: "suitcase",
 			title: "No trips yet",
-			why: "Trips are built from your passport stamps and photo locations. Import your location history first, then build trips to see your journeys.",
-			action: { step: "locations", label: "Import locations" },
+			why: "Trips are built from your passport stamps and photo locations. Import your photo locations first, then build trips to see your journeys.",
+			action: { step: "locations", label: "Import photo locations" },
 		};
 	}
 	return {

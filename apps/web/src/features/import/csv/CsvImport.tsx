@@ -113,7 +113,7 @@ export function CsvImport({
 
 	return (
 		<Card
-			title="Location history (CSV)"
+			title="iPhone photo locations (CSV)"
 			description="Where your photos were taken, from the Apple Photos library."
 		>
 			<div className="import-csv">
@@ -121,7 +121,7 @@ export function CsvImport({
 					id={STORED_LOCATIONS_ID}
 					className="import-stored"
 					tabIndex={-1}
-					aria-label="Stored locations"
+					aria-label="Stored photo locations"
 				>
 					<StoredSummary stored={stored} />
 				</section>
@@ -129,7 +129,7 @@ export function CsvImport({
 				<Dropzone
 					accept=".csv,text/csv"
 					label="Drop photo_locations.csv here or pick it"
-					hint="A new file replaces the locations imported before."
+					hint="A new file replaces the photo locations imported before."
 					onFiles={onFiles}
 				/>
 				<HowToGetFile />
@@ -157,7 +157,7 @@ function ImportStatus({ state }: { state: ImportState }) {
 		case "demo":
 			return (
 				<Notice tone="good" role="status">
-					Demo locations loaded: {locationLine(state.summary)}.
+					Demo photo locations loaded: {locationLine(state.summary)}.
 				</Notice>
 			);
 		case "done": {
@@ -211,7 +211,7 @@ function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
 	if (stored.rowCount === 0)
 		return (
 			<p className="import-csv-empty">
-				No locations stored yet. Trips and charts need them.
+				No photo locations stored yet. Trips and charts need them.
 			</p>
 		);
 	const years =
@@ -222,7 +222,7 @@ function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
 		<>
 			<StatGroup>
 				<Stat
-					label="Locations"
+					label="Photo locations"
 					value={stored.rowCount.toLocaleString("en")}
 					hint={
 						stored.demoCount > 0

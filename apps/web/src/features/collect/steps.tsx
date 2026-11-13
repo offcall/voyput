@@ -34,8 +34,8 @@ const DEFINITIONS: Record<StepId, Omit<CollectStep, "id">> = {
 		render: () => <PassportsStep />,
 	},
 	locations: {
-		label: "Locations",
-		title: "Locations",
+		label: "Photo locations",
+		title: "iPhone photo locations",
 		description:
 			"Your photo locations confirm each stamp and fill in the days between them.",
 		sprite: "globe",
@@ -53,7 +53,7 @@ const DEFINITIONS: Record<StepId, Omit<CollectStep, "id">> = {
 		label: "Review",
 		title: "Review the stamps",
 		description:
-			"Check each stamp against its photo and your location history.",
+			"Check each stamp against its photo and your photo location history.",
 		sprite: "star",
 		render: () => <ReviewPage />,
 	},
@@ -61,7 +61,7 @@ const DEFINITIONS: Record<StepId, Omit<CollectStep, "id">> = {
 		label: "Trips",
 		title: "Trips",
 		description:
-			"Trips built from your stamps and locations. Save the ones that are right.",
+			"Trips built from your stamps and photo locations. Save the ones that are right.",
 		sprite: "suitcase",
 		render: () => <TripsPage />,
 	},
@@ -101,7 +101,7 @@ export function stepCount(id: StepId, plan: Plan): string | null {
 			return input.photos > 0 ? plural(input.photos, "photo") : null;
 		case "locations":
 			return input.locations > 0
-				? `${compact.format(input.locations).toLowerCase()} places`
+				? `${compact.format(input.locations).toLowerCase()} locations`
 				: null;
 		case "extract":
 			if (input.failed > 0) return `${number.format(input.failed)} failed`;
@@ -123,7 +123,7 @@ export function nextAction(id: StepId, plan: Plan): string {
 		case "passports":
 			return "Add your passport photos";
 		case "locations":
-			return "Import your location history";
+			return "Import your photo locations";
 		case "extract":
 			return input.failed > 0
 				? `Fix ${plural(input.failed, "failed photo")}`

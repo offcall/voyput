@@ -43,7 +43,9 @@ describe("import location CSV", () => {
 		await screen.findByText(
 			"Imported 2 locations · 2 countries · 2019. Skipped 1 rows with a bad date, coordinates or country code.",
 		);
-		const stored = screen.getByRole("region", { name: "Stored locations" });
+		const stored = screen.getByRole("region", {
+			name: "Stored photo locations",
+		});
 		expect(document.activeElement).toBe(stored);
 		await within(stored).findByText("2019–2019");
 		expect(
@@ -55,7 +57,7 @@ describe("import location CSV", () => {
 			name: "Locations per month, 2019-05 to 2019-06, coloured by country",
 		});
 		await screen.findByRole("link", {
-			name: "Step 2: Locations, done, 2 places",
+			name: "Step 2: Photo locations, done, 2 locations",
 		});
 		const rows = await db.locations.orderBy("date").toArray();
 		expect(rows.map((r) => [r.uuid, r.country, r.isVideo])).toEqual([
