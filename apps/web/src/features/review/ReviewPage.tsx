@@ -3,6 +3,7 @@ import type { Stamp } from "@voyput/core";
 import { Button, Progress, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useDb } from "../../db/DbContext";
+import { useSettings } from "../../settings/SettingsContext";
 import { errorMessage } from "./format";
 import { PhotoReview } from "./PhotoReview";
 import {
@@ -29,6 +30,7 @@ export function ReviewPage() {
 	const db = useDb();
 	const records = useReviewRecords();
 	const history = useLocationHistory();
+	const { settings } = useSettings();
 	const [ui, setUi] = useState<ReviewUiState | null>(null);
 	const [uiError, setUiError] = useState<string | null>(null);
 	const [deleted, setDeleted] = useState<Stamp | null>(null);
@@ -162,6 +164,7 @@ export function ReviewPage() {
 									onWindowDays={(timelineWindowDays) =>
 										updateUi({ timelineWindowDays })
 									}
+									stripDays={settings.locationWindowDays}
 									onOpen={(stamp) => openStamp(stamp)}
 								/>
 							),

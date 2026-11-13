@@ -1,8 +1,14 @@
 .settings-column {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vp-space-4);
 	max-width: 760px;
 }
 @media (max-width: 560px) {
 	.settings-column .vp-card-art {
 		display: none;
 	}
+}
+.settings-number {
+	max-width: 8rem;
 }

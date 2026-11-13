@@ -63,6 +63,28 @@ describe("review", () => {
 		expect(await db.stamps.count()).toBe(16);
 	});
 
+	it("uses the photo location window from Settings", async () => {
+		const db = await demoDb();
+		const user = userEvent.setup();
+		const settings = renderApp("/settings", { db });
+		fireEvent.change(
+			await screen.findByLabelText("Photo location window: ± days"),
+			{ target: { value: "4" } },
+		);
+		settings.unmount();
+
+		renderApp("/review", { db });
+		const stamp = within(await card(1));
+		await user.click(stamp.getByRole("button", { expanded: false }));
+		expect(stamp.getByText("Photo location history ±4 days")).toBeTruthy();
+		const slider = stamp.getByRole("slider", {
+			name: "Photo location history window",
+		});
+		expect(slider.getAttribute("aria-valuetext")).toBe(
+			"centred on the stamp date 2016-08-10",
+		);
+	});
+
 	it("adds a stamp found by a rescan", async () => {
 		localStorage.setItem(
 			"voyput:settings",

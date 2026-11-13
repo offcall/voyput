@@ -13,8 +13,8 @@ import {
 import { Badge, Button } from "@voyput/ui";
 import { useEffect, useRef, useState } from "react";
 import { CountryTag } from "./CountryTag";
-import { DayStrip } from "./DayStrip";
 import { CROSSINGS, crossingIcon, DIRECTIONS, directionIcon } from "./format";
+import { PannableDayStrip } from "./PannableDayStrip";
 import { problemParts, type StampEdit } from "./reviewStore";
 
 export type Validation =
@@ -77,7 +77,7 @@ const groupNearby = (nearby: readonly NearbyPhoto[]) => {
 
 const NOTE_LABELS: Record<NoteKind, string> = {
 	problem: "Check",
-	icloudCheck: "Location history",
+	icloudCheck: "Photo location history",
 	suggestion: "Suggestion",
 };
 
@@ -85,6 +85,7 @@ export function StampCard({
 	item,
 	number,
 	dayRuns,
+	windowDays,
 	nearby,
 	expanded,
 	focused,
@@ -100,6 +101,8 @@ export function StampCard({
 	item: CheckedStamp;
 	number: number;
 	dayRuns: readonly DayRun[];
+	/** Days shown before and after the stamp date. */
+	windowDays: number;
 	nearby: readonly NearbyPhoto[];
 	expanded: boolean;
 	/** Opened from the timeline: scrolled to and outlined. */
@@ -164,7 +167,7 @@ export function StampCard({
 					</span>
 				</button>
 				{level === "critical" ? <Badge tone="bad">issue</Badge> : null}
-				{level === "warning" ? <Badge tone="warn">location</Badge> : null}
+				{level === "warning" ? <Badge tone="warn">photo location</Badge> : null}
 				{stamp.reviewed ? <Badge tone="good">reviewed</Badge> : null}
 				<Button
 					variant="danger"
@@ -314,12 +317,14 @@ export function StampCard({
 					{stamp.date ? (
 						<div className="review-evidence">
 							<h4 className="review-section-label">
-								Location history ±10 days
+								Photo location history ±{windowDays} days
 							</h4>
-							<DayStrip
+							<PannableDayStrip
+								key={stamp.date}
 								dayRuns={dayRuns}
 								date={stamp.date}
 								stampCode={stamp.countryCode}
+								radius={windowDays}
 							/>
 							{nearby.length > 0 ? (
 								<ul className="review-nearby" aria-label="Nearest photos">

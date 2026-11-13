@@ -78,12 +78,15 @@ export function PhotoReview({
 		const map = new Map<string, CheckedStamp[]>();
 		for (const stamp of records.stamps) {
 			const list = map.get(stamp.photoId) ?? [];
-			list.push({ stamp, check: checkStamp(index, stamp) });
+			list.push({
+				stamp,
+				check: checkStamp(index, stamp, settings.locationWindowDays),
+			});
 			map.set(stamp.photoId, list);
 		}
 		for (const list of map.values()) list.sort(byDate);
 		return map;
-	}, [records.stamps, index]);
+	}, [records.stamps, index, settings.locationWindowDays]);
 	const stampsOf = (photoId: string) => byPhoto.get(photoId) ?? [];
 
 	const countryCodes = useMemo(() => {
@@ -233,6 +236,7 @@ export function PhotoReview({
 							item={item}
 							number={i + 1}
 							dayRuns={dayRuns}
+							windowDays={settings.locationWindowDays}
 							nearby={
 								isExpanded(item.stamp)
 									? nearbyPhotos(index, item.stamp.date)

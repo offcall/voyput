@@ -8,29 +8,39 @@ const pct = (days: number, total: number) => `${(days / total) * 100}%`;
 /**
  * Countries by photo day around one date, as in an earlier prototype's per-stamp
  * timeline: a block per stay, hatched days without photos, a line on the date.
+ * `shift` moves the window by days, a fraction while it is being dragged.
  */
 export function DayStrip({
 	dayRuns,
 	date,
 	stampCode,
 	radius = 10,
+	shift = 0,
 }: {
 	dayRuns: readonly DayRun[];
 	date: string;
 	/** The stamp's country; its blocks are drawn stronger. */
 	stampCode: string | null;
 	radius?: number;
+	shift?: number;
 }) {
 	const colourOf = useColourOf();
 	const target = dayNumber(date);
 	if (target === null) return null;
-	const from = target - radius;
+	const from = target + shift - radius;
 	const total = radius * 2 + 1;
-	const runs = runsBetween(dayRuns, dayIso(from), dayIso(target + radius));
+	const first = dayIso(Math.floor(from));
+	const last = dayIso(Math.ceil(from) + total - 1);
+	const runs = runsBetween(dayRuns, first, last);
+	const marker = target - from + 0.5;
+	const around =
+		shift === 0
+			? `within ${radius} days of ${date}`
+			: `from ${dayIso(Math.round(from))} to ${dayIso(Math.round(from) + total - 1)}`;
 	const label =
 		runs.length === 0
-			? `No location photos within ${radius} days of ${date}`
-			: `Photos around ${date}: ${runs
+			? `No photo locations ${around}`
+			: `Photos ${shift === 0 ? `around ${date}` : around}: ${runs
 					.map((r) => `${r.countryCode} ${r.start} – ${r.end}`)
 					.join(", ")}`;
 	return (
@@ -61,10 +71,12 @@ export function DayStrip({
 					</span>
 				);
 			})}
-			<span
-				className="review-strip-marker"
-				style={{ left: pct(radius + 0.5, total) }}
-			/>
+			{marker > 0 && marker < total ? (
+				<span
+					className="review-strip-marker"
+					style={{ left: pct(marker, total) }}
+				/>
+			) : null}
 		</span>
 	);
 }

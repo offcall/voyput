@@ -5,12 +5,28 @@ export interface Settings {
 	/** OpenRouter model id, e.g. "openai/gpt-6-sol". */
 	model: string;
 	reasoningEffort: ReasoningEffort;
+	/** Days before and after a stamp date that Review compares with photo locations. */
+	locationWindowDays: number;
 }
+
+/** Allowed range of `locationWindowDays`. */
+export const LOCATION_WINDOW_MIN = 3;
+export const LOCATION_WINDOW_MAX = 60;
+
+/** A whole number of days in range, or null. */
+export const parseLocationWindow = (value: unknown): number | null =>
+	typeof value === "number" &&
+	Number.isInteger(value) &&
+	value >= LOCATION_WINDOW_MIN &&
+	value <= LOCATION_WINDOW_MAX
+		? value
+		: null;
 
 export const DEFAULT_SETTINGS: Settings = {
 	openRouterKey: "",
 	model: "openai/gpt-6-sol",
 	reasoningEffort: "medium",
+	locationWindowDays: 10,
 };
 
 const STORAGE_KEY = "voyput:settings";
@@ -41,6 +57,9 @@ export function loadSettings(storage: Storage): Settings {
 		reasoningEffort: isEffort(value.reasoningEffort)
 			? value.reasoningEffort
 			: DEFAULT_SETTINGS.reasoningEffort,
+		locationWindowDays:
+			parseLocationWindow(value.locationWindowDays) ??
+			DEFAULT_SETTINGS.locationWindowDays,
 	};
 }
 

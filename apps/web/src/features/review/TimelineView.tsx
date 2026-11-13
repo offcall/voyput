@@ -59,7 +59,7 @@ const stampLabel = (s: Stamp) =>
 
 /**
  * The stamps in date order, entries paired with their exits, next to what the
- * location history says; a band above shows countries per day, a window at a time.
+ * photo location history says; a band above shows countries per day, a window at a time.
  */
 export function TimelineView({
 	dayRuns,
@@ -68,6 +68,7 @@ export function TimelineView({
 	photoNames,
 	windowDays,
 	onWindowDays,
+	stripDays = 10,
 	onOpen,
 }: {
 	dayRuns: readonly DayRun[];
@@ -77,6 +78,8 @@ export function TimelineView({
 	photoNames: ReadonlyMap<string, string>;
 	windowDays: number;
 	onWindowDays: (days: number) => void;
+	/** Days before and after each stamp in its row's strip and location check. */
+	stripDays?: number;
 	/** Opens the stamp's photo and card on the Photos tab. */
 	onOpen: (stamp: Stamp) => void;
 }) {
@@ -85,10 +88,10 @@ export function TimelineView({
 			new Map(
 				stamps.map((stamp) => [
 					stamp.id,
-					severity({ stamp, check: checkStamp(index, stamp) }),
+					severity({ stamp, check: checkStamp(index, stamp, stripDays) }),
 				]),
 			),
-		[stamps, index],
+		[stamps, index, stripDays],
 	);
 	const items = useMemo(() => buildTimeline(stamps), [stamps]);
 	const dated = useMemo(() => chronological(stamps), [stamps]);
@@ -102,8 +105,8 @@ export function TimelineView({
 				art={<PixelArt name="stamp" scale={5} />}
 				title="Nothing to show yet"
 			>
-				Stamps with a date and the location history appear here once they are
-				imported.
+				Stamps with a date and the photo location history appear here once they
+				are imported.
 			</EmptyState>
 		);
 
@@ -132,6 +135,7 @@ export function TimelineView({
 			level={levels.get(stamp.id) ?? "ok"}
 			photoName={photoNames.get(stamp.photoId) ?? ""}
 			dayRuns={dayRuns}
+			stripDays={stripDays}
 			index={index}
 			onOpen={onOpen}
 		/>
@@ -289,6 +293,7 @@ function StampRow({
 	level,
 	photoName,
 	dayRuns,
+	stripDays,
 	index,
 	onOpen,
 }: {
@@ -296,6 +301,7 @@ function StampRow({
 	level: Severity;
 	photoName: string;
 	dayRuns: readonly DayRun[];
+	stripDays: number;
 	index: PhotoIndex;
 	onOpen: (stamp: Stamp) => void;
 }) {
@@ -326,7 +332,7 @@ function StampRow({
 				) : null}
 				{level === "warning" ? (
 					<span className="review-pill" data-tone="warn">
-						location
+						photo location
 					</span>
 				) : null}
 				{stamp.reviewed ? (
@@ -345,11 +351,12 @@ function StampRow({
 					dayRuns={dayRuns}
 					date={stamp.date}
 					stampCode={stamp.countryCode}
+					radius={stripDays}
 				/>
 				<span className="review-row-nearest">
 					{nearest
 						? `Nearest photo: ${nearest.countryCode} ${nearest.date}${nearest.gap ? ` (${plural(nearest.gap, "day")} away)` : " (same day)"}`
-						: "No location photos"}
+						: "No photo locations"}
 				</span>
 			</span>
 		</button>

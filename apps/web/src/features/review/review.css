@@ -1321,3 +1321,40 @@ fieldset.review-filters {
 		row-gap: 4px;
 	}
 }
+
+/* Stamp card: the Photo location history strip, panned by drag, keys or buttons */
+
+.review-pan {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+.review-pan-row {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 6px;
+}
+.review-pan-track {
+	border-radius: 6px;
+	cursor: grab;
+	touch-action: pan-y;
+	user-select: none;
+	-webkit-user-select: none;
+}
+.review-pan-track[data-dragging] {
+	cursor: grabbing;
+}
+.review-pan-track:focus-visible {
+	outline: 2px solid var(--vp-accent);
+	outline-offset: 2px;
+}
+.review-pan-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	color: var(--vp-muted);
+}

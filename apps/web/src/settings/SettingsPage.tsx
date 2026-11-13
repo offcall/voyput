@@ -11,7 +11,12 @@ import { useEffect, useState } from "react";
 import { useAi } from "../ai/AiContext";
 import type { ModelOption } from "../ai/openrouter";
 import { useSettings } from "./SettingsContext";
-import type { ReasoningEffort } from "./settings";
+import {
+	LOCATION_WINDOW_MAX,
+	LOCATION_WINDOW_MIN,
+	parseLocationWindow,
+	type ReasoningEffort,
+} from "./settings";
 import "./settings.css";
 
 export function SettingsPage() {
@@ -20,6 +25,11 @@ export function SettingsPage() {
 	const [models, setModels] = useState<ModelOption[] | "failed">([]);
 	// What the user typed; an empty model id is never stored.
 	const [modelDraft, setModelDraft] = useState(settings.model);
+	// The typed window; only a whole number in range is stored.
+	const [windowDraft, setWindowDraft] = useState(
+		String(settings.locationWindowDays),
+	);
+	const windowValid = parseLocationWindow(Number(windowDraft)) !== null;
 
 	useEffect(() => {
 		let current = true;
@@ -132,6 +142,46 @@ export function SettingsPage() {
 							</select>
 						</label>
 					</Stack>
+				</Card>
+				<Card
+					title="Review"
+					art={<PixelArt name="stamp" scale={3} />}
+					description="How stamps are compared with your iPhone photo locations."
+				>
+					<div className="vp-field">
+						<label className="vp-field-label" htmlFor="vp-location-window">
+							Photo location window: ± days
+						</label>
+						<input
+							id="vp-location-window"
+							className="vp-input settings-number"
+							type="number"
+							inputMode="numeric"
+							min={LOCATION_WINDOW_MIN}
+							max={LOCATION_WINDOW_MAX}
+							step={1}
+							value={windowDraft}
+							aria-invalid={!windowValid}
+							aria-describedby="vp-location-window-help"
+							onChange={(event) => {
+								setWindowDraft(event.target.value);
+								const days = parseLocationWindow(Number(event.target.value));
+								if (days !== null) update({ locationWindowDays: days });
+							}}
+						/>
+						{windowValid ? null : (
+							<span className="vp-field-description" role="alert">
+								Enter a whole number from {LOCATION_WINDOW_MIN} to{" "}
+								{LOCATION_WINDOW_MAX}. Review keeps using ±
+								{settings.locationWindowDays} days.
+							</span>
+						)}
+						<span className="vp-field-description" id="vp-location-window-help">
+							The Photo location history on a stamp shows this many days before
+							and after the stamp date, and a photo in another country this
+							close to the stamp date is flagged.
+						</span>
+					</div>
 				</Card>
 			</div>
 		</Stack>

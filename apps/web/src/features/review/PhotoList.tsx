@@ -11,7 +11,7 @@ import { Thumb } from "./Thumb";
 const FILTER_LABELS: Record<ReviewFilter, string> = {
 	all: "All",
 	problem: "Problems",
-	icloud: "Location mismatch",
+	icloud: "Photo location mismatch",
 	empty: "No stamps",
 	unreviewed: "Unreviewed",
 	reviewed: "Reviewed",
@@ -83,7 +83,7 @@ export function PhotoList({
 											? "no stamps"
 											: `${items.length} ${items.length === 1 ? "stamp" : "stamps"}`}
 										{level === "critical" ? " · issue" : ""}
-										{level === "warning" ? " · location" : ""}
+										{level === "warning" ? " · photo location" : ""}
 										{done ? " · ✓" : ""}
 									</span>
 								</button>
