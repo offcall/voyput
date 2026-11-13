@@ -26,14 +26,16 @@ export function missingNeed(
 	return needs.find((need) => have[need] === 0) ?? null;
 }
 
+/** Collect steps a Visualize placeholder can send the user to. */
+type CollectLink = "locations" | "trips";
+
 interface Placeholder {
 	sprite: SpriteName;
 	title: string;
 	why: string;
-	action: { to: "/import" | "/trips"; label: string };
+	action: { step: CollectLink; label: string };
 }
 
-// Collect links use the old URLs until the Collect wizard lands.
 function placeholderFor(need: VizNeed, have: VizHave): Placeholder {
 	if (need === "locations") {
 		return {
@@ -43,7 +45,7 @@ function placeholderFor(need: VizNeed, have: VizHave): Placeholder {
 				have.trips > 0
 					? `You have ${plural(have.trips, "trip")}, but this view is drawn from photo locations. Import your location history to see where you went.`
 					: "Import your location history to see where you went: this view is drawn from your photo locations.",
-			action: { to: "/import", label: "Import locations" },
+			action: { step: "locations", label: "Import locations" },
 		};
 	}
 	if (have.locations === 0) {
@@ -51,14 +53,14 @@ function placeholderFor(need: VizNeed, have: VizHave): Placeholder {
 			sprite: "suitcase",
 			title: "No trips yet",
 			why: "Trips are built from your passport stamps and photo locations. Import your location history first, then build trips to see your journeys.",
-			action: { to: "/import", label: "Import locations" },
+			action: { step: "locations", label: "Import locations" },
 		};
 	}
 	return {
 		sprite: "suitcase",
 		title: "No trips yet",
 		why: "Build trips to see your journeys: this view replays them stop by stop.",
-		action: { to: "/trips", label: "Build trips" },
+		action: { step: "trips", label: "Build trips" },
 	};
 }
 
@@ -74,7 +76,12 @@ export function VizEmpty({ need, have }: { need: VizNeed; have: VizHave }) {
 			art={<PixelArt name={sprite} scale={4} />}
 			title={title}
 			action={
-				<Link to={action.to} className="vp-button" data-variant="primary">
+				<Link
+					to="/collect/$step"
+					params={{ step: action.step }}
+					className="vp-button"
+					data-variant="primary"
+				>
 					{action.label}
 				</Link>
 			}
@@ -87,17 +94,20 @@ export function VizEmpty({ need, have }: { need: VizNeed; have: VizHave }) {
 /** A one-line hint when a tab can draw but some data would make it better. */
 export function VizHint({
 	children,
-	to,
+	step,
 	label,
 }: {
 	children: string;
-	to: "/import" | "/trips";
+	step: CollectLink;
 	label: string;
 }) {
 	return (
 		<Notice>
 			<span>
-				{children} <Link to={to}>{label}</Link>
+				{children}{" "}
+				<Link to="/collect/$step" params={{ step }}>
+					{label}
+				</Link>
 			</span>
 		</Notice>
 	);

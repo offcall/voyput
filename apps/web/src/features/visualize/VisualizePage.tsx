@@ -100,7 +100,7 @@ export function VisualizePage() {
 	return (
 		<Layout>
 			{have.storedTrips === 0 ? (
-				<VizHint to="/trips" label="Build trips">
+				<VizHint step="trips" label="Build trips">
 					Save trips to filter these charts by journey.
 				</VizHint>
 			) : (
@@ -136,7 +136,7 @@ export function VisualizePage() {
 function SuggestedTripsHint({ tab, have }: { tab: VizTab; have: VizHave }) {
 	if (!tab.needs?.includes("trips") || have.storedTrips > 0) return null;
 	return (
-		<VizHint to="/trips" label="Check trips">
+		<VizHint step="trips" label="Check trips">
 			These trips are suggestions from your stamps and photos.
 		</VizHint>
 	);

@@ -69,7 +69,7 @@ describe("visualize placeholders", () => {
 			db: await seed("needs-empty", { locations: false, trips: false }),
 		});
 		expect(await screen.findByText("No trips yet")).toBeTruthy();
-		expect(hrefOf("Import locations")).toBe("/import");
+		expect(hrefOf("Import locations")).toBe("/collect/locations");
 		expect(screen.queryByText(/Step \d of \d/)).toBeNull();
 	});
 
@@ -78,7 +78,7 @@ describe("visualize placeholders", () => {
 			db: await seed("needs-explore", { locations: true, trips: false }),
 		});
 		expect(await screen.findByText("No trips yet")).toBeTruthy();
-		expect(hrefOf("Build trips")).toBe("/trips");
+		expect(hrefOf("Build trips")).toBe("/collect/trips");
 		expect(screen.queryByText("Longest stay")).toBeNull();
 	});
 
@@ -88,7 +88,7 @@ describe("visualize placeholders", () => {
 		});
 		expect(await screen.findByText("No location history yet")).toBeTruthy();
 		expect(main().getByText(/You have 1 trip, but this view/)).toBeTruthy();
-		expect(hrefOf("Import locations")).toBe("/import");
+		expect(hrefOf("Import locations")).toBe("/collect/locations");
 		expect(screen.queryByRole("group", { name: "Route map" })).toBeNull();
 	});
 
@@ -99,7 +99,7 @@ describe("visualize placeholders", () => {
 		expect(
 			await screen.findByRole("img", { name: "Route player map" }),
 		).toBeTruthy();
-		expect(hrefOf("Import locations")).toBe("/import");
+		expect(hrefOf("Import locations")).toBe("/collect/locations");
 		expect(screen.queryByText("No trips yet")).toBeNull();
 	});
 
@@ -113,7 +113,7 @@ describe("visualize placeholders", () => {
 		expect(
 			main().getByText("Save trips to filter these charts by journey."),
 		).toBeTruthy();
-		expect(hrefOf("Build trips")).toBe("/trips");
+		expect(hrefOf("Build trips")).toBe("/collect/trips");
 	});
 
 	it("draws the chart and the trip filter when both are there", async () => {

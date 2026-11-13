@@ -264,6 +264,6 @@ describe("route player", () => {
 		expect(await screen.findByText("No trips yet")).toBeTruthy();
 		expect(
 			screen.getByRole("link", { name: "Build trips" }).getAttribute("href"),
-		).toBe("/trips");
+		).toBe("/collect/trips");
 	});
 });

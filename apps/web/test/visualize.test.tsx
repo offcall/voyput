@@ -53,7 +53,7 @@ describe("visualize", () => {
 			screen
 				.getByRole("link", { name: "Import locations" })
 				.getAttribute("href"),
-		).toBe("/import");
+		).toBe("/collect/locations");
 	});
 
 	it("reports a failed database read instead of the empty state", async () => {

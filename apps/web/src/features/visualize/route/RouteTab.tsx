@@ -16,7 +16,7 @@ export function RouteTab({ data, have }: { data: StaysData; have: VizHave }) {
 			description="Your travels replayed in order, stop by stop."
 		>
 			{have.locations === 0 ? (
-				<VizHint to="/import" label="Import locations">
+				<VizHint step="locations" label="Import locations">
 					Import your location history to follow your photos exactly.
 				</VizHint>
 			) : null}
