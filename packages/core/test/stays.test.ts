@@ -362,6 +362,28 @@ describe("mergeKept", () => {
 	});
 });
 
+describe("rebuilding around kept stays", () => {
+	it("keeps one copy of an approved same-day transit", () => {
+		const stays = suggest([
+			stamp("a", "2023-04-27", "UA", "exit"),
+			stamp("b", "2023-04-27", "QA", "entry"),
+			stamp("c", "2023-04-27", "QA", "exit"),
+			stamp("d", "2023-04-28", "TH", "entry"),
+		]);
+		const transit = { ...(stays[1] as TravelStay), approved: true };
+		const rebuilt = mergeKept(stays, [transit]);
+		expect(rebuilt.map((s) => s.countryCode)).toEqual(["UA", "QA", "TH"]);
+		expect(rebuilt[1]?.approved).toBe(true);
+		// Under another id (a stay the user edited), it still replaces the suggestion.
+		const renamed = mergeKept(stays, [{ ...transit, id: "mine" }]);
+		expect(renamed.map((s) => s.id)).toEqual([
+			stays[0]?.id,
+			"mine",
+			stays[2]?.id,
+		]);
+	});
+});
+
 describe("trips from stays", () => {
 	const stays = [
 		stay("h1", "UA", null, "2019-07-01"),

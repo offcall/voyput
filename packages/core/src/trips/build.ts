@@ -455,13 +455,17 @@ export function mergeKept(
 	suggested: readonly TravelStay[],
 	kept: readonly TravelStay[],
 ): TravelStay[] {
-	let list = [...suggested];
+	const keptIds = new Set(kept.map((k) => k.id));
+	// A kept stay replaces the suggestion it came from.
+	let list = suggested.filter((s) => !keptIds.has(s.id));
 	for (const k of kept) {
 		const from = fromOf(k);
 		const to = toOf(k);
 		list = list.flatMap((s): TravelStay[] => {
 			const a = fromOf(s);
 			const d = toOf(s);
+			// The same country within the kept days (a same-day transit too) is the kept stay.
+			if (s.countryCode === k.countryCode && a >= from && d <= to) return [];
 			if (!(a < to && d > from)) return [s];
 			const same = s.countryCode === k.countryCode;
 			const before =
@@ -477,7 +481,6 @@ export function mergeKept(
 	}
 	const out = sortStays([...list, ...kept]);
 	// Close what a dropped rest left open: the neighbours meet the kept edges.
-	const keptIds = new Set(kept.map((k) => k.id));
 	return out.map((s, i) => {
 		if (keptIds.has(s.id)) return s;
 		const prev = out[i - 1];
