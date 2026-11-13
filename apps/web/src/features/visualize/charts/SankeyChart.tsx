@@ -1,4 +1,5 @@
-import { countryColor, type VizData } from "@voyput/core";
+import type { VizData } from "@voyput/core";
+import { useCountryColour } from "../../../app/countryColours";
 import { flag, NoData, OTHER_COLOR } from "./format";
 
 const TOP = 12;
@@ -31,6 +32,7 @@ function layout(entries: { code: string; flow: number }[]): Map<string, Node> {
 
 /** Country-to-country moves: where you left from (left) and where you went (right). */
 export function SankeyChart({ data }: { data: VizData }) {
+	const countryColor = useCountryColour();
 	const transitions = data.transitions;
 	if (transitions.length === 0) return <NoData />;
 	const names = new Map(data.countries.map((c) => [c.code, c.country]));

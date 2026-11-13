@@ -1,12 +1,14 @@
 import type { Trip } from "@voyput/core";
 import { Badge } from "@voyput/ui";
-import { colorOf, dayCount, plural, rangeText, tripCountries } from "./format";
+import { useCountryColour } from "../../app/countryColours";
+import { dayCount, plural, rangeText, tripCountries } from "./format";
 import { StatusBadge } from "./StatusBadge";
 import { stripBlocks } from "./strip";
 import { TripChips } from "./TripChip";
 
 /** Blocks of days, coloured by the countries of their stops. */
 function DayStrip({ trip }: { trip: Trip }) {
+	const colorOf = useCountryColour();
 	const blocks = stripBlocks(trip.start, trip.end, trip.stops);
 	return (
 		<div className="vp-trips-strip" aria-hidden="true">

@@ -18,7 +18,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
-import { CountryTag, colourOf } from "./CountryTag";
+import { CountryTag, useColourOf } from "./CountryTag";
 import { DayStrip } from "./DayStrip";
 import { crossingIcon, directionIcon, flagOf, plural } from "./format";
 import { TIMELINE_WINDOWS } from "./reviewStore";
@@ -32,8 +32,12 @@ import {
 	type TimelineItem,
 } from "./stays";
 
-const hueStyle = (code: string | null) =>
-	({ "--review-country": colourOf(code) }) as CSSProperties;
+/** Inline style that sets `--review-country` to a country's colour. */
+function useHueStyle() {
+	const colourOf = useColourOf();
+	return (code: string | null) =>
+		({ "--review-country": colourOf(code) }) as CSSProperties;
+}
 
 const MONTHS = [
 	"Jan",
@@ -233,6 +237,7 @@ function StayItem({
 	item: TimelineItem;
 	row: (stamp: DatedStamp) => ReactNode;
 }) {
+	const hueStyle = useHueStyle();
 	if (item.kind === "stay")
 		return (
 			<li className="review-stay" style={hueStyle(item.entry.countryCode)}>
@@ -370,6 +375,7 @@ function OverviewBand({
 	onWindowDays: (days: number) => void;
 	onOpen: (stamp: Stamp) => void;
 }) {
+	const hueStyle = useHueStyle();
 	const fromIso = dayIso(from);
 	const toIso = dayIso(from + windowDays - 1);
 	const runs = runsBetween(dayRuns, fromIso, toIso);

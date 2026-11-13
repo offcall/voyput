@@ -81,7 +81,7 @@ describe("demo data", () => {
 		await screen.findByText(
 			"Loaded 5 demo pages, 16 stamps and 2,467 locations · 6 countries · 2016–2019.",
 		);
-		screen.getByText(
+		await screen.findByText(
 			"Demo locations loaded: 2,467 locations · 6 countries · 2016–2019.",
 		);
 		const stored = screen.getByRole("region", { name: "Stored locations" });

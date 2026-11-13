@@ -9,12 +9,12 @@ import {
 } from "@voyput/core";
 import { Button, TextField } from "@voyput/ui";
 import { useMemo, useState } from "react";
+import { useCountryColour } from "../../app/countryColours";
 import { CONFLICT_WINDOW_DAYS, tripProblems } from "./conflicts";
 import { DateField, periodError } from "./DateField";
 import { DaysTimeline } from "./DaysTimeline";
 import {
 	addDays,
-	colorOf,
 	countryName,
 	dayCount,
 	flagOf,
@@ -106,6 +106,7 @@ export function TripDetail({
 	onSave: (trip: Trip) => void;
 	onDelete: (trip: Trip) => void;
 }) {
+	const colorOf = useCountryColour();
 	const [title, setTitle] = useState(trip.title);
 	const [start, setStart] = useState(trip.start);
 	const [end, setEnd] = useState(trip.end);

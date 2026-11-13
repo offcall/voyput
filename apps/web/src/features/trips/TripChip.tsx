@@ -1,8 +1,10 @@
 import { CountryChip } from "@voyput/ui";
-import { colorOf, countryName } from "./format";
+import { useCountryColour } from "../../app/countryColours";
+import { countryName } from "./format";
 
-/** Kit country chip in the core country colour, as on Visualize. */
+/** Kit country chip in the app-wide country colour, as on Visualize. */
 export function TripChip({ code }: { code: string }) {
+	const colorOf = useCountryColour();
 	return <CountryChip code={code} colour={colorOf(code)} />;
 }
 

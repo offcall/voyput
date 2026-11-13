@@ -1,11 +1,11 @@
 import {
 	COUNTRY_CENTROIDS,
-	countryColor,
 	type VizData,
 	type WorldShapes,
 } from "@voyput/core";
 import { Button } from "@voyput/ui";
 import { useEffect, useRef, useState } from "react";
+import { useCanvasCountryColour } from "../../../app/countryColours";
 import { NoData } from "./format";
 
 const SIZE = 640;
@@ -57,6 +57,7 @@ function drawGlobe(
 	data: VizData,
 	world: WorldShapes | null,
 	rotY: number,
+	countryColor: (code: string) => string,
 ) {
 	const p = (lat: number, lon: number, radius = R) =>
 		project(lat, lon, radius, rotY);
@@ -136,6 +137,7 @@ export function GlobeChart({
 	data: VizData;
 	world: WorldShapes | null;
 }) {
+	const countryColor = useCanvasCountryColour();
 	const ref = useRef<HTMLCanvasElement>(null);
 	const [paused, setPaused] = useState(false);
 	const pausedRef = useRef(paused);
@@ -157,7 +159,7 @@ export function GlobeChart({
 			frame = requestAnimationFrame(tick);
 			if (document.hidden) return;
 			if (!pausedRef.current && dragX === null) rotY += 0.0016;
-			drawGlobe(ctx, data, world, rotY);
+			drawGlobe(ctx, data, world, rotY, countryColor);
 		};
 		const down = (e: PointerEvent) => {
 			dragX = e.clientX;
@@ -183,7 +185,7 @@ export function GlobeChart({
 			canvas.removeEventListener("pointerup", up);
 			canvas.removeEventListener("pointercancel", up);
 		};
-	}, [data, world]);
+	}, [data, world, countryColor]);
 
 	if (data.cityPoints.length === 0) return <NoData />;
 	return (

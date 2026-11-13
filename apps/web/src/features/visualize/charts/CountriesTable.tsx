@@ -1,8 +1,10 @@
-import { countryColor, type VizData } from "@voyput/core";
+import type { VizData } from "@voyput/core";
+import { useCountryColour } from "../../../app/countryColours";
 import { flag, formatInt, NoData } from "./format";
 
 /** Countries by number of photos, with share and a bar. */
 export function CountriesTable({ data }: { data: VizData }) {
+	const countryColor = useCountryColour();
 	const { countries, photoCount } = data;
 	if (countries.length === 0) return <NoData />;
 	const max = countries[0]?.photos ?? 1;

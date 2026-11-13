@@ -1,4 +1,5 @@
-import { type CountryStat, countryColor, type VizData } from "@voyput/core";
+import type { CountryStat, VizData } from "@voyput/core";
+import { useCountryColour } from "../../../app/countryColours";
 import { flag, formatInt, NoData, OTHER_COLOR } from "./format";
 
 const TOP = 24;
@@ -13,6 +14,8 @@ function sumYear(countries: readonly CountryStat[], year: string): number {
 
 /** Colour with alpha for `hsl(...)` strings and `#rrggbb`. */
 function withAlpha(color: string, alpha: number): string {
+	if (color.startsWith("var("))
+		return `color-mix(in srgb, ${color} ${(alpha * 100).toFixed(1)}%, transparent)`;
 	if (color.startsWith("#")) {
 		const n = Number.parseInt(color.slice(1), 16);
 		return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha.toFixed(3)})`;
@@ -23,6 +26,7 @@ function withAlpha(color: string, alpha: number): string {
 }
 
 export function MatrixChart({ data }: { data: VizData }) {
+	const countryColor = useCountryColour();
 	const { years, countries } = data;
 	if (countries.length === 0) return <NoData />;
 	const top = countries.slice(0, TOP);

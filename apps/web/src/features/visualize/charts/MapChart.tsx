@@ -1,6 +1,5 @@
 import {
 	COUNTRY_CENTROIDS,
-	countryColor,
 	projectEquirect,
 	type VizData,
 	WORLD_HEIGHT,
@@ -8,6 +7,7 @@ import {
 	type WorldShapes,
 } from "@voyput/core";
 import { useMemo } from "react";
+import { useCountryColour } from "../../../app/countryColours";
 import { NoData } from "./format";
 
 interface Arc {
@@ -18,7 +18,10 @@ interface Arc {
 }
 
 /** Quadratic arcs between country centroids for each change of country. */
-function buildArcs(moves: VizData["moves"]): Arc[] {
+function buildArcs(
+	moves: VizData["moves"],
+	countryColor: (code: string) => string,
+): Arc[] {
 	const arcs: Arc[] = [];
 	moves.forEach(({ from, to }, i) => {
 		const a = COUNTRY_CENTROIDS[from.code];
@@ -52,7 +55,11 @@ export function MapChart({
 	data: VizData;
 	world: WorldShapes | null;
 }) {
-	const arcs = useMemo(() => buildArcs(data.moves), [data.moves]);
+	const countryColor = useCountryColour();
+	const arcs = useMemo(
+		() => buildArcs(data.moves, countryColor),
+		[data.moves, countryColor],
+	);
 	if (data.countries.length === 0) return <NoData />;
 	return (
 		<figure className="vp-viz-figure">

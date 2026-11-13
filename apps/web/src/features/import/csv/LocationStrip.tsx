@@ -1,8 +1,9 @@
-import { countryColor } from "@voyput/core";
+import { useCountryColour } from "../../../app/countryColours";
 import type { LocationPeriod } from "./storedLocations";
 
 /** One bar per month (or year), stacked by country, so the stored history shows at a glance. */
 export function LocationStrip({ periods }: { periods: LocationPeriod[] }) {
+	const countryColor = useCountryColour();
 	if (periods.length === 0) return null;
 	const max = Math.max(...periods.map((period) => period.rows));
 	const first = periods[0]?.key ?? "";

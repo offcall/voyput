@@ -1,8 +1,36 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SECTIONS } from "../src/app/Layout";
+import type { VoyputDb } from "../src/db/db";
 import { renderApp } from "./renderApp";
+
+/** 2,500 location rows (UA most, then IT) and one photo without an extraction. */
+async function seedCounts(db: VoyputDb) {
+	await db.locations.bulkAdd(
+		Array.from({ length: 2500 }, (_, i) => ({
+			date: "2020-01-01T00:00:00",
+			lat: 0,
+			lon: 0,
+			countryCode: i < 2000 ? "UA" : "IT",
+			country: "",
+			city: "",
+			source: "",
+			isVideo: false,
+			filename: `${i}.jpg`,
+			uuid: `u${i}`,
+		})),
+	);
+	await db.photos.add({
+		id: "p1",
+		passportId: "pp1",
+		name: "p1",
+		mimeType: "image/jpeg",
+		rotation: 0,
+		addedAt: "2026-01-01T00:00:00Z",
+		blob: new Blob(["x"], { type: "image/jpeg" }),
+	});
+}
 
 describe("app shell", () => {
 	it("opens on Import and reaches every section from the nav", async () => {
@@ -18,6 +46,27 @@ describe("app shell", () => {
 				await screen.findByRole("heading", { level: 1, name: section.label }),
 			).toBeTruthy();
 		}
+	});
+
+	it("gives countries distinct palette colours from the stored data", async () => {
+		const { db } = renderApp("/import");
+		await seedCounts(db);
+		const stored = await screen.findByRole("region", {
+			name: "Stored locations",
+		});
+		const colours = () =>
+			Object.fromEntries(
+				[...stored.querySelectorAll<HTMLElement>(".vp-country")].map((chip) => [
+					chip.querySelector(".vp-country-code")?.textContent,
+					chip.style.getPropertyValue("--vp-country-colour"),
+				]),
+			);
+		await waitFor(() =>
+			expect(colours()).toEqual({
+				UA: "var(--vp-cat-1)",
+				IT: "var(--vp-cat-2)",
+			}),
+		);
 	});
 
 	it("starts dark, switches the theme and remembers it", async () => {

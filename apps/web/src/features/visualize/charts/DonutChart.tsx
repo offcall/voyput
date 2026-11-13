@@ -1,4 +1,5 @@
-import { countryColor, type VizData } from "@voyput/core";
+import type { VizData } from "@voyput/core";
+import { useCountryColour } from "../../../app/countryColours";
 import { flag, formatInt, NoData, OTHER_COLOR } from "./format";
 
 const R1 = 62;
@@ -28,6 +29,7 @@ function ringPath(a0: number, a1: number): string {
 
 /** One ring per year: share of photos by country. */
 export function DonutChart({ data }: { data: VizData }) {
+	const countryColor = useCountryColour();
 	const rings = data.years.flatMap((year) => {
 		const parts = data.countries
 			.map((c) => ({

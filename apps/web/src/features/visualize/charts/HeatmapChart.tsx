@@ -1,11 +1,11 @@
 import {
-	countryColor,
 	type VizData,
 	WORLD_HEIGHT,
 	WORLD_WIDTH,
 	type WorldShapes,
 } from "@voyput/core";
 import { useEffect, useRef } from "react";
+import { useCanvasCountryColour } from "../../../app/countryColours";
 import { NoData } from "./format";
 
 /** Heat cell size in world-box pixels (1000 × 500). */
@@ -59,6 +59,7 @@ function draw(
 	buckets: Map<number, number>,
 	world: WorldShapes | null,
 	codes: readonly string[],
+	countryColor: (code: string) => string,
 ) {
 	const ctx = canvas.getContext("2d");
 	if (!ctx) return; // jsdom, or a browser without canvas
@@ -130,6 +131,7 @@ export function HeatmapChart({
 	data: VizData;
 	world: WorldShapes | null;
 }) {
+	const countryColor = useCanvasCountryColour();
 	const ref = useRef<HTMLCanvasElement>(null);
 	useEffect(() => {
 		const canvas = ref.current;
@@ -142,8 +144,9 @@ export function HeatmapChart({
 			bucketPoints(data.heatPoints),
 			world,
 			data.countries.map((c) => c.code),
+			countryColor,
 		);
-	}, [data, world]);
+	}, [data, world, countryColor]);
 
 	if (data.heatPoints.length === 0) return <NoData />;
 	return (

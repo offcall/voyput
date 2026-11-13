@@ -1,6 +1,6 @@
 import { type DayRun, dayIso, dayNumber, runsBetween } from "@voyput/core";
 import type { CSSProperties } from "react";
-import { colourOf } from "./CountryTag";
+import { useColourOf } from "./CountryTag";
 import { flagOf } from "./format";
 
 const pct = (days: number, total: number) => `${(days / total) * 100}%`;
@@ -21,6 +21,7 @@ export function DayStrip({
 	stampCode: string | null;
 	radius?: number;
 }) {
+	const colourOf = useColourOf();
 	const target = dayNumber(date);
 	if (target === null) return null;
 	const from = target - radius;

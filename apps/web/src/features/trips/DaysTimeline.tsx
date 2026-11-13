@@ -1,13 +1,7 @@
 import type { DatedStamp } from "@voyput/core";
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
-import {
-	addDays,
-	colorOf,
-	countryName,
-	daysIn,
-	monthOf,
-	weekdayOf,
-} from "./format";
+import { useCountryColour } from "../../app/countryColours";
+import { addDays, countryName, daysIn, monthOf, weekdayOf } from "./format";
 import type { PhotoDays } from "./photoDays";
 
 type Edge = "start" | "end";
@@ -45,6 +39,7 @@ export function DaysTimeline({
 	conflicted: ReadonlySet<string>;
 	onChange: (edge: Edge, day: string) => void;
 }) {
+	const colorOf = useCountryColour();
 	const days = daysIn(from, to);
 	const n = days.length;
 	const trackRef = useRef<HTMLDivElement | null>(null);

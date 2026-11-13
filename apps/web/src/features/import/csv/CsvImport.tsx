@@ -1,5 +1,4 @@
 import {
-	countryColor,
 	type LocationSummary,
 	parseLocationCsv,
 	summarizeLocations,
@@ -14,6 +13,7 @@ import {
 	StatGroup,
 } from "@voyput/ui";
 import { useCallback, useEffect, useState } from "react";
+import { useCountryColour } from "../../../app/countryColours";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
 import { useLiveQuery } from "../photos/useLiveQuery";
@@ -200,6 +200,7 @@ function HowToGetFile() {
 
 /** What is stored now, so a reload still shows the imported history. */
 function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
+	const countryColor = useCountryColour();
 	if (!stored) return null;
 	if (stored.rowCount === 0)
 		return (

@@ -1,5 +1,3 @@
-import { countryColor } from "@voyput/core";
-
 /** Regional indicator flag for a two-letter code, or an empty string. */
 export const flagOf = (code: string): string =>
 	/^[A-Za-z]{2}$/.test(code)
@@ -7,9 +5,6 @@ export const flagOf = (code: string): string =>
 				...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
 			)
 		: "";
-
-/** Same hue as the Visualize charts, so a country looks the same everywhere. */
-export const colorOf = (code: string): string => countryColor(code);
 
 const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 export const countryName = (cc: string): string => {
