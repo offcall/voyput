@@ -1,4 +1,4 @@
-import { type Stamp, type Trip, usableStamps } from "@voyput/core";
+import { type Stamp, type TravelStay, usableStamps } from "@voyput/core";
 import { describe, expect, it } from "vitest";
 import { VoyputDb } from "../src/db/db";
 import {
@@ -62,7 +62,7 @@ describe("demo sample pages from Wikimedia Commons", () => {
 		expect(await db.photos.count()).toBe(1);
 	});
 
-	it("removes stamps the user added on a sample page and trips built on them", async () => {
+	it("removes stamps the user added on a sample page and the history built on them", async () => {
 		const db = new VoyputDb("demo-samples-added-stamp");
 		await seedDemo(db);
 		const added: Stamp = {
@@ -83,27 +83,27 @@ describe("demo sample pages from Wikimedia Commons", () => {
 			reviewed: true,
 		};
 		await db.stamps.put(added);
-		const trip = (id: string, stampIds: string[]): Trip => ({
+		const stay = (id: string, stampIds: string[]): TravelStay => ({
 			id,
-			title: id,
-			start: "2005-08-21",
-			end: "2005-09-05",
-			confirmed: true,
+			countryCode: "TR",
+			place: "",
+			kind: "stay",
 			arrival: { date: "2005-08-21", source: "stamp", method: "plane" },
 			departure: { date: "2005-09-05", source: "manual", method: "ship" },
-			stops: [],
 			stampIds,
+			photoIds: [],
+			approved: true,
 		});
-		await db.trips.bulkPut([
-			trip("on-sample-stamp", [added.id]),
-			trip("own-trip", ["mine-stamp"]),
+		await db.stays.bulkPut([
+			stay("on-sample-stamp", [added.id]),
+			stay("own-stay", ["mine-stamp"]),
 		]);
 
 		await removeDemo(db);
 		expect(await db.stamps.get(added.id)).toBeUndefined();
 		expect(await db.stamps.count()).toBe(0);
-		expect(await db.trips.get("on-sample-stamp")).toBeUndefined();
-		expect(await db.trips.get("own-trip")).toBeTruthy();
+		// A history built on a demo stamp goes as a whole (ADR 0019).
+		expect(await db.stays.count()).toBe(0);
 	});
 
 	it("rejects a samples file with a stamp that is not a demo row", async () => {
