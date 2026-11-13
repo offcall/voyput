@@ -20,3 +20,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0014](0014-route-and-explore-core-modules.md) | Route and Explore Core Modules | Accepted |
 | [0015](0015-collect-and-visualize-navigation.md) | Collect and Visualize Navigation | Accepted; Collect part superseded by 0016 |
 | [0016](0016-collect-wizard.md) | Collect Wizard | Accepted |
+| [0017](0017-photo-location-window-setting.md) | Photo Location Window Setting | Accepted |
