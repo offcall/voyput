@@ -31,9 +31,12 @@ type Confirming = "replace" | "remove" | null;
 /** One-click demo data: a fictional passport, its stamps and matching locations. */
 export function DemoLoader({
 	onLoaded,
+	onRemoved,
 }: {
 	/** Called after a successful load, e.g. to report it beside the location summary. */
 	onLoaded?: (summary: DemoSummary) => void;
+	/** Called after demo data is removed, e.g. to drop that report again. */
+	onRemoved?: () => void;
 } = {}) {
 	const db = useDb();
 	const [state, setState] = useState<LoadState>({ kind: "idle" });
@@ -51,6 +54,7 @@ export function DemoLoader({
 			} else {
 				await removeDemo(db);
 				setState({ kind: "removed" });
+				onRemoved?.();
 			}
 		} catch (error) {
 			setState({

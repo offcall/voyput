@@ -38,6 +38,7 @@ export function ImportPage() {
 						onLoaded={(summary) =>
 							setDemoLoaded({ summary: summary.locationSummary })
 						}
+						onRemoved={() => setDemoLoaded(null)}
 					/>
 				</div>
 			</div>

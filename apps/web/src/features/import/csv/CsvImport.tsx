@@ -77,13 +77,19 @@ export interface DemoLoaded {
 export function CsvImport({
 	demoLoaded = null,
 }: {
-	/** Latest demo load, reported here next to the summary it changed. */
+	/** Latest demo load, reported here next to the summary it changed; null once demo data is removed. */
 	demoLoaded?: DemoLoaded | null;
 } = {}) {
 	const db = useDb();
 	const [state, setState] = useState<ImportState>({ kind: "idle" });
 	useEffect(() => {
-		if (demoLoaded) setState({ kind: "demo", summary: demoLoaded.summary });
+		setState((current) =>
+			demoLoaded
+				? { kind: "demo", summary: demoLoaded.summary }
+				: current.kind === "demo"
+					? { kind: "idle" }
+					: current,
+		);
 	}, [demoLoaded]);
 	const { data: stored } = useLiveQuery(
 		useCallback(() => summarizeStoredLocations(db), [db]),
