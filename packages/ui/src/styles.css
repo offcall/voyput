@@ -1095,6 +1095,95 @@ a[aria-current="page"] .vp-nav-count {
 	color: var(--vp-accent-ink);
 }
 
+/* ---------- Pixel art ---------- */
+
+.vp-pixel-art {
+	display: inline-block;
+	flex: none;
+	image-rendering: pixelated;
+	vertical-align: middle;
+}
+
+.vp-twinkle {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+.vp-twinkle-star {
+	position: absolute;
+	line-height: 0;
+	animation: vp-twinkle 3.2s steps(4) infinite;
+}
+.vp-twinkle-dot {
+	display: block;
+	width: 2px;
+	height: 2px;
+	background: var(--vp-twinkle);
+}
+
+.vp-sky {
+	position: relative;
+	overflow: hidden;
+	border-radius: var(--vp-radius-lg);
+	background: var(--vp-sky-bottom);
+}
+.vp-sky[data-time="day"] {
+	color-scheme: light;
+}
+.vp-sky[data-time="night"] {
+	color-scheme: dark;
+}
+.vp-sky-art {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+.vp-sky-stars rect {
+	animation: vp-twinkle 3s steps(3) infinite;
+}
+.vp-sky-cloud {
+	animation: vp-drift 9s steps(6) infinite alternate;
+}
+.vp-sky-cloud[data-slow] {
+	animation-duration: 14s;
+	animation-direction: alternate-reverse;
+}
+.vp-sky-content {
+	position: relative;
+	height: 100%;
+	box-sizing: border-box;
+	padding: var(--vp-space-5);
+	color: light-dark(var(--vp-pixel-ink), var(--vp-text));
+}
+
+@keyframes vp-twinkle {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.2;
+	}
+}
+@keyframes vp-drift {
+	from {
+		translate: 0 0;
+	}
+	to {
+		translate: 6px 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.vp-twinkle-star,
+	.vp-sky-stars rect,
+	.vp-sky-cloud {
+		animation: none;
+	}
+}
+
 /* ---------- Utilities ---------- */
 
 .vp-visually-hidden {

@@ -20,6 +20,7 @@ import { Disclosure } from "../Disclosure";
 import { EmptyState } from "../EmptyState";
 import { Notice } from "../Notice";
 import { PageHeader } from "../PageHeader";
+import { PixelArt } from "../pixel/PixelArt";
 import { Stat, StatGroup } from "../Stat";
 import { Toolbar, ToolbarSpacer } from "../Toolbar";
 
@@ -37,9 +38,10 @@ export const PageHeaderExample: StoryObj = {
 	),
 };
 
-export const PageHeaderStep4: StoryObj = {
+export const PageHeaderWithArt: StoryObj = {
 	render: () => (
 		<PageHeader
+			art={<PixelArt name="plane" scale={4} />}
 			eyebrow="Step 4 of 5"
 			title="Trips"
 			description="Trips built from your stamps and photos."
@@ -64,6 +66,7 @@ export const CardVariants: StoryObj = {
 			</Card>
 			<Card
 				variant="highlight"
+				art={<PixelArt name="trophy" scale={3} />}
 				title="Highlight"
 				description="Border, glow and a tint"
 			>
@@ -117,10 +120,10 @@ export const EmptyStateExample: StoryObj = {
 	),
 };
 
-export const EmptyStateSecondary: StoryObj = {
+export const EmptyStateWithArt: StoryObj = {
 	render: () => (
 		<EmptyState
-			icon="✈"
+			art={<PixelArt name="suitcase" scale={5} />}
 			title="No trips yet"
 			action={<Button variant="secondary">Build trips</Button>}
 		>
