@@ -31,6 +31,7 @@ function Harness({ dates }: { dates: string[] }) {
 			]}
 			date={date}
 			readDate="2024-03-10"
+			travelDays={new Map()}
 			direction="entry"
 			stampCode="RO"
 			radius={5}

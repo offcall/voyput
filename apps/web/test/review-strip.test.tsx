@@ -9,12 +9,14 @@ import {
 } from "../src/features/review/format";
 import { PannableDayStrip } from "../src/features/review/PannableDayStrip";
 import {
-	lineEdge,
+	NO_TRAVEL_DAYS,
 	photoDayRuns,
 	segmentBox,
 	segmentTip,
+	stampLine,
 	stripSegments,
 	stripWindow,
+	travelDaysOf,
 } from "../src/features/review/strip";
 
 const day = (iso: string) => dayNumber(iso) ?? Number.NaN;
@@ -47,15 +49,41 @@ describe("Review date format", () => {
 });
 
 describe("stamp line on the strip", () => {
+	const none = NO_TRAVEL_DAYS;
+	const travel = new Map([[100, ["UA", "ES"]]]);
+
 	it("sits on the start of the day for an entry, the end for an exit", () => {
-		expect(lineEdge(100, "entry")).toBe(100);
-		expect(lineEdge(100, "unknown")).toBe(100);
-		expect(lineEdge(100, "exit")).toBe(101);
+		expect(stampLine(100, "entry", "ES", none)).toBe(100);
+		expect(stampLine(100, "unknown", "ES", none)).toBe(100);
+		expect(stampLine(100, "exit", "UA", none)).toBe(101);
+	});
+
+	it("sits on the change inside a travel day", () => {
+		expect(stampLine(100, "entry", "ES", travel)).toBe(100.5);
+		expect(stampLine(100, "exit", "UA", travel)).toBe(100.5);
+		// No change into or out of the stamp's country inside the day: a day edge.
+		expect(stampLine(100, "entry", "UA", travel)).toBe(100);
+		expect(stampLine(100, "exit", "ES", travel)).toBe(101);
+		expect(stampLine(100, "entry", "FR", travel)).toBe(100);
+		expect(
+			stampLine(100, "exit", "GE", new Map([[100, ["AM", "GE", "TR"]]])),
+		).toBeCloseTo(100 + 2 / 3, 10);
+	});
+
+	it("orders a travel day's countries by their first photo", () => {
+		expect(
+			travelDaysOf([
+				{ date: "2016-08-10T18:00:00+02:00", countryCode: "ES" },
+				{ date: "2016-08-10T09:00:00+03:00", countryCode: "ua" },
+				{ date: "2016-08-10T20:00:00+02:00", countryCode: "UA" },
+				{ date: "2016-08-11T09:00:00+02:00", countryCode: "ES" },
+			]),
+		).toEqual(new Map([[day("2016-08-10"), ["UA", "ES"]]]));
 	});
 
 	it("has as many days on each side, so it is in the exact middle", () => {
 		for (const direction of ["entry", "exit", "unknown"] as const) {
-			const edge = lineEdge(100, direction);
+			const edge = stampLine(100, direction, "ES", travel);
 			const { from, days } = stripWindow(edge, 10);
 			expect(days).toBe(20);
 			expect((edge - from) / days).toBe(0.5);
@@ -74,7 +102,12 @@ describe("strip segments", () => {
 	];
 
 	it("covers every day once, days without photos included", () => {
-		const segments = stripSegments(runs, day("2023-04-22"), day("2023-05-01"));
+		const segments = stripSegments(
+			runs,
+			NO_TRAVEL_DAYS,
+			day("2023-04-22"),
+			day("2023-05-01"),
+		);
 		expect(segments.map(segmentTip)).toEqual([
 			"ID · 22 Apr – 25 Apr 2023",
 			"SG · 26 Apr – 26 Apr 2023",
@@ -89,7 +122,7 @@ describe("strip segments", () => {
 
 	it("draws each segment exactly on its days of the grid", () => {
 		const from = day("2023-04-16");
-		const segments = stripSegments(runs, from, from + 19);
+		const segments = stripSegments(runs, NO_TRAVEL_DAYS, from, from + 19);
 		const boxes = segments.map((s) => segmentBox(s, from, 20));
 		// 16–19 Apr have no photos: 4 of 20 days, 20 %.
 		expect(
@@ -140,6 +173,7 @@ describe("DayStrip", () => {
 		const { container } = render(
 			<DayStrip
 				dayRuns={runs}
+				travelDays={NO_TRAVEL_DAYS}
 				date="2023-04-26"
 				direction="entry"
 				stampCode="SG"
@@ -176,6 +210,7 @@ describe("DayStrip", () => {
 		const { container } = render(
 			<DayStrip
 				dayRuns={runs}
+				travelDays={NO_TRAVEL_DAYS}
 				date="2023-04-26"
 				direction="exit"
 				stampCode="SG"
@@ -197,6 +232,7 @@ describe("DayStrip", () => {
 		render(
 			<PannableDayStrip
 				dayRuns={runs}
+				travelDays={NO_TRAVEL_DAYS}
 				date="2023-04-26"
 				readDate="2023-04-26"
 				direction="exit"
@@ -208,5 +244,72 @@ describe("DayStrip", () => {
 		expect(screen.getByText("17 Apr 2023")).toBeTruthy();
 		expect(screen.getByText("6 May 2023")).toBeTruthy();
 		expect(screen.getByText("· end of day", { exact: false })).toBeTruthy();
+	});
+
+	describe("on a travel day", () => {
+		const trip = [
+			{ start: "2016-08-01", end: "2016-08-10", countryCode: "UA" },
+			{ start: "2016-08-11", end: "2016-08-20", countryCode: "ES" },
+		];
+		const travel = new Map([[day("2016-08-10"), ["UA", "ES"]]]);
+		const strip = (direction: "entry" | "exit", stampCode: string) =>
+			render(
+				<DayStrip
+					dayRuns={trip}
+					travelDays={travel}
+					date="2016-08-10"
+					direction={direction}
+					stampCode={stampCode}
+					radius={2}
+				/>,
+			).container;
+
+		for (const [direction, code] of [
+			["entry", "ES"],
+			["exit", "UA"],
+		] as const)
+			it(`puts an ${direction} line on the change inside the day, in the middle`, () => {
+				const container = strip(direction, code);
+				expect(
+					(container.querySelector(".review-strip-marker") as HTMLElement).style
+						.left,
+				).toBe("50%");
+				const day = container.querySelector(
+					".review-strip-run[data-travel]",
+				) as HTMLElement;
+				expect(day.getAttribute("title")).toBe("UA → ES · 10 Aug 2016");
+				// Half a day each side of the change: 37.5 % + one day of 25 %.
+				expect([day.style.left, day.style.right]).toEqual(["37.5%", "37.5%"]);
+				expect(
+					[...day.querySelectorAll(".review-strip-part")].map((part) =>
+						part.hasAttribute("data-match"),
+					),
+				).toEqual([code === "UA", code === "ES"]);
+				expect(titles(container).map((t) => t.title)).toEqual([
+					"UA · 8 Aug – 9 Aug 2016",
+					"UA → ES · 10 Aug 2016",
+					"ES · 11 Aug – 12 Aug 2016",
+				]);
+			});
+
+		it("names the in-day change under the strip", () => {
+			render(
+				<PannableDayStrip
+					dayRuns={trip}
+					travelDays={travel}
+					date="2016-08-10"
+					readDate="2016-08-10"
+					direction="exit"
+					stampCode="UA"
+					radius={10}
+					onDate={() => {}}
+				/>,
+			);
+			expect(
+				screen.getByText("· border change in the day", { exact: false }),
+			).toBeTruthy();
+			expect(screen.getByText("1 Aug 2016")).toBeTruthy();
+			expect(screen.getByText("19 Aug 2016")).toBeTruthy();
+		});
 	});
 });

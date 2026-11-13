@@ -1398,9 +1398,18 @@ fieldset.review-filters {
 	font-weight: 600;
 	color: var(--vp-text);
 }
+.review-pan-meta > span {
+	white-space: nowrap;
+}
 .review-pan-edge {
 	font-weight: 400;
 	color: var(--vp-muted);
+}
+/* No room for "start of day" next to three dates on a phone. */
+@media (max-width: 520px) {
+	.review-pan-edge {
+		display: none;
+	}
 }
 .review-pan-reset {
 	display: flex;
@@ -1409,4 +1418,15 @@ fieldset.review-filters {
 	gap: 8px;
 	font-size: 12px;
 	color: var(--vp-muted);
+}
+/* A travel day: one part per country, in the order they were photographed. */
+.review-strip-run[data-travel] {
+	align-items: stretch;
+}
+.review-strip-part {
+	flex: 1;
+	background: color-mix(in srgb, var(--review-country) 22%, var(--vp-surface));
+}
+.review-strip-part[data-match] {
+	background: color-mix(in srgb, var(--review-country) 45%, var(--vp-surface));
 }

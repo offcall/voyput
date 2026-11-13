@@ -30,6 +30,7 @@ const view = (stamps: Stamp[]) =>
 	render(
 		<TimelineView
 			dayRuns={[]}
+			travelDays={new Map()}
 			index={buildPhotoIndex([])}
 			stamps={stamps}
 			photoNames={new Map()}

@@ -138,6 +138,7 @@ export function ReviewPage() {
 									records={records.data}
 									index={history.data.index}
 									dayRuns={history.data.dayRuns}
+									travelDays={history.data.travelDays}
 									filter={ui.filter}
 									currentId={currentId}
 									focusStampId={focus?.stampId ?? null}
@@ -157,6 +158,7 @@ export function ReviewPage() {
 							content: (
 								<TimelineView
 									dayRuns={history.data.dayRuns}
+									travelDays={history.data.travelDays}
 									index={history.data.index}
 									stamps={records.data.stamps}
 									photoNames={photoNames}

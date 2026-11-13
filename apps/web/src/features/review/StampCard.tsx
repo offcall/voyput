@@ -23,6 +23,7 @@ import {
 } from "./format";
 import { PannableDayStrip } from "./PannableDayStrip";
 import { problemParts, type StampEdit } from "./reviewStore";
+import type { TravelDays } from "./strip";
 
 export type Validation =
 	| { status: "running" }
@@ -92,6 +93,7 @@ export function StampCard({
 	item,
 	number,
 	dayRuns,
+	travelDays,
 	windowDays,
 	nearby,
 	expanded,
@@ -108,6 +110,7 @@ export function StampCard({
 	item: CheckedStamp;
 	number: number;
 	dayRuns: readonly DayRun[];
+	travelDays: TravelDays;
 	/** Days shown before and after the stamp date. */
 	windowDays: number;
 	nearby: readonly NearbyPhoto[];
@@ -334,6 +337,7 @@ export function StampCard({
 							</h4>
 							<PannableDayStrip
 								dayRuns={dayRuns}
+								travelDays={travelDays}
 								date={stamp.date}
 								direction={stamp.direction}
 								readDate={

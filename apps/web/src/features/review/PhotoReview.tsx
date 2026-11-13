@@ -29,6 +29,7 @@ import {
 	updateStamp,
 } from "./reviewStore";
 import { COUNTRY_LIST_ID, StampCard, type Validation } from "./StampCard";
+import type { TravelDays } from "./strip";
 import type { ReviewRecords } from "./useReviewData";
 
 const NO_RANGE: DateRange = { from: null, to: null };
@@ -42,6 +43,7 @@ export function PhotoReview({
 	records,
 	index,
 	dayRuns,
+	travelDays,
 	filter,
 	currentId,
 	focusStampId,
@@ -56,6 +58,7 @@ export function PhotoReview({
 	records: ReviewRecords;
 	index: PhotoIndex;
 	dayRuns: readonly DayRun[];
+	travelDays: TravelDays;
 	filter: ReviewFilter;
 	currentId: string | null;
 	/** A stamp opened from the timeline: shown open and scrolled to. */
@@ -236,6 +239,7 @@ export function PhotoReview({
 							item={item}
 							number={i + 1}
 							dayRuns={dayRuns}
+							travelDays={travelDays}
 							windowDays={settings.locationWindowDays}
 							nearby={
 								isExpanded(item.stamp)

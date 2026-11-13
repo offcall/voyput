@@ -14,7 +14,7 @@ import {
 	type LiveQueryResult,
 	useLiveQuery,
 } from "../import/photos/useLiveQuery";
-import { photoDayRuns } from "./strip";
+import { photoDayRuns, type TravelDays, travelDaysOf } from "./strip";
 
 export interface ReviewRecords {
 	passports: Passport[];
@@ -56,6 +56,8 @@ export interface LocationHistory {
 	index: PhotoIndex;
 	/** Runs of consecutive photo days; a day without photos ends a run. */
 	dayRuns: DayRun[];
+	/** Days with photos in more than one country. */
+	travelDays: TravelDays;
 }
 
 /** The location history as a sorted index; read apart from stamps so edits do not reload 30k rows. */
@@ -66,7 +68,11 @@ export function useLocationHistory(): LiveQueryResult<LocationHistory> {
 	const data = useMemo(() => {
 		if (!rows) return undefined;
 		const index = buildPhotoIndex(rows);
-		return { index, dayRuns: photoDayRuns(buildDayRuns(index), index.days) };
+		return {
+			index,
+			dayRuns: photoDayRuns(buildDayRuns(index), index.days),
+			travelDays: travelDaysOf(rows),
+		};
 	}, [rows]);
 	return { data, error };
 }

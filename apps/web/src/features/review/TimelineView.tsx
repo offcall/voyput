@@ -38,6 +38,7 @@ import {
 	startOf,
 	type TimelineItem,
 } from "./stays";
+import type { TravelDays } from "./strip";
 
 /** Inline style that sets `--review-country` to a country's colour. */
 function useHueStyle() {
@@ -70,6 +71,7 @@ const stampLabel = (s: Stamp) =>
  */
 export function TimelineView({
 	dayRuns,
+	travelDays,
 	index,
 	stamps,
 	photoNames,
@@ -79,6 +81,7 @@ export function TimelineView({
 	onOpen,
 }: {
 	dayRuns: readonly DayRun[];
+	travelDays: TravelDays;
 	index: PhotoIndex;
 	stamps: readonly Stamp[];
 	/** Photo id → file name. */
@@ -142,6 +145,7 @@ export function TimelineView({
 			level={levels.get(stamp.id) ?? "ok"}
 			photoName={photoNames.get(stamp.photoId) ?? ""}
 			dayRuns={dayRuns}
+			travelDays={travelDays}
 			stripDays={stripDays}
 			index={index}
 			onOpen={onOpen}
@@ -300,6 +304,7 @@ function StampRow({
 	level,
 	photoName,
 	dayRuns,
+	travelDays,
 	stripDays,
 	index,
 	onOpen,
@@ -308,6 +313,7 @@ function StampRow({
 	level: Severity;
 	photoName: string;
 	dayRuns: readonly DayRun[];
+	travelDays: TravelDays;
 	stripDays: number;
 	index: PhotoIndex;
 	onOpen: (stamp: Stamp) => void;
@@ -356,6 +362,7 @@ function StampRow({
 			<span className="review-row-evidence">
 				<DayStrip
 					dayRuns={dayRuns}
+					travelDays={travelDays}
 					date={stamp.date}
 					direction={stamp.direction}
 					stampCode={stamp.countryCode}

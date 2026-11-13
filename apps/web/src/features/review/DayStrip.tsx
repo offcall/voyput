@@ -3,11 +3,12 @@ import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { useColourOf } from "./CountryTag";
 import { flagOf, formatDay } from "./format";
 import {
-	lineEdge,
 	segmentBox,
 	segmentTip,
+	stampLine,
 	stripSegments,
 	stripWindow,
+	type TravelDays,
 } from "./strip";
 
 /** Day width assumed until the strip is measured (and in tests). */
@@ -31,12 +32,13 @@ function useWidth<T extends HTMLElement>() {
 
 /**
  * Countries by photo day around one date, one strip per stamp: a block per run of photo days, hatched days without photos, faint
- * day ticks, and a line in the exact middle on the day edge the stamp marks
- * (entry: start of the day, exit: end). `shift` slides the days under the line
+ * day ticks, travel days split by country, and a line in the exact middle
+ * where the stamp says the border was crossed (see `stampLine`). `shift` slides the days under the line
  * while the strip is dragged: the line then marks the date the stamp would get.
  */
 export function DayStrip({
 	dayRuns,
+	travelDays,
 	date,
 	direction,
 	stampCode,
@@ -45,6 +47,7 @@ export function DayStrip({
 }: {
 	/** Runs of photo days; days no run covers are drawn as days without photos. */
 	dayRuns: readonly DayRun[];
+	travelDays: TravelDays;
 	date: string;
 	direction: Direction;
 	/** The stamp's country; its blocks are drawn stronger. */
@@ -59,13 +62,13 @@ export function DayStrip({
 	const target = dayNumber(date);
 	if (target === null) return null;
 	const { from, days } = stripWindow(
-		lineEdge(target, direction),
+		stampLine(target, direction, stampCode, travelDays),
 		radius,
 		shift,
 	);
 	const first = Math.floor(from);
 	const last = Math.ceil(from + days) - 1;
-	const segments = stripSegments(dayRuns, first, last);
+	const segments = stripSegments(dayRuns, travelDays, first, last);
 	const pxPerDay = width > 0 ? width / days : FALLBACK_PX_PER_DAY;
 	const pct = (n: number) => `${n}%`;
 
@@ -79,6 +82,29 @@ export function DayStrip({
 				const box = segmentBox(segment, from, days);
 				const px = (segment.end - segment.start + 1) * pxPerDay;
 				const code = segment.countryCode;
+				if (segment.via)
+					return (
+						<span
+							key={segment.start}
+							className="review-strip-run"
+							data-travel=""
+							title={segmentTip(segment)}
+							style={{ left: pct(box.left), right: pct(box.right) }}
+						>
+							{segment.via.map((part) => (
+								<span
+									key={part}
+									className="review-strip-part"
+									data-match={part === stampCode || undefined}
+									style={
+										{
+											"--review-country": colourOf(part),
+										} as CSSProperties
+									}
+								/>
+							))}
+						</span>
+					);
 				return (
 					<span
 						key={segment.start}

@@ -3,7 +3,7 @@ import { Button } from "@voyput/ui";
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import { DayStrip } from "./DayStrip";
 import { formatDay } from "./format";
-import { lineEdge, stripWindow } from "./strip";
+import { stampLine, stripWindow, type TravelDays } from "./strip";
 import { dragShift, snapShift } from "./stripPan";
 
 /**
@@ -15,6 +15,7 @@ import { dragShift, snapShift } from "./stripPan";
  */
 export function PannableDayStrip({
 	dayRuns,
+	travelDays,
 	date,
 	readDate,
 	direction,
@@ -23,10 +24,11 @@ export function PannableDayStrip({
 	onDate,
 }: {
 	dayRuns: readonly DayRun[];
+	travelDays: TravelDays;
 	date: string;
 	/** The date as read from the stamp, where reset returns to. */
 	readDate: string | null;
-	/** Puts the line at the start (entry) or end (exit) of the stamp day. */
+	/** With the stamp country, where on the stamp day the line goes (see `stampLine`). */
 	direction: Direction;
 	stampCode: string | null;
 	radius: number;
@@ -102,8 +104,15 @@ export function PannableDayStrip({
 	/** The day under the date line, while dragging too. */
 	const centre = target + Math.round(moving ?? 0);
 	const shown = formatDay(dayIso(centre));
-	/** First and last whole day shown at rest; the line is on the edge between the halves. */
-	const view = stripWindow(lineEdge(centre, direction), radius);
+	/** The days shown at rest; the edges name the first and last whole day. */
+	const line = stampLine(centre, direction, stampCode, travelDays);
+	const view = stripWindow(line, radius);
+	const edge =
+		line === centre
+			? "start of day"
+			: line === centre + 1
+				? "end of day"
+				: "border change in the day";
 	return (
 		<div className="review-pan">
 			<div className="review-pan-row">
@@ -135,6 +144,7 @@ export function PannableDayStrip({
 				>
 					<DayStrip
 						dayRuns={dayRuns}
+						travelDays={travelDays}
 						date={dayIso(target)}
 						direction={direction}
 						stampCode={stampCode}
@@ -153,14 +163,12 @@ export function PannableDayStrip({
 				</Button>
 			</div>
 			<div className="review-pan-meta">
-				<span>{formatDay(dayIso(view.from))}</span>
+				<span>{formatDay(dayIso(Math.ceil(view.from)))}</span>
 				<span className="review-pan-date">
 					{shown}
-					<span className="review-pan-edge">
-						{direction === "exit" ? " · end of day" : " · start of day"}
-					</span>
+					<span className="review-pan-edge">{` · ${edge}`}</span>
 				</span>
-				<span>{formatDay(dayIso(view.from + view.days - 1))}</span>
+				<span>{formatDay(dayIso(Math.floor(view.from + view.days) - 1))}</span>
 			</div>
 			{read !== null && read !== target ? (
 				<div className="review-pan-reset">
