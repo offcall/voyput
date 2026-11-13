@@ -126,6 +126,83 @@ ${JSON.stringify({
 		]);
 		expect(stamps.map((s) => s.borderCrossing)).toEqual(["unknown", "plane"]);
 	});
+	it("reads a bad field as unknown with a warning and keeps the other stamps", () => {
+		const good = {
+			direction: "entry",
+			dateText: "2 DEC 2019",
+			date: "2019-12-02",
+			country: "Romania",
+			countryCode: "ro",
+			location: "Siret",
+			confidence: 90,
+		};
+		const raw = JSON.stringify({
+			notes: "page",
+			stamps: [
+				good,
+				{ ...good, countryCode: "Unknown", country: "" },
+				{ ...good, countryCode: "??", direction: "in", confidence: "high" },
+				{ ...good, date: "2019-02-30", dateText: 7, location: 3 },
+				"not a stamp",
+			],
+		});
+		const { notes, stamps } = parsePhotoResponse(raw, { from: null, to: null });
+		expect(notes).toBe("page Skipped 1 entry that is not a stamp.");
+		expect(
+			stamps.map((s) => [
+				s.countryCode,
+				s.country,
+				s.direction,
+				s.date,
+				s.dateText,
+				s.location,
+				s.confidence,
+				s.problem,
+			]),
+		).toEqual([
+			["RO", "Romania", "entry", "2019-12-02", "2 DEC 2019", "Siret", 90, null],
+			[
+				null,
+				null,
+				"entry",
+				"2019-12-02",
+				"2 DEC 2019",
+				"Siret",
+				90,
+				'unreadable country code "Unknown"',
+			],
+			[
+				null,
+				"Romania",
+				"unknown",
+				"2019-12-02",
+				"2 DEC 2019",
+				"Siret",
+				0,
+				'unreadable direction "in"; unreadable country code "??"',
+			],
+			[
+				"RO",
+				"Romania",
+				"entry",
+				null,
+				"",
+				null,
+				90,
+				'unreadable date "2019-02-30"',
+			],
+		]);
+	});
+
+	it.each([
+		["not JSON", "I could not read this page."],
+		["no stamps array", JSON.stringify({ notes: "x", stamps: {} })],
+		["not an object", "[]"],
+	])("fails the photo when the output is %s", (_, raw) => {
+		expect(() => parsePhotoResponse(raw, { from: null, to: null })).toThrow(
+			/^invalid model output/,
+		);
+	});
 });
 
 describe("dateMatchesText", () => {
