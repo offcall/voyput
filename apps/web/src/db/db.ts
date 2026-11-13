@@ -1,4 +1,5 @@
 import {
+	isCountryCode,
 	type LegacyTrip,
 	type LocationRow,
 	legacyTripCountry,
@@ -8,6 +9,7 @@ import {
 	type PhotoExtraction,
 	periodsOf,
 	type Stamp,
+	sortStays,
 	suggestHistory,
 	type TravelStay,
 } from "@voyput/core";
@@ -56,27 +58,73 @@ export class VoyputDb extends Dexie {
 	}
 }
 
-/**
- * A stay the old suggestion made up to fill time at home: no stamp, no photo,
- * no place, never approved, edited or dated by hand. Only these go.
- */
-export const isGeneratedFiller = (s: TravelStay): boolean =>
-	s.id.startsWith("stay-") &&
-	s.stampIds.length === 0 &&
-	s.photoIds.length === 0 &&
-	s.place === "" &&
-	!s.approved &&
-	!s.edited &&
-	s.arrival.source !== "manual" &&
-	s.departure.source !== "manual";
+/** Ids the version 4 suggester gave: `stay-<arrival or birth>-<country>`, maybe with suffixes. */
+const SUGGESTED_ID =
+	/^stay-(?:\d{4}-\d{2}-\d{2}|birth)-([a-z]{2})(?:-home|-after|-\d+)*$/;
 
-/** Version 5: stored stays lose the generated home stays; `trips:home` goes. */
+/** The country of most stays (transits left out), as version 4 read home. */
+function mostStaysCountry(stays: readonly TravelStay[]): string | null {
+	const counts = new Map<string, number>();
+	for (const s of stays)
+		if (s.kind === "stay")
+			counts.set(s.countryCode, (counts.get(s.countryCode) ?? 0) + 1);
+	let best: string | null = null;
+	for (const [cc, n] of [...counts].sort((a, b) => a[0].localeCompare(b[0])))
+		if (best === null || n > (counts.get(best) ?? 0)) best = cc;
+	return best;
+}
+
+/**
+ * Stays the version 4 suggester made up to fill time at home, provably
+ * untouched: in the home country under the id it was suggested with (a
+ * changed country keeps its old id), kind `stay`, no stamp, photo, place or
+ * approval, no date set by hand, and each travel method unknown or the one
+ * the neighbouring stay gave it. Version 4 stored no `edited` flag, so
+ * anything that may have been edited stays.
+ */
+export function generatedHomeStays(
+	stays: readonly TravelStay[],
+	pickedHome: string | null,
+): Set<string> {
+	const sorted = sortStays(stays);
+	const home = pickedHome ?? mostStaysCountry(sorted);
+	const out = new Set<string>();
+	sorted.forEach((s, i) => {
+		const prev = sorted[i - 1];
+		const next = sorted[i + 1];
+		const idCountry = SUGGESTED_ID.exec(s.id)?.[1];
+		if (
+			home !== null &&
+			s.countryCode === home &&
+			idCountry === home.toLowerCase() &&
+			s.kind === "stay" &&
+			s.stampIds.length === 0 &&
+			s.photoIds.length === 0 &&
+			s.place === "" &&
+			!s.approved &&
+			s.arrival.source === "estimated" &&
+			s.departure.source === "estimated" &&
+			(s.arrival.method === "unknown" ||
+				s.arrival.method === prev?.departure.method) &&
+			(s.departure.method === "unknown" ||
+				s.departure.method === next?.arrival.method)
+		)
+			out.add(s.id);
+	});
+	return out;
+}
+
+/** Version 5: stored stays lose the provably generated home stays; `trips:home` goes. */
 export async function dropHomeStays(tx: Transaction): Promise<void> {
-	await tx
-		.table<TravelStay, string>("stays")
-		.filter(isGeneratedFiller)
-		.delete();
-	await tx.table<KvRecord, string>("kv").delete("trips:home");
+	const kv = tx.table<KvRecord, string>("kv");
+	const stays = tx.table<TravelStay, string>("stays");
+	const picked = await kv.get("trips:home");
+	const generated = generatedHomeStays(
+		await stays.toArray(),
+		isCountryCode(picked?.value) ? picked.value : null,
+	);
+	await stays.bulkDelete([...generated]);
+	await kv.delete("trips:home");
 }
 
 /** `kv` key of stored trips the migration could not place in a country. */

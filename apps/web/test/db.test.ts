@@ -226,7 +226,7 @@ describe("database", () => {
 		db.close();
 	});
 
-	it("drops only generated home stays from a stored history (version 5)", async () => {
+	it("drops only provably generated home stays from a stored history (version 5)", async () => {
 		const old = new Dexie("db-migrate-home");
 		old.version(4).stores({
 			passports: "id",
@@ -237,66 +237,58 @@ describe("database", () => {
 			stays: "id",
 			kv: "key",
 		});
-		const estimate = (date: string | null) => ({
+		const edge = (date: string | null, method = "unknown") => ({
 			date,
 			source: "estimated",
-			method: "unknown",
+			method,
 		});
-		const base = {
+		const stay = (
+			id: string,
+			countryCode: string,
+			arrival: string | null,
+			departure: string | null,
+			extra: Record<string, unknown> = {},
+		) => ({
+			id,
+			countryCode,
 			place: "",
 			kind: "stay",
+			arrival: edge(arrival),
+			departure: edge(departure),
 			stampIds: [],
 			photoIds: [],
 			approved: false,
-		};
+			...extra,
+		});
 		await old.table("stays").bulkPut([
-			// Made up by the old suggestion: goes.
-			{
-				...base,
-				id: "stay-birth-ua",
-				countryCode: "UA",
-				arrival: estimate(null),
-				departure: estimate("2024-04-30"),
-			},
-			{
-				...base,
-				id: "stay-2024-05-03-ua-home",
-				countryCode: "UA",
-				arrival: estimate("2024-05-03"),
-				departure: estimate("2024-06-01"),
-			},
-			// Evidence, a place, an approval or a date set by hand: stays.
-			{
-				...base,
-				id: "stay-2024-04-30-es",
-				countryCode: "ES",
-				arrival: estimate("2024-04-30"),
-				departure: estimate("2024-05-03"),
+			// Made up by the old suggestion and untouched: these go.
+			stay("stay-birth-ua", "UA", null, "2024-04-30"),
+			stay("stay-2024-05-03-ua-home", "UA", "2024-05-03", "2024-06-01", {
+				// Inferred from the stay before it, as the old builder did.
+				arrival: edge("2024-05-03", "plane"),
+			}),
+			// Evidence: stays.
+			stay("stay-2024-04-30-es", "ES", "2024-04-30", "2024-05-03", {
 				photoIds: ["u1"],
-			},
-			{
-				...base,
-				id: "stay-2024-06-01-ua",
-				countryCode: "UA",
-				arrival: estimate("2024-06-01"),
-				departure: estimate("2024-07-01"),
+				departure: edge("2024-05-03", "plane"),
+			}),
+			// Edits version 4 could not flag: all stay.
+			stay("stay-2024-06-01-ua", "PL", "2024-06-01", "2024-06-10"),
+			stay("stay-2024-06-10-ua", "UA", "2024-06-10", "2024-06-20", {
+				kind: "transit",
+			}),
+			stay("stay-2024-06-20-ua", "UA", "2024-06-20", "2024-07-01", {
+				arrival: edge("2024-06-20", "ship"),
+			}),
+			stay("stay-2024-07-01-ua", "UA", "2024-07-01", "2024-07-10", {
 				place: "Kyiv",
-			},
-			{
-				...base,
-				id: "stay-2024-07-01-ua-home",
-				countryCode: "UA",
-				arrival: { ...estimate("2024-07-01"), source: "manual" },
-				departure: estimate("2024-08-01"),
-			},
-			{
-				...base,
-				id: "stay-2024-08-01-ua-home",
-				countryCode: "UA",
-				arrival: estimate("2024-08-01"),
-				departure: estimate(null),
+			}),
+			stay("stay-2024-07-10-ua", "UA", "2024-07-10", "2024-08-01", {
+				arrival: { ...edge("2024-07-10"), source: "manual" },
+			}),
+			stay("stay-2024-08-01-ua", "UA", "2024-08-01", null, {
 				approved: true,
-			},
+			}),
 		]);
 		await old.table("kv").put({ key: "trips:home", value: "UA" });
 		old.close();
@@ -305,8 +297,11 @@ describe("database", () => {
 		expect((await db.stays.toArray()).map((s) => s.id).sort()).toEqual([
 			"stay-2024-04-30-es",
 			"stay-2024-06-01-ua",
-			"stay-2024-07-01-ua-home",
-			"stay-2024-08-01-ua-home",
+			"stay-2024-06-10-ua",
+			"stay-2024-06-20-ua",
+			"stay-2024-07-01-ua",
+			"stay-2024-07-10-ua",
+			"stay-2024-08-01-ua",
 		]);
 		expect(await db.kv.get("trips:home")).toBeUndefined();
 		db.close();
