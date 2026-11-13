@@ -36,8 +36,8 @@
 	min-width: 0;
 }
 @media (min-width: 1100px) {
-	.vp-trips-layout {
-		grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
+	.vp-trips-layout[data-open] {
+		grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
 	}
 	.vp-trips-pane {
 		position: sticky;
@@ -357,7 +357,7 @@
 	padding: 0;
 	border: 0;
 	background: none;
-	color: var(--vp-accent-text);
+	color: var(--vp-accent);
 	font: inherit;
 	text-decoration: underline;
 	cursor: pointer;
@@ -373,6 +373,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+	container-type: inline-size;
 }
 .vp-stays-trip {
 	display: flex;
@@ -399,7 +400,7 @@
 .vp-stays-trip-head > :first-child {
 	font-family: var(--vp-font-pixel);
 	text-transform: uppercase;
-	color: var(--vp-accent-text);
+	color: var(--vp-accent);
 }
 .vp-stays-trip-title {
 	font-weight: 600;
@@ -558,13 +559,19 @@
 	border-color: var(--vp-bad);
 	background: var(--vp-bad-soft);
 }
-@media (max-width: 640px) {
+/* A narrow list (detail open, or a phone): the tools go under the stay. */
+@container (max-width: 760px) {
 	.vp-stay {
 		grid-template-columns: 22px minmax(0, 1fr);
 	}
 	.vp-stay-tools {
-		grid-column: 1 / -1;
+		grid-column: 2 / -1;
 		justify-content: flex-start;
+	}
+}
+@container (max-width: 480px) {
+	.vp-stay-tools {
+		grid-column: 1 / -1;
 	}
 	.vp-stay-hints {
 		padding-left: 0;

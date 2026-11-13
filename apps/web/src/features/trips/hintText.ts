@@ -47,9 +47,10 @@ export function hintText(hint: StayHint): string {
 			return "Departure date is missing before the next stay.";
 		case "stamp-mismatch": {
 			const { stamp } = hint;
-			const direction =
+			const country = countryName(stamp.countryCode);
+			const kind =
 				stamp.direction === "unknown" ? "stamp" : `${stamp.direction} stamp`;
-			return `A ${countryName(stamp.countryCode)} ${direction} on ${longDay(stamp.date)} does not fit this stay.`;
+			return `${country} ${kind} of ${longDay(stamp.date)}: no ${country} stay covers that day.`;
 		}
 		case "passport-validity": {
 			const from = hint.validFrom ? longDay(hint.validFrom) : "…";
