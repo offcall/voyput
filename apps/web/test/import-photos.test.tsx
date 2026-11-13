@@ -61,6 +61,35 @@ describe("import passport photos", () => {
 		).toBe("0");
 	});
 
+	it("opens a photo in Review from its card, but not from its buttons", async () => {
+		const user = userEvent.setup();
+		const { db, router } = renderApp("/collect/passports");
+
+		await user.type(await screen.findByLabelText("Passport name"), "Trip");
+		await user.click(screen.getByRole("button", { name: "Add passport" }));
+		await user.upload(await screen.findByLabelText("Add page photos to Trip"), [
+			file("page-1.jpg", "image/jpeg"),
+		]);
+		const open = await screen.findByRole("link", {
+			name: "Open page-1.jpg in Review",
+		});
+		const [photo] = await db.photos.toArray();
+
+		await user.click(screen.getByRole("button", { name: "Rotate page-1.jpg" }));
+		await user.click(screen.getByRole("button", { name: "Delete page-1.jpg" }));
+		await user.click(await screen.findByRole("button", { name: "Cancel" }));
+		await user.click(screen.getByRole("button", { name: "Edit" }));
+		await user.click(await screen.findByRole("button", { name: "Save" }));
+		expect(router.state.location.pathname).toBe("/collect/passports");
+
+		open.focus();
+		await user.keyboard("{Enter}");
+		await waitFor(() =>
+			expect(router.state.location.pathname).toBe("/collect/review"),
+		);
+		expect(router.state.location.search).toEqual({ photo: photo?.id });
+	});
+
 	it("deletes a photo and then the passport with everything read from them", async () => {
 		const user = userEvent.setup();
 		const { db } = renderApp("/collect/passports");

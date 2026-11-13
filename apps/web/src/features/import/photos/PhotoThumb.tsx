@@ -1,9 +1,13 @@
+import { Link } from "@tanstack/react-router";
 import { Badge, Button } from "@voyput/ui";
 import { useEffect, useState } from "react";
 import type { PhotoRecord } from "../../../db/db";
 import type { PhotoStatus } from "./passportStore";
 
-/** One photo in the grid, shown with its saved rotation; actions appear on hover or focus. */
+/**
+ * One photo in the grid, shown with its saved rotation. The picture opens the
+ * photo in Review; the actions sit above that link and appear on hover or focus.
+ */
 export function PhotoThumb({
 	photo,
 	status,
@@ -26,15 +30,24 @@ export function PhotoThumb({
 	return (
 		<figure className="import-thumb">
 			<div className="import-thumb-frame">
-				{url ? (
-					<img
-						src={url}
-						alt={photo.name}
-						data-rotation={photo.rotation}
-						data-sideways={photo.rotation % 180 !== 0 ? "" : undefined}
-						style={{ rotate: `${photo.rotation}deg` }}
-					/>
-				) : null}
+				<Link
+					to="/collect/$step"
+					params={{ step: "review" }}
+					search={{ photo: photo.id }}
+					className="import-thumb-open"
+					aria-label={`Open ${photo.name} in Review`}
+					title={`Open ${photo.name} in Review`}
+				>
+					{url ? (
+						<img
+							src={url}
+							alt={photo.name}
+							data-rotation={photo.rotation}
+							data-sideways={photo.rotation % 180 !== 0 ? "" : undefined}
+							style={{ rotate: `${photo.rotation}deg` }}
+						/>
+					) : null}
+				</Link>
 				<div className="import-thumb-actions">
 					<Button
 						size="sm"
