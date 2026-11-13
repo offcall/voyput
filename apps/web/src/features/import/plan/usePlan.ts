@@ -16,7 +16,8 @@ export function usePlan(): Plan | undefined {
 				locations,
 				locationCountries,
 				extracted,
-				failed,
+				failedIds,
+				recoveredIds,
 				stamps,
 				toReview,
 				problems,
@@ -28,7 +29,11 @@ export function usePlan(): Plan | undefined {
 				db.locations.count(),
 				db.locations.orderBy("countryCode").uniqueKeys(),
 				db.extractions.filter((e) => e.status === "ok").count(),
-				db.extractions.filter((e) => e.status === "failed").count(),
+				db.extractions.filter((e) => e.status === "failed").primaryKeys(),
+				db.stamps
+					.filter((stamp) => stamp.source === "manual" && stamp.reviewed)
+					.toArray()
+					.then((manual) => new Set(manual.map((stamp) => stamp.photoId))),
 				db.stamps.count(),
 				db.stamps.filter((stamp) => !stamp.reviewed).count(),
 				// Same rule as trip evidence: a warning counts until it is fixed or hidden.
@@ -38,13 +43,15 @@ export function usePlan(): Plan | undefined {
 				db.trips.toArray(),
 				db.kv.get(HOME_KEY),
 			]);
+			// A failed photo whose stamps the user added and reviewed by hand is handled.
+			const recovered = failedIds.filter((id) => recoveredIds.has(id)).length;
 			return buildPlan({
 				passports,
 				photos,
 				locations,
 				locationCountries: locationCountries.filter(isCountryCode),
-				extracted,
-				failed,
+				extracted: extracted + recovered,
+				failed: failedIds.length - recovered,
 				stamps,
 				toReview,
 				problems,

@@ -194,6 +194,35 @@ describe("collect wizard", () => {
 		expect(stepLink(3).getAttribute("aria-current")).toBeNull();
 	});
 
+	it("counts a failed photo as handled once its stamps were added and reviewed by hand", async () => {
+		const db = freshDb();
+		await seed(db, { photos: 1, failed: 1 });
+		renderApp("/collect/extract", { db });
+		await waitFor(() =>
+			expect(stepLink(3).getAttribute("aria-label")).toBe(
+				"Step 3: Extract, needs attention, 1 failed",
+			),
+		);
+		const manual = (reviewed: boolean): Stamp => ({
+			...stamp("m1", reviewed),
+			photoId: "ph0",
+			source: "manual",
+			confidence: null,
+		});
+		// Added by hand but not reviewed yet: still needs attention.
+		await db.stamps.put(manual(false));
+		await waitFor(() =>
+			expect(stepLink(4).getAttribute("aria-label")).toContain("1 to check"),
+		);
+		expect(stepLink(3).getAttribute("aria-label")).toContain("1 failed");
+		await db.stamps.put(manual(true));
+		await waitFor(() =>
+			expect(stepLink(3).getAttribute("aria-label")).toMatch(
+				/^Step 3: Extract, done/,
+			),
+		);
+	});
+
 	it("moves between steps with the stepper and Back / Next", async () => {
 		const user = userEvent.setup();
 		const { router } = renderApp("/collect/passports");
