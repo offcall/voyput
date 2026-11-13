@@ -76,9 +76,7 @@ function Stats({ plan }: { plan: Plan }) {
 			label: "Countries",
 			value: number.format(plan.countries),
 			hint:
-				plan.countriesFrom === "trips"
-					? "in saved trips"
-					: "in photo locations",
+				plan.countriesFrom === "trips" ? "in saved trips" : "in your photos",
 		},
 		{
 			label: "Days abroad",
