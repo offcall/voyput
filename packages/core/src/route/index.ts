@@ -1,5 +1,6 @@
 export * from "./clusters";
 export * from "./curve";
+export * from "./journey";
 export * from "./path";
 export * from "./position";
 export * from "./revealed";
