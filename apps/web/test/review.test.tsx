@@ -77,11 +77,52 @@ describe("review", () => {
 		const stamp = within(await card(1));
 		await user.click(stamp.getByRole("button", { expanded: false }));
 		expect(stamp.getByText("Photo location history ±4 days")).toBeTruthy();
-		const slider = stamp.getByRole("slider", {
-			name: "Photo location history window",
-		});
-		expect(slider.getAttribute("aria-valuetext")).toBe(
-			"centred on the stamp date 2016-08-10",
+		expect(
+			stamp
+				.getByRole("slider", {
+					name: "Stamp date on the photo location history",
+				})
+				.getAttribute("aria-valuetext"),
+		).toBe("2016-08-10");
+	});
+
+	it("sets the stamp date from the photo location strip and resets it", async () => {
+		const db = await demoDb();
+		const user = userEvent.setup();
+		const first = renderApp("/review", { db });
+		const stamp = within(await card(1));
+		await user.click(stamp.getByRole("button", { expanded: false }));
+		const strip = () =>
+			stamp.getByRole("slider", {
+				name: "Stamp date on the photo location history",
+			});
+		strip().focus();
+		await user.keyboard("{ArrowLeft}{ArrowLeft}");
+		await waitFor(async () =>
+			expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-08"),
+		);
+		// A drag one day to the left picks the next day.
+		const track = strip();
+		track.getBoundingClientRect = () => ({ width: 210 }) as DOMRect;
+		fireEvent.pointerDown(track, { pointerId: 1, clientX: 100, button: 0 });
+		fireEvent.pointerMove(track, { pointerId: 1, clientX: 88 });
+		fireEvent.pointerUp(track, { pointerId: 1, clientX: 88 });
+		await waitFor(async () =>
+			expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-09"),
+		);
+		expect((await db.stamps.get("demo-stamp-01"))?.readDate).toBe("2016-08-10");
+
+		first.unmount();
+		renderApp("/review", { db });
+		const again = within(await card(1));
+		await user.click(again.getByRole("button", { expanded: false }));
+		expect((again.getByLabelText("Date") as HTMLInputElement).value).toBe(
+			"2016-08-09",
+		);
+		expect(again.getByText("Read as 2016-08-10")).toBeTruthy();
+		await user.click(again.getByRole("button", { name: "Reset to read date" }));
+		await waitFor(async () =>
+			expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-10"),
 		);
 	});
 

@@ -31,6 +31,11 @@ export interface Stamp {
 	reviewed: boolean;
 	/** Warnings the user hid on Review; a hidden warning no longer counts as an issue. */
 	dismissed?: DismissedNotes;
+	/**
+	 * The date before the first edit on Review, i.e. as read from the stamp;
+	 * absent until the date is first changed. Review's reset returns to it.
+	 */
+	readDate?: string | null;
 }
 
 /** Review warnings a user can hide: our date check and the location history check. */

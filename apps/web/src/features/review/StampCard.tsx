@@ -324,11 +324,14 @@ export function StampCard({
 								Photo location history ±{windowDays} days
 							</h4>
 							<PannableDayStrip
-								key={stamp.date}
 								dayRuns={dayRuns}
 								date={stamp.date}
+								readDate={
+									stamp.readDate === undefined ? stamp.date : stamp.readDate
+								}
 								stampCode={stamp.countryCode}
 								radius={windowDays}
+								onDate={(date) => onEdit({ date })}
 							/>
 							{nearby.length > 0 ? (
 								<ul className="review-nearby" aria-label="Nearest photos">

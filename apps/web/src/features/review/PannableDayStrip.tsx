@@ -1,102 +1,78 @@
 import { type DayRun, dayIso, dayNumber } from "@voyput/core";
 import { Button } from "@voyput/ui";
-import {
-	type KeyboardEvent,
-	type PointerEvent,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import { DayStrip } from "./DayStrip";
-import { plural } from "./format";
 import { dragShift, snapShift } from "./stripPan";
 
-const SNAP_MS = 140;
-
-/** True only where the browser says the user is fine with motion. */
-const animates = (): boolean =>
-	typeof window.matchMedia === "function" &&
-	window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
-
 /**
- * A `DayStrip` the user can pan through time: drag it (mouse, pen or touch),
- * use the arrow keys or the ‹ › buttons. At rest the window always starts on a
- * whole day; a drag snaps to the nearest one on release.
+ * A `DayStrip` that sets the stamp date: drag it
+ * (mouse, pen or touch) and the days slide under the date line like a map, so
+ * dragging right picks an earlier date; on release it lands on a whole day.
+ * Arrow keys and the ‹ › buttons move the date a day (Shift: a week); reset
+ * returns to the date as read.
  */
 export function PannableDayStrip({
 	dayRuns,
 	date,
+	readDate,
 	stampCode,
 	radius,
+	onDate,
 }: {
 	dayRuns: readonly DayRun[];
 	date: string;
+	/** The date as read from the stamp, where reset returns to. */
+	readDate: string | null;
 	stampCode: string | null;
 	radius: number;
+	/** Saves a new stamp date. */
+	onDate: (date: string) => void;
 }) {
-	/** Whole days from the stamp date, at rest. */
-	const [shift, setShift] = useState(0);
-	/** A fractional shift while dragging or snapping; null at rest. */
+	/** Days moved from `date`, a fraction while dragging; null at rest. */
 	const [moving, setMoving] = useState<number | null>(null);
+	/** A day sent with `onDate` while `date` was still `base`; it counts until `date` changes. */
+	const [pending, setPending] = useState<{ base: string; day: number } | null>(
+		null,
+	);
 	const drag = useRef<{
 		pointerId: number;
 		startX: number;
-		startShift: number;
 		pxPerDay: number;
 		last: number;
 	} | null>(null);
-	const frame = useRef(0);
-	useEffect(() => () => cancelAnimationFrame(frame.current), []);
 
-	const target = dayNumber(date);
-	if (target === null) return null;
+	const saved = dayNumber(date);
+	if (saved === null) return null;
+	const target = pending?.base === date ? pending.day : saved;
 	const total = radius * 2 + 1;
+	const read = readDate ? dayNumber(readDate) : null;
 
-	/** Rests on `to`, easing there from `from` unless motion is reduced. */
-	const settle = (from: number, to: number) => {
-		cancelAnimationFrame(frame.current);
-		setShift(to);
-		if (from === to || !animates()) {
-			setMoving(null);
-			return;
-		}
-		const start = performance.now();
-		const step = (now: number) => {
-			const t = Math.min(1, (now - start) / SNAP_MS);
-			if (t >= 1) {
-				setMoving(null);
-				return;
-			}
-			setMoving(from + (to - from) * (1 - (1 - t) ** 3));
-			frame.current = requestAnimationFrame(step);
-		};
-		frame.current = requestAnimationFrame(step);
+	const moveTo = (day: number) => {
+		if (day === target) return;
+		setPending({ base: date, day });
+		onDate(dayIso(day));
 	};
-	const stepBy = (delta: number) => settle(moving ?? shift, shift + delta);
 
 	const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
 		if (event.pointerType === "mouse" && event.button !== 0) return;
-		cancelAnimationFrame(frame.current);
-		const startShift = moving ?? shift;
 		drag.current = {
 			pointerId: event.pointerId,
 			startX: event.clientX,
-			startShift,
 			pxPerDay: event.currentTarget.getBoundingClientRect().width / total,
-			last: startShift,
+			last: 0,
 		};
 		try {
 			event.currentTarget.setPointerCapture(event.pointerId);
 		} catch {
 			// No capture (jsdom, or the pointer is already gone): moves still arrive while over the strip.
 		}
-		setMoving(startShift);
+		setMoving(0);
 	};
 	const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
 		const current = drag.current;
 		if (!current || current.pointerId !== event.pointerId) return;
 		current.last = dragShift(
-			current.startShift,
+			0,
 			event.clientX - current.startX,
 			current.pxPerDay,
 		);
@@ -106,22 +82,21 @@ export function PannableDayStrip({
 		const current = drag.current;
 		if (!current || current.pointerId !== event.pointerId) return;
 		drag.current = null;
-		settle(current.last, snapShift(current.last));
+		setMoving(null);
+		moveTo(target + snapShift(current.last));
 	};
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-		const delta =
-			event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : null;
-		if (delta !== null) stepBy(delta);
-		else if (event.key === "Home") settle(moving ?? shift, 0);
+		const step = event.shiftKey ? 7 : 1;
+		if (event.key === "ArrowLeft") moveTo(target - step);
+		else if (event.key === "ArrowRight") moveTo(target + step);
+		else if (event.key === "Home" && read !== null) moveTo(read);
 		else return;
 		event.preventDefault();
 	};
 
-	const first = target + shift - radius;
-	const position =
-		shift === 0
-			? `centred on the stamp date ${date}`
-			: `${dayIso(first)} to ${dayIso(first + total - 1)}, ${plural(Math.abs(shift), "day")} ${shift < 0 ? "before" : "after"} the stamp date`;
+	/** The day under the date line, while dragging too. */
+	const centre = target + Math.round(moving ?? 0);
+	const shown = dayIso(centre);
 	return (
 		<div className="review-pan">
 			<div className="review-pan-row">
@@ -130,7 +105,7 @@ export function PannableDayStrip({
 					size="sm"
 					square
 					aria-label="One day earlier"
-					onClick={() => stepBy(-1)}
+					onClick={() => moveTo(target - 1)}
 				>
 					‹
 				</Button>
@@ -138,13 +113,13 @@ export function PannableDayStrip({
 					className="review-pan-track"
 					role="slider"
 					tabIndex={0}
-					aria-label="Photo location history window"
+					aria-label="Stamp date on the photo location history"
 					aria-orientation="horizontal"
 					aria-valuemin={-36500}
 					aria-valuemax={36500}
-					aria-valuenow={shift}
-					aria-valuetext={position}
-					data-dragging={drag.current ? "" : undefined}
+					aria-valuenow={target - (read ?? saved)}
+					aria-valuetext={shown}
+					data-dragging={moving === null ? undefined : ""}
 					onPointerDown={onPointerDown}
 					onPointerMove={onPointerMove}
 					onPointerUp={endDrag}
@@ -153,10 +128,10 @@ export function PannableDayStrip({
 				>
 					<DayStrip
 						dayRuns={dayRuns}
-						date={date}
+						date={dayIso(target)}
 						stampCode={stampCode}
 						radius={radius}
-						shift={moving ?? shift}
+						shift={moving ?? 0}
 					/>
 				</div>
 				<Button
@@ -164,23 +139,24 @@ export function PannableDayStrip({
 					size="sm"
 					square
 					aria-label="One day later"
-					onClick={() => stepBy(1)}
+					onClick={() => moveTo(target + 1)}
 				>
 					›
 				</Button>
 			</div>
 			<div className="review-pan-meta">
-				<span>{dayIso(first)}</span>
-				<Button
-					variant="ghost"
-					size="sm"
-					disabled={shift === 0}
-					onClick={() => settle(moving ?? shift, 0)}
-				>
-					Stamp date
-				</Button>
-				<span>{dayIso(first + total - 1)}</span>
+				<span>{dayIso(centre - radius)}</span>
+				<span className="review-pan-date">{shown}</span>
+				<span>{dayIso(centre + radius)}</span>
 			</div>
+			{read !== null && read !== target ? (
+				<div className="review-pan-reset">
+					<span>Read as {readDate}</span>
+					<Button variant="ghost" size="sm" onClick={() => moveTo(read)}>
+						Reset to read date
+					</Button>
+				</div>
+			) : null}
 		</div>
 	);
 }

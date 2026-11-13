@@ -1336,7 +1336,7 @@ fieldset.review-filters {
 	}
 }
 
-/* Stamp card: the Photo location history strip, panned by drag, keys or buttons */
+/* Stamp card: the Photo location history strip; drag, keys or buttons set the stamp date */
 
 .review-pan {
 	display: flex;
@@ -1370,5 +1370,17 @@ fieldset.review-filters {
 	gap: 8px;
 	font-size: 11px;
 	font-variant-numeric: tabular-nums;
+	color: var(--vp-muted);
+}
+.review-pan-date {
+	font-weight: 600;
+	color: var(--vp-text);
+}
+.review-pan-reset {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	font-size: 12px;
 	color: var(--vp-muted);
 }

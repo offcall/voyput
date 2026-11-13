@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { PannableDayStrip } from "../src/features/review/PannableDayStrip";
 import { dragShift, snapShift } from "../src/features/review/stripPan";
@@ -19,52 +20,75 @@ describe("strip pan helpers", () => {
 	});
 });
 
-const strip = () =>
-	render(
+/** The strip with the date kept in state, as the stamp card keeps it in the db. */
+function Harness({ dates }: { dates: string[] }) {
+	const [date, setDate] = useState("2024-03-10");
+	return (
 		<PannableDayStrip
 			dayRuns={[
 				{ start: "2024-03-01", end: "2024-03-08", countryCode: "MD" },
 				{ start: "2024-03-09", end: "2024-03-20", countryCode: "RO" },
 			]}
-			date="2024-03-10"
+			date={date}
+			readDate="2024-03-10"
 			stampCode="RO"
 			radius={5}
-		/>,
+			onDate={(next) => {
+				dates.push(next);
+				setDate(next);
+			}}
+		/>
 	);
+}
 
 const slider = () =>
-	screen.getByRole("slider", { name: "Photo location history window" });
+	screen.getByRole("slider", {
+		name: "Stamp date on the photo location history",
+	});
 
-describe("pannable photo location strip", () => {
-	it("rests on a whole day after a drag", () => {
-		strip();
+describe("photo location strip sets the stamp date", () => {
+	it("lands on a whole day after a drag", () => {
+		const dates: string[] = [];
+		render(<Harness dates={dates} />);
 		const track = slider();
 		// 11 days over 220 px: 20 px per day.
 		track.getBoundingClientRect = () => ({ width: 220 }) as DOMRect;
 		fireEvent.pointerDown(track, { pointerId: 1, clientX: 100, button: 0 });
 		fireEvent.pointerMove(track, { pointerId: 1, clientX: 164 });
+		// Mid-drag the line shows the nearest whole day; nothing is saved yet.
+		expect(slider().getAttribute("aria-valuetext")).toBe("2024-03-07");
+		expect(dates).toEqual([]);
 		fireEvent.pointerUp(track, { pointerId: 1, clientX: 164 });
-		// 64 px right is 3.2 days earlier; it rests on a whole day.
+		// 64 px right is 3.2 days earlier: the date lands on the 7th.
+		expect(dates).toEqual(["2024-03-07"]);
+		expect(slider().getAttribute("aria-valuetext")).toBe("2024-03-07");
 		expect(slider().getAttribute("aria-valuenow")).toBe("-3");
-		expect(slider().getAttribute("aria-valuetext")).toBe(
-			"2024-03-02 to 2024-03-12, 3 days before the stamp date",
-		);
 	});
 
-	it("steps a day with the arrow keys and the buttons, and resets", async () => {
+	it("steps a day with the keys and buttons, a week with Shift, and resets", async () => {
 		const user = userEvent.setup();
-		strip();
-		slider().focus();
-		await user.keyboard("{ArrowRight}{ArrowRight}");
-		expect(slider().getAttribute("aria-valuenow")).toBe("2");
-		await user.click(screen.getByRole("button", { name: "One day earlier" }));
-		expect(slider().getAttribute("aria-valuenow")).toBe("1");
-		await user.click(screen.getByRole("button", { name: "Stamp date" }));
-		expect(slider().getAttribute("aria-valuenow")).toBe("0");
+		const dates: string[] = [];
+		render(<Harness dates={dates} />);
 		expect(
-			(screen.getByRole("button", { name: "Stamp date" }) as HTMLButtonElement)
-				.disabled,
-		).toBe(true);
+			screen.queryByRole("button", { name: "Reset to read date" }),
+		).toBeNull();
+		slider().focus();
+		await user.keyboard("{ArrowRight}{ArrowRight}{Shift>}{ArrowLeft}{/Shift}");
+		await user.click(screen.getByRole("button", { name: "One day later" }));
+		expect(dates).toEqual([
+			"2024-03-11",
+			"2024-03-12",
+			"2024-03-05",
+			"2024-03-06",
+		]);
+		expect(screen.getByText("Read as 2024-03-10")).toBeTruthy();
+		await user.click(
+			screen.getByRole("button", { name: "Reset to read date" }),
+		);
+		expect(dates.at(-1)).toBe("2024-03-10");
+		expect(
+			screen.queryByRole("button", { name: "Reset to read date" }),
+		).toBeNull();
 	});
 });
 

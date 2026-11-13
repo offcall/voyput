@@ -58,7 +58,10 @@ export function problemAfterEdit(
 	return left.length ? left.join("; ") : null;
 }
 
-/** Saves only the edited fields, so two quick saves never undo each other. */
+/**
+ * Saves only the edited fields, so two quick saves never undo each other. The
+ * first date change also keeps the old date as `readDate`.
+ */
 export async function updateStamp(
 	db: VoyputDb,
 	id: string,
@@ -68,10 +71,16 @@ export async function updateStamp(
 		const stamp = await db.stamps.get(id);
 		if (!stamp) return;
 		const problem = problemAfterEdit(stamp.problem, edit);
-		await db.stamps.update(
-			id,
-			problem === stamp.problem ? edit : { ...edit, problem },
-		);
+		// The first date change keeps the date as read, for the strip's reset.
+		const keepRead =
+			"date" in edit && edit.date !== stamp.date && stamp.readDate === undefined
+				? { readDate: stamp.date }
+				: {};
+		await db.stamps.update(id, {
+			...edit,
+			...keepRead,
+			...(problem === stamp.problem ? {} : { problem }),
+		});
 	});
 }
 
