@@ -1,17 +1,14 @@
-import type { VizData } from "@voyput/core";
+import {
+	type MoveRoute,
+	moveRoutes,
+	moveYears,
+	type VizData,
+} from "@voyput/core";
 import { CountryChip, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { formatInt, NoData, OTHER_COLOR } from "./format";
-import {
-	layoutSankey,
-	moveYears,
-	NODE_W,
-	OTHER,
-	type Route,
-	routesOf,
-	type SankeyLink,
-} from "./moves";
+import { layoutSankey, NODE_W, OTHER, type SankeyLink } from "./moves";
 import { type MarkProps, useMarkTip } from "./useMarkTip";
 import "./moves.css";
 
@@ -68,7 +65,10 @@ export function SankeyChart({ data }: { data: VizData }) {
 	const [picked, setPicked] = useState<string | null>(null);
 	// A trip filter change can drop the picked year.
 	const year = picked !== null && years.includes(picked) ? picked : null;
-	const routes = useMemo(() => routesOf(data.moves, year), [data.moves, year]);
+	const routes = useMemo(
+		() => moveRoutes(data.moves, year),
+		[data.moves, year],
+	);
 	if (data.moves.length === 0) return <NoData />;
 
 	const moves = routes.reduce((s, r) => s + r.count, 0);
@@ -140,7 +140,7 @@ type Active =
 	| { kind: "country"; code: string }
 	| { kind: "route"; from: string; to: string };
 
-function MovesFlows({ routes }: { routes: readonly Route[] }) {
+function MovesFlows({ routes }: { routes: readonly MoveRoute[] }) {
 	const countryColor = useCountryColour();
 	const { hostRef, mark, tip } = useMarkTip<HTMLDivElement>();
 	const { ref, width } = useWidth(900);
@@ -322,7 +322,7 @@ function MovesFlows({ routes }: { routes: readonly Route[] }) {
 }
 
 /** Every route with its count, last move and a bar. */
-function RoutesTable({ routes }: { routes: readonly Route[] }) {
+function RoutesTable({ routes }: { routes: readonly MoveRoute[] }) {
 	const countryColor = useCountryColour();
 	const max = routes[0]?.count ?? 1;
 	return (
