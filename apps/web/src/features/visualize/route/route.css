@@ -1,0 +1,231 @@
+/* Route tab: the world-map route player (ADR 0012). */
+.vp-route {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vp-space-4);
+	min-width: 0;
+}
+.vp-route-toolbar,
+.vp-route-player {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+}
+.vp-route-spacer {
+	flex: 1;
+}
+.vp-route-pills {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: 3px;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius-full);
+	background: var(--vp-surface-2);
+}
+.vp-route-pill {
+	font: inherit;
+	font-size: var(--vp-text-xs);
+	font-weight: 600;
+	line-height: 18px;
+	padding: 3px 11px;
+	border: 0;
+	border-radius: var(--vp-radius-full);
+	background: transparent;
+	color: var(--vp-muted);
+	cursor: pointer;
+	white-space: nowrap;
+	transition:
+		background var(--vp-duration) var(--vp-ease),
+		color var(--vp-duration) var(--vp-ease);
+}
+.vp-route-pill:hover {
+	color: var(--vp-text);
+	background: var(--vp-surface-3);
+}
+.vp-route-pill[aria-pressed="true"] {
+	background: var(--vp-accent);
+	color: var(--vp-accent-text);
+	box-shadow: var(--vp-glow-sm);
+}
+.vp-route-select select {
+	font: inherit;
+	font-size: var(--vp-text-xs);
+	font-weight: 600;
+	padding: 5px 12px;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius-full);
+	background: var(--vp-surface-2);
+	color: var(--vp-text);
+}
+
+/* The map: the panel's night sky, fixed 2 : 1, with the stop label on top. */
+.vp-route-sky {
+	aspect-ratio: 2 / 1;
+}
+.vp-route-svg {
+	position: absolute;
+	inset: 0;
+	height: 100%;
+	cursor: grab;
+	touch-action: none;
+	user-select: none;
+}
+.vp-route-svg:active {
+	cursor: grabbing;
+}
+.vp-route-flown,
+.vp-route-leg {
+	fill: none;
+	stroke-linecap: round;
+}
+.vp-route-flown {
+	stroke: var(--vp-accent);
+	opacity: 0.7;
+}
+.vp-route-leg {
+	stroke: var(--vp-accent-ink);
+	opacity: 0.85;
+}
+.vp-route-bubble {
+	stroke: var(--vp-pixel-paper);
+}
+.vp-route-bubbles > g {
+	animation: vp-route-pop 260ms var(--vp-ease) both;
+	transform-box: fill-box;
+	transform-origin: center;
+}
+.vp-route-trail {
+	fill: var(--vp-accent);
+}
+.vp-route-glow {
+	fill: var(--vp-accent);
+	opacity: 0.25;
+}
+.vp-route-pulse {
+	fill: none;
+	stroke: var(--vp-accent);
+	transform-box: fill-box;
+	transform-origin: center;
+	animation: vp-route-pulse 1.3s ease-out infinite;
+}
+.vp-route-head {
+	fill: var(--vp-pixel-paper);
+	stroke: var(--vp-accent);
+}
+@keyframes vp-route-pulse {
+	from {
+		scale: 1;
+		opacity: 0.8;
+	}
+	to {
+		scale: 3;
+		opacity: 0;
+	}
+}
+@keyframes vp-route-pop {
+	from {
+		scale: 0;
+	}
+	to {
+		scale: 1;
+	}
+}
+
+.vp-route-stop {
+	position: absolute;
+	left: 12px;
+	top: 12px;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	max-width: calc(100% - 24px);
+	padding: 8px 14px 8px 10px;
+	border: 1px solid var(--vp-border-accent);
+	border-radius: var(--vp-radius);
+	background: color-mix(in srgb, var(--vp-surface) 88%, transparent);
+	box-shadow: var(--vp-shadow-sm), var(--vp-glow-sm);
+	pointer-events: none;
+}
+.vp-route-chip {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: 34px;
+	height: 34px;
+	border: 2px solid rgb(0 0 0 / 0.35);
+	font-family: var(--vp-font-pixel);
+	font-size: 12px;
+	color: var(--vp-accent-text);
+}
+.vp-route-stop > span:last-child {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+.vp-route-stop-name {
+	font-family: var(--vp-font-pixel);
+	font-size: 16px;
+	font-weight: 400;
+	line-height: 20px;
+	text-transform: uppercase;
+	color: var(--vp-text);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.vp-route-stop-dates {
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.vp-route-play {
+	min-width: 104px;
+}
+.vp-route-scrub {
+	flex: 1 1 200px;
+	min-width: 160px;
+	accent-color: var(--vp-accent);
+}
+
+/* Three tiles in one row, also on a phone. */
+.vp-route .vp-stats {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 600px) {
+	.vp-route .vp-stat {
+		padding: var(--vp-space-2) var(--vp-space-3);
+	}
+	.vp-route-spacer {
+		display: none;
+	}
+	.vp-route-stop {
+		left: 6px;
+		top: 6px;
+		padding: 4px 10px 4px 6px;
+		gap: 6px;
+	}
+	.vp-route-chip {
+		width: 24px;
+		height: 24px;
+		font-size: 10px;
+	}
+	.vp-route-stop-name {
+		font-size: 12px;
+		line-height: 16px;
+	}
+	.vp-route-scrub {
+		flex-basis: 100%;
+		order: 3;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.vp-route-pulse,
+	.vp-route-bubbles > g {
+		animation: none;
+	}
+}

@@ -82,7 +82,7 @@ describe("visualize", () => {
 			trip("t2", "East Asia", "2024-06-09", "2024-06-13"),
 			trip("t3", "Lost weekend", "2024-09-01", "2024-09-02"),
 		]);
-		renderApp("/visualize", { db });
+		renderApp("/visualize/movements", { db });
 		await expectCountries("4");
 		expect(stat("Photos")).toBe("6");
 		expect(stat("Days with photos")).toBe("6");
