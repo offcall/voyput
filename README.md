@@ -25,7 +25,7 @@ npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/d
 
 ## Stamp reading
 
-Stamps are read through OpenRouter with the user's own key. The default model is `google/gemini-3.8-flash`, which scored best on real stamp pages for about $0.015 per page ([model trial](docs/model-trial-2026-11.md), [ADR 0017](docs/adr/0017-gemini-flash-default-model.md)). Any image model can be picked in Settings. To compare models again, run `node scripts/model-trial/run.mjs` (see its header; it spends real credits).
+Stamps are read through OpenRouter with the user's own key. The default model is `google/gemini-3.8-flash`, which scored best on real stamp pages for about $0.015 per page ([model trial](docs/model-trial-2026-11.md), [ADR 0020](docs/adr/0020-gemini-flash-default-model.md)). Any image model can be picked in Settings. To compare models again, run `node scripts/model-trial/run.mjs` (see its header; it spends real credits).
 
 The demo includes 10 real stamp pages from Wikimedia Commons with that model's output left unreviewed, so you can try Review without a key ([credits](apps/web/public/demo/CREDITS.md)).
 

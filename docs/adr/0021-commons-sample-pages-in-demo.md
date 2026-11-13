@@ -1,4 +1,4 @@
-# ADR 0018: Commons Sample Pages in the Demo
+# ADR 0021: Commons Sample Pages in the Demo
 
 ## Status
 
@@ -12,7 +12,7 @@ The generated demo pages (ADR 0010) are clean drawings with stamps already revie
 
 - The demo adds a second passport, "Sample stamps (Wikimedia Commons)" (`demo-samples`). It holds 10 single pages cropped from Commons photos under CC BY, CC BY-SA or public domain: `public/demo/sample-*.jpg`.
 - Only stamp and visa pages are used: no bio-data page, no name, face, MRZ or passport number. A number printed along a page edge is covered.
-- The stamps are the stored output of the default model (ADR 0017), parsed by the app's parser, in `public/demo/samples.json`. They are left unreviewed, so they never feed trips until the user reviews them, and loading them needs no API key.
+- The stamps are the stored output of the default model (ADR 0020), parsed by the app's parser, in `public/demo/samples.json`. They are left unreviewed, so they never feed trips until the user reviews them, and loading them needs no API key.
 - Sources, authors, licences and changes are listed in `public/demo/CREDITS.md` and in the demo card. The same id prefixes as ADR 0010 apply, so loading and removing work as before.
 
 ## Consequences

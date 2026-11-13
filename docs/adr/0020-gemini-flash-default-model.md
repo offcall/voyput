@@ -1,4 +1,4 @@
-# ADR 0017: Gemini 3.8 Flash as Default Model
+# ADR 0020: Gemini 3.8 Flash as Default Model
 
 ## Status
 

@@ -24,7 +24,7 @@ export const parseLocationWindow = (value: unknown): number | null =>
 
 export const DEFAULT_SETTINGS: Settings = {
 	openRouterKey: "",
-	// Best on real stamp pages in docs/model-trial-2026-11.md (ADR 0017).
+	// Best on real stamp pages in docs/model-trial-2026-11.md (ADR 0020).
 	model: "google/gemini-3.8-flash",
 	reasoningEffort: "medium",
 	locationWindowDays: 10,

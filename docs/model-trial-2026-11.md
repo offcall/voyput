@@ -1,6 +1,6 @@
 # Model trial, November 2026
 
-Which OpenRouter model should read stamps by default? Run on 2026-11-13; it led to [ADR 0017](adr/0017-gemini-flash-default-model.md).
+Which OpenRouter model should read stamps by default? Run on 2026-11-13; it led to [ADR 0020](adr/0020-gemini-flash-default-model.md).
 
 ## Method
 
