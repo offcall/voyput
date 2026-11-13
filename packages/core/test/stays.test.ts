@@ -204,6 +204,35 @@ describe("suggestStays", () => {
 		]);
 	});
 
+	it("goes on from a foreign exit to photos abroad instead of assuming home", () => {
+		const stays = suggest(
+			[
+				stamp("a", "2020-01-01", "FR", "entry"),
+				stamp("b", "2020-01-05", "FR", "exit"),
+			],
+			[
+				photo("2020-01-06", "ES"),
+				photo("2020-01-09", "ES"),
+				photo("2020-01-12", "UA"),
+			],
+		);
+		expect(brief(stays).map((s) => s.slice(0, 3))).toEqual([
+			["UA", null, "2020-01-01"],
+			["FR", "2020-01-01", "2020-01-05"],
+			["ES", "2020-01-05", "2020-01-12"],
+			["UA", "2020-01-12", null],
+		]);
+		// Weeks later, photos abroad are a new trip after time at home.
+		const later = suggest(
+			[
+				stamp("a", "2020-01-01", "FR", "entry"),
+				stamp("b", "2020-01-05", "FR", "exit"),
+			],
+			[photo("2020-03-01", "ES")],
+		);
+		expect(brief(later).map((s) => s[0])).toEqual(["UA", "FR", "UA", "ES"]);
+	});
+
 	it("fills an unknown method from the other side of the same crossing", () => {
 		const stays = suggest([
 			stamp("a", "2020-01-01", "UA", "exit", "unknown"),

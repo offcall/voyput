@@ -143,6 +143,7 @@ function backbone(
 					stay = here;
 					// Since birth stays since birth; an estimate gives way to the stamp.
 					if (stay.arrival.date !== null) stay.arrival = stampEdge(s);
+					stay.assumed = false;
 				}
 			} else if (s.direction === "exit") {
 				stay =
@@ -258,6 +259,9 @@ function assign(all: readonly Slot[], photos: readonly Photo[]): Photo[][] {
 	return buckets;
 }
 
+/** Days after an exit from abroad in which photos elsewhere mean onward travel, not home. */
+const ONWARD_DAYS = 2;
+
 /**
  * Photos split a slot into stays wherever their country changes; a change is
  * dated by the first photo in the next country. A day's photos are taken
@@ -271,9 +275,21 @@ function split(
 	const original = slot.stay;
 	if (photos.length === 0) return original ? [original] : [];
 	const first = photos[0] as Photo;
-	let segment: Draft = original
-		? { ...draft(original.countryCode, original.arrival), posts: [] }
-		: draft(first.countryCode, edge(slot.from, "estimated"));
+	// Home was only assumed after leaving abroad: photos elsewhere right
+	// after that exit mean the journey went on (home only before photos).
+	const onward =
+		original?.assumed === true &&
+		original.stampIds.length === 0 &&
+		original.arrival.date !== null &&
+		first.countryCode !== original.countryCode &&
+		day(first.day) - day(original.arrival.date) <= ONWARD_DAYS;
+	let segment: Draft =
+		original && !onward
+			? { ...draft(original.countryCode, original.arrival), posts: [] }
+			: draft(
+					first.countryCode,
+					original?.arrival ?? edge(slot.from, "estimated"),
+				);
 	const parts = [segment];
 	const byDay = new Map<string, Photo[]>();
 	for (const p of photos) byDay.set(p.day, [...(byDay.get(p.day) ?? []), p]);
