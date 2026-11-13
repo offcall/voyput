@@ -1,6 +1,6 @@
 import type { VizData } from "@voyput/core";
 import { formatInt, NoData } from "./format";
-import { LineChart } from "./LineChart";
+import { LineChart, type LinePoint } from "./LineChart";
 
 const CELL = 11;
 const GAP = 2;
@@ -109,14 +109,23 @@ function YearGrid({
 	);
 }
 
-/** Every month from the first to the last year with photos, empty months as zero. */
-function monthPoints(data: VizData) {
+/**
+ * Every month from January of the first year with photos to December of the
+ * last, also through years without photos; empty months are zero.
+ */
+export function monthPoints(data: VizData): LinePoint[] {
 	const perMonth = new Map<string, number>();
 	for (const [day, count] of Object.entries(data.dayCounts)) {
 		const month = day.slice(0, 7);
 		perMonth.set(month, (perMonth.get(month) ?? 0) + count);
 	}
-	return data.years.flatMap((year) =>
+	const first = Number(data.years[0]);
+	const last = Number(data.years[data.years.length - 1]);
+	const years =
+		data.years.length === 0
+			? []
+			: Array.from({ length: last - first + 1 }, (_, i) => String(first + i));
+	return years.flatMap((year) =>
 		MONTHS.map((name, m) => {
 			const key = `${year}-${String(m + 1).padStart(2, "0")}`;
 			return {

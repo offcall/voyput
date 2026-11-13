@@ -9,7 +9,7 @@ import { useEffect, useRef } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { channels, type Painter, usePainter } from "../themeColours";
 import { NoData } from "./format";
-import { type Box, fitView } from "./view";
+import { type Box, fitLatLon } from "./view";
 
 /** Heat cell size in world-box pixels (1000 × 500). */
 const CELL_PX = 6;
@@ -150,7 +150,7 @@ export function HeatmapChart({
 			world,
 			data.countries.map((c) => c.code),
 			painter(canvas.parentElement ?? document.body),
-			fitView(data.countries.map((c) => c.code)),
+			fitLatLon(data.heatPoints),
 			countryColor,
 		);
 	}, [data, world, painter, countryColor]);

@@ -5,31 +5,54 @@ import {
 	WORLD_WIDTH,
 } from "@voyput/core";
 
-/**
- * World-box rectangle (2 : 1) around the visited countries' centroids with a
- * margin, so a trip through a few neighbours is not a dot on a world map.
- * Whole world when nothing has a centroid or the travels span most of it.
- */
+/** Rectangle in the 1000 × 500 world box. */
 export type Box = [x: number, y: number, width: number, height: number];
 
-export function fitView(codes: readonly string[]): Box {
-	const whole: Box = [0, 0, WORLD_WIDTH, WORLD_HEIGHT];
-	const xy = codes.flatMap((code) => {
-		const c = COUNTRY_CENTROIDS[code];
-		return c ? [projectEquirect(c[0], c[1])] : [];
-	});
-	if (xy.length === 0) return whole;
-	const xs = xy.map(([x]) => x);
-	const ys = xy.map(([, y]) => y);
+const WHOLE: Box = [0, 0, WORLD_WIDTH, WORLD_HEIGHT];
+
+/**
+ * 2 : 1 rectangle around world-box points with a margin, so a trip through a
+ * few neighbours is not a dot on a world map. Every point stays inside. Whole
+ * world when there are no points or they span most of it.
+ */
+export function fitPoints(xy: readonly [number, number][]): Box {
+	if (xy.length === 0) return WHOLE;
+	let minX = Number.POSITIVE_INFINITY;
+	let maxX = Number.NEGATIVE_INFINITY;
+	let minY = Number.POSITIVE_INFINITY;
+	let maxY = Number.NEGATIVE_INFINITY;
+	for (const [x, y] of xy) {
+		minX = Math.min(minX, x);
+		maxX = Math.max(maxX, x);
+		minY = Math.min(minY, y);
+		maxY = Math.max(maxY, y);
+	}
 	const margin = 70;
-	let w = Math.max(...xs) - Math.min(...xs) + 2 * margin;
-	let h = Math.max(...ys) - Math.min(...ys) + 2 * margin;
+	let w = maxX - minX + 2 * margin;
+	let h = maxY - minY + 2 * margin;
 	w = Math.max(w, 2 * h, 320);
 	h = w / 2;
-	if (w >= WORLD_WIDTH * 0.8) return whole;
-	const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
-	const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
-	const x = Math.min(Math.max(cx - w / 2, 0), WORLD_WIDTH - w);
-	const y = Math.min(Math.max(cy - h / 2, 0), WORLD_HEIGHT - h);
+	if (w >= WORLD_WIDTH * 0.8) return WHOLE;
+	const x = Math.min(Math.max((minX + maxX) / 2 - w / 2, 0), WORLD_WIDTH - w);
+	const y = Math.min(Math.max((minY + maxY) / 2 - h / 2, 0), WORLD_HEIGHT - h);
 	return [x, y, w, h];
+}
+
+/** Box around the visited countries' centroids (the route map's marks). */
+export function fitView(codes: readonly string[]): Box {
+	return fitPoints(
+		codes.flatMap((code) => {
+			const c = COUNTRY_CENTROIDS[code];
+			return c ? [projectEquirect(c[0], c[1])] : [];
+		}),
+	);
+}
+
+/** Box around photo coordinates given as flat `[lat, lon, lat, lon, …]`. */
+export function fitLatLon(points: Float32Array): Box {
+	const xy: [number, number][] = [];
+	for (let i = 0; i + 1 < points.length; i += 2) {
+		xy.push(projectEquirect(points[i] ?? 0, points[i + 1] ?? 0));
+	}
+	return fitPoints(xy);
 }
