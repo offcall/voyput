@@ -1,7 +1,7 @@
 import type { LegacyTrip, LocationRow, Passport } from "@voyput/core";
 import Dexie from "dexie";
 import { describe, expect, it } from "vitest";
-import { VoyputDb } from "../src/db/db";
+import { LEGACY_TRIPS_KEY, VoyputDb } from "../src/db/db";
 
 const passport: Passport = {
 	id: "p1",
@@ -172,6 +172,61 @@ describe("database", () => {
 			["ES", "2024-04-30", "2024-05-03"],
 			["UA", "2024-05-03", null],
 		]);
+		db.close();
+	});
+
+	it("places trips without stops by their stamps or title, keeps the rest", async () => {
+		const old = oldDb("db-migrate-stopless");
+		const bare = (id: string, title: string, start: string, end: string) => ({
+			...spain,
+			id,
+			title,
+			start,
+			end,
+			arrival: { date: start, source: "manual", method: "car" },
+			departure: { date: end, source: "manual", method: "car" },
+			stops: [],
+			stampIds: id === "stamped" ? ["st1"] : [],
+		});
+		await old
+			.table("trips")
+			.bulkPut([
+				bare("stamped", "Weekend", "2024-02-01", "2024-02-03"),
+				bare("titled", "Lisbon, Portugal", "2024-03-01", "2024-03-04"),
+				bare("lost", "Lost weekend", "2024-04-05", "2024-04-07"),
+			]);
+		await old.table("stamps").put({
+			id: "st1",
+			passportId: "p1",
+			photoId: "ph1",
+			direction: "entry",
+			borderCrossing: "car",
+			dateText: "",
+			date: "2024-02-01",
+			country: "Romania",
+			countryCode: "RO",
+			location: null,
+			confidence: null,
+			notes: "",
+			problem: null,
+			source: "manual",
+			reviewed: true,
+		});
+		await old.table("kv").put({ key: "trips:home", value: "UA" });
+		old.close();
+
+		const db = new VoyputDb("db-migrate-stopless");
+		expect(await storedStays(db)).toEqual([
+			["UA", null, "2024-02-01"],
+			["RO", "2024-02-01", "2024-02-03"],
+			["UA", "2024-02-03", "2024-03-01"],
+			["PT", "2024-03-01", "2024-03-04"],
+			["UA", "2024-03-04", null],
+		]);
+		const kept = await db.kv.get(LEGACY_TRIPS_KEY);
+		expect(
+			Array.isArray(kept?.value) && kept.value.map((t: LegacyTrip) => t.id),
+		).toEqual(["lost"]);
 		db.close();
 	});
 });

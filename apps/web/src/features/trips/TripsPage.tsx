@@ -4,6 +4,9 @@ import {
 	clearStayIds,
 	deriveTrips,
 	isIsoDate,
+	type LegacyTrip,
+	legacyTripStays,
+	mergeKept,
 	spanLength,
 	stayCounts,
 	stayHints,
@@ -25,6 +28,7 @@ import { useDb } from "../../db/DbContext";
 import { DateField } from "./DateField";
 import { EMPTY_EDITS, editReducer, type Snapshot } from "./editHistory";
 import { countryName, localToday, plural, stayRange } from "./format";
+import { LegacyTrips } from "./LegacyTrips";
 import { buildPhotoDays } from "./photoDays";
 import { StayDetail } from "./StayDetail";
 import { StayRow } from "./StayRow";
@@ -35,6 +39,7 @@ import {
 	loadTripsData,
 	saveBirth,
 	saveHome,
+	saveLegacyTrips,
 	saveStays,
 	suggestHistory,
 	type TripsData,
@@ -212,6 +217,17 @@ export function TripsPage() {
 			})
 			.catch(fail);
 
+	const dropLegacy = (trip: LegacyTrip) => {
+		if (!data) return;
+		const legacy = data.legacy.filter((t) => t.id !== trip.id);
+		setData({ ...data, legacy });
+		saveLegacyTrips(db, legacy).catch(fail);
+	};
+	const addLegacy = (trip: LegacyTrip, country: string) => {
+		edit({ stays: mergeKept(stays, legacyTripStays(trip, country)) });
+		dropLegacy(trip);
+	};
+
 	const index = stays.findIndex((s) => s.id === selectedId);
 	const selected = stays[index];
 	const row = (i: number) => {
@@ -303,6 +319,12 @@ export function TripsPage() {
 					</span>
 				</div>
 			</div>
+
+			<LegacyTrips
+				trips={data.legacy}
+				onAdd={addLegacy}
+				onForget={dropLegacy}
+			/>
 
 			<StatGroup>
 				<Stat label="Trips" value={trips.length} />

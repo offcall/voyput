@@ -15,7 +15,7 @@ Trips were stored as periods outside a home country, with stops per day and two 
 - Hints are computed, not stored (`trips/hints.ts`): overnight travel (one day between departure and next arrival, info), long travel window (two days, warning), gaps, overlaps, reversed or missing dates, stamps no stay in their country covers, stamps outside their passport's validity (errors).
 - `Trip` is derived (`trips/history.ts`: `deriveTrips`): a run of stays outside home. Home is the country of most stays unless the user picks one. Explore's `Stay` is a read model built from `TravelStay`s.
 - Photos taken in a transit country during the transit do not count as a visit (`withoutTransitRows`); transits stay out of a trip's `visited` countries.
-- Dexie version 3 adds a `stays` table and drops `trips`; its upgrade converts stored trips into stays (`legacyTripStays`) so user edits are kept.
+- Dexie version 3 adds a `stays` table and version 4 drops `trips`; the upgrade converts stored trips into stays (`legacyTripStays`) so user edits are kept, with home after each trip. A trip without stops goes to the country its stamps or title name (`legacyTripCountry`); one naming none is kept in `kv` (`trips:legacy`) until the user places or forgets it on the Trips step.
 - Periods of trips the user deleted before stays (`trips:dismissed` in `kv`) stay home: every suggestion, in the upgrade and on the Trips step, passes through `applyDismissed`.
 
 ## Consequences

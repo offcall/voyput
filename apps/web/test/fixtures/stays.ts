@@ -33,7 +33,10 @@ export function tripsAsStays(
 	trips: readonly LegacyTrip[],
 	home: string,
 ): TravelStay[] {
-	const stays = mergeKept([always(home)], trips.flatMap(legacyTripStays));
+	const stays = mergeKept(
+		[always(home)],
+		trips.flatMap((t) => legacyTripStays(t)),
+	);
 	const last = stays.at(-1);
 	return last?.departure.date === null && trips.length > 0
 		? stays.slice(0, -1)

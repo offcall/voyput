@@ -236,4 +236,49 @@ describe("trips", () => {
 		expect(screen.getByText(/Home:/).textContent).toContain("Romania");
 		expect((await db.kv.get("trips:home"))?.value).toBe("RO");
 	});
+
+	it("adds a trip the migration could not place once the user picks its country", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-legacy");
+		await seed(db);
+		await db.kv.put({
+			key: "trips:legacy",
+			value: [
+				{
+					id: "lost",
+					title: "Lost weekend",
+					start: "2024-04-05",
+					end: "2024-04-07",
+					confirmed: true,
+					arrival: { date: "2024-04-05", source: "manual", method: "car" },
+					departure: { date: "2024-04-07", source: "manual", method: "car" },
+					stops: [],
+					stampIds: [],
+				},
+			],
+		});
+		renderApp("/collect/trips", { db });
+
+		const legacy = within(
+			await screen.findByRole("region", { name: "Trips without a country" }),
+		);
+		expect(legacy.getByText("Lost weekend")).toBeTruthy();
+		await user.selectOptions(
+			legacy.getByRole("combobox", { name: "Country of Lost weekend" }),
+			"BG",
+		);
+		await user.click(legacy.getByRole("button", { name: "Add as stay" }));
+		expect((await row(4, "Bulgaria")).textContent).toContain(
+			"5 → 7 April, 2024",
+		);
+		expect(
+			screen.queryByRole("region", { name: "Trips without a country" }),
+		).toBeNull();
+		await waitFor(async () =>
+			expect(await db.kv.get("trips:legacy")).toBeUndefined(),
+		);
+		await waitFor(async () =>
+			expect((await storedStays(db)).map((s) => s.countryCode)).toContain("BG"),
+		);
+	});
 });

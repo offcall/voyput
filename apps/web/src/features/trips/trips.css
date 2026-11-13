@@ -608,3 +608,30 @@
 	letter-spacing: 0.05em;
 	color: var(--vp-muted);
 }
+
+/* Trips saved before stays that the migration could not place */
+.vp-stays-legacy {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.vp-stays-legacy-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.vp-stays-legacy-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+	padding: 6px 10px;
+	border: 2px dashed var(--vp-warn);
+	border-radius: var(--vp-radius);
+}
+.vp-stays-legacy-row .vp-input {
+	max-width: 220px;
+}

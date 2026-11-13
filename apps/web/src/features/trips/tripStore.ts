@@ -3,6 +3,8 @@ import {
 	homeOf,
 	isCountryCode,
 	isIsoDate,
+	isLegacyTrip,
+	type LegacyTrip,
 	type LocationRow,
 	type Passport,
 	type Period,
@@ -12,7 +14,7 @@ import {
 	suggestHistory,
 	type TravelStay,
 } from "@voyput/core";
-import type { VoyputDb } from "../../db/db";
+import { LEGACY_TRIPS_KEY, type VoyputDb } from "../../db/db";
 
 /** `db.kv` key of the home country the user picked. */
 export const HOME_KEY = "trips:home";
@@ -33,10 +35,12 @@ export interface TripsData extends HistorySource {
 	/** Home country chosen by the user, or null (also when invalid). */
 	pickedHome: string | null;
 	birth: string | null;
+	/** Trips the migration could not place in a country. */
+	legacy: LegacyTrip[];
 }
 
 export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
-	const [stamps, locations, passports, stored, home, birth, dismissed] =
+	const [stamps, locations, passports, stored, home, birth, dismissed, legacy] =
 		await Promise.all([
 			db.stamps.toArray(),
 			db.locations.toArray(),
@@ -45,6 +49,7 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 			db.kv.get(HOME_KEY),
 			db.kv.get(BIRTH_KEY),
 			db.kv.get(DISMISSED_KEY),
+			db.kv.get(LEGACY_TRIPS_KEY),
 		]);
 	return {
 		stamps,
@@ -57,6 +62,9 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 			typeof birth?.value === "string" && isIsoDate(birth.value)
 				? birth.value
 				: null,
+		legacy: Array.isArray(legacy?.value)
+			? legacy.value.filter(isLegacyTrip)
+			: [],
 	};
 }
 
@@ -92,4 +100,14 @@ export async function saveBirth(
 ): Promise<void> {
 	if (birth) await db.kv.put({ key: BIRTH_KEY, value: birth });
 	else await db.kv.delete(BIRTH_KEY);
+}
+
+/** Keeps the trips still waiting for a country; none left removes the key. */
+export async function saveLegacyTrips(
+	db: VoyputDb,
+	trips: readonly LegacyTrip[],
+): Promise<void> {
+	if (trips.length > 0)
+		await db.kv.put({ key: LEGACY_TRIPS_KEY, value: [...trips] });
+	else await db.kv.delete(LEGACY_TRIPS_KEY);
 }

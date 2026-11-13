@@ -592,3 +592,36 @@ export function applyDismissed(
 	}
 	return out;
 }
+
+/**
+ * A saved trip ended at home: after each stay in `trips` (stays of migrated
+ * trips) that no stay follows directly, home fills the days up to the next
+ * stay, or stays open after the last one.
+ */
+export function homeAfterTrips(
+	stays: readonly TravelStay[],
+	trips: ReadonlySet<string>,
+	home: string,
+): TravelStay[] {
+	const out: TravelStay[] = [];
+	stays.forEach((s, i) => {
+		out.push(s);
+		const from = s.departure.date;
+		if (!trips.has(s.id) || s.countryCode === home || from === null) return;
+		const next = stays[i + 1];
+		const to = next?.arrival.date;
+		if (next && (to === null || to === undefined || to <= from)) return;
+		out.push({
+			id: `stay-${from}-${home.toLowerCase()}-home`,
+			countryCode: home,
+			place: "",
+			kind: "stay",
+			arrival: { ...s.departure },
+			departure: next ? edge(to ?? null, "estimated") : edge(null, "estimated"),
+			stampIds: [],
+			photoIds: [],
+			approved: false,
+		});
+	});
+	return out;
+}

@@ -1,3 +1,5 @@
+import type { Stamp } from "../stamps/types";
+import { COUNTRY_CODES, countryNameOf, isCountryCode } from "./countries";
 import {
 	type EdgeSource,
 	type StayEdge,
@@ -55,9 +57,29 @@ const legacyEdge = (b: LegacyBoundary, date: string): StayEdge => ({
 /**
  * A stored trip as stays: its stops grouped into runs of one country, the
  * trip's arrival and departure on the outer edges, photo days between them.
- * A confirmed trip gives approved stays. A trip without stops gives none.
+ * A confirmed trip gives approved stays. A trip without stops gives one
+ * stay in `country` (see `legacyTripCountry`), or none without it.
  */
-export function legacyTripStays(trip: LegacyTrip): TravelStay[] {
+export function legacyTripStays(
+	trip: LegacyTrip,
+	country: string | null = null,
+): TravelStay[] {
+	if (trip.stops.length === 0)
+		return country
+			? [
+					{
+						id: `${trip.id}-0`,
+						countryCode: country,
+						place: "",
+						kind: "stay",
+						arrival: legacyEdge(trip.arrival, trip.start),
+						departure: legacyEdge(trip.departure, trip.end),
+						stampIds: [...trip.stampIds],
+						photoIds: [],
+						approved: trip.confirmed,
+					},
+				]
+			: [];
 	const days = [...new Set(trip.stops.map((s) => s.day))].sort();
 	const runs: {
 		countryCode: string;
@@ -110,4 +132,61 @@ export function legacyTripStays(trip: LegacyTrip): TravelStay[] {
 			approved: trip.confirmed,
 		};
 	});
+}
+
+/** The parts of a title like "Rome, Italy → France" that may name a country. */
+const titleParts = (title: string) =>
+	title
+		.split(/→|->|,|\/|·| - /)
+		.map((part) => part.trim().toLowerCase())
+		.filter(Boolean);
+
+/**
+ * The country of a stored trip without stops: the first of its stamps
+ * outside home (an entry first), else a country its title names. Null when
+ * neither tells.
+ */
+export function legacyTripCountry(
+	trip: LegacyTrip,
+	stamps: readonly Pick<Stamp, "id" | "countryCode" | "direction">[],
+	home: string | null,
+): string | null {
+	const own = stamps.filter(
+		(s) =>
+			trip.stampIds.includes(s.id) &&
+			s.countryCode !== null &&
+			isCountryCode(s.countryCode) &&
+			s.countryCode !== home,
+	);
+	const stamp = own.find((s) => s.direction === "entry") ?? own[0];
+	if (stamp?.countryCode) return stamp.countryCode;
+	const parts = titleParts(trip.title);
+	for (const part of parts) {
+		const code = part.toUpperCase();
+		if (code.length === 2 && isCountryCode(code) && code !== home) return code;
+		const named = COUNTRY_CODES.find(
+			(cc) => cc !== home && countryNameOf(cc).toLowerCase() === part,
+		);
+		if (named) return named;
+	}
+	return null;
+}
+
+/** A stored trip as read back from `kv`; anything else is skipped. */
+export function isLegacyTrip(value: unknown): value is LegacyTrip {
+	if (typeof value !== "object" || value === null) return false;
+	const t = value as Record<string, unknown>;
+	return (
+		typeof t.id === "string" &&
+		typeof t.title === "string" &&
+		typeof t.start === "string" &&
+		typeof t.end === "string" &&
+		typeof t.confirmed === "boolean" &&
+		typeof t.arrival === "object" &&
+		t.arrival !== null &&
+		typeof t.departure === "object" &&
+		t.departure !== null &&
+		Array.isArray(t.stops) &&
+		Array.isArray(t.stampIds)
+	);
 }

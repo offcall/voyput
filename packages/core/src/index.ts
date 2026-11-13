@@ -87,6 +87,7 @@ export {
 } from "./stamps/visits";
 export {
 	applyDismissed,
+	homeAfterTrips,
 	mergeKept,
 	methodOf,
 	type Period,
@@ -121,7 +122,12 @@ export {
 	suggestHistory,
 	withoutTransitRows,
 } from "./trips/history";
-export { type LegacyTrip, legacyTripStays } from "./trips/legacy";
+export {
+	isLegacyTrip,
+	type LegacyTrip,
+	legacyTripCountry,
+	legacyTripStays,
+} from "./trips/legacy";
 export {
 	type EdgeSource,
 	type StayEdge,

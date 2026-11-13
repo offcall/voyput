@@ -1,7 +1,10 @@
 import {
+	guessHomeCountry,
+	homeAfterTrips,
 	isCountryCode,
 	type LegacyTrip,
 	type LocationRow,
+	legacyTripCountry,
 	legacyTripStays,
 	type Passport,
 	type PassportPhoto,
@@ -10,6 +13,7 @@ import {
 	type Stamp,
 	suggestHistory,
 	type TravelStay,
+	usableStamps,
 } from "@voyput/core";
 import Dexie, { type Table, type Transaction } from "dexie";
 
@@ -54,30 +58,47 @@ export class VoyputDb extends Dexie {
 	}
 }
 
+/** `kv` key of stored trips the migration could not place in a country. */
+export const LEGACY_TRIPS_KEY = "trips:legacy";
+
 /**
  * Stored trips become stays, put into a history suggested from the stamps
- * and locations, so a user's edits survive. Without trips nothing is stored:
- * the Trips step suggests the history on its own.
+ * and locations, so a user's edits survive. A trip without stops goes to the
+ * country its stamps or title name; one that names none is kept in `kv`
+ * (`trips:legacy`) for the user to place on the Trips step. After each trip
+ * the traveller is home again until the next stay. Without trips
+ * nothing is stored: the Trips step suggests the history on its own.
  */
 export async function migrateTrips(tx: Transaction): Promise<void> {
 	const trips = await tx.table<LegacyTrip, string>("trips").toArray();
-	const kept = trips.flatMap(legacyTripStays);
-	if (kept.length === 0) return;
+	if (trips.length === 0) return;
 	const [stamps, locations, picked, dismissed] = await Promise.all([
 		tx.table<Stamp, string>("stamps").toArray(),
 		tx.table<LocationRow, string>("locations").toArray(),
 		tx.table<KvRecord, string>("kv").get("trips:home"),
 		tx.table<KvRecord, string>("kv").get("trips:dismissed"),
 	]);
+	const pickedHome = isCountryCode(picked?.value) ? picked.value : null;
+	const home = pickedHome ?? guessHomeCountry(usableStamps(stamps), locations);
+	const kept: TravelStay[] = [];
+	const unplaced: LegacyTrip[] = [];
+	for (const trip of trips) {
+		const stays = legacyTripStays(trip, legacyTripCountry(trip, stamps, home));
+		if (stays.length > 0) kept.push(...stays);
+		else unplaced.push(trip);
+	}
+	if (unplaced.length > 0)
+		await tx
+			.table<KvRecord, string>("kv")
+			.put({ key: LEGACY_TRIPS_KEY, value: unplaced });
+	if (kept.length === 0) return;
 	// Deleted trips stay deleted: the Trips step reads the same periods.
 	const history = suggestHistory(
-		{
-			stamps,
-			locations,
-			pickedHome: isCountryCode(picked?.value) ? picked.value : null,
-			dismissed: periodsOf(dismissed?.value),
-		},
+		{ stamps, locations, pickedHome, dismissed: periodsOf(dismissed?.value) },
 		kept,
 	);
-	await tx.table<TravelStay, string>("stays").bulkPut(history);
+	const migrated = new Set(kept.map((s) => s.id));
+	await tx
+		.table<TravelStay, string>("stays")
+		.bulkPut(home ? homeAfterTrips(history, migrated, home) : history);
 }
