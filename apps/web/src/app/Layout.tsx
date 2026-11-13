@@ -1,6 +1,8 @@
-import { Link, Outlet } from "@tanstack/react-router";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { AppShell } from "@voyput/ui";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
+import { useDb } from "../db/DbContext";
+import { markVisualized } from "../features/import/plan/usePlan";
 import { BrandMark, icons } from "./icons";
 import "./layout.css";
 import { locationCountLabel, type NavCounts, useNavCounts } from "./navCounts";
@@ -52,6 +54,16 @@ const COUNT_TITLES: Partial<Record<Section["to"], string>> = {
 export function Layout() {
 	const counts = useNavCounts();
 	const [theme, setTheme] = useTheme();
+	const db = useDb();
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	});
+	const trips = counts?.trips ?? 0;
+	// Opening Visualize with saved trips ticks the last step of the Import plan.
+	useEffect(() => {
+		if (pathname.startsWith("/visualize") && trips > 0)
+			void markVisualized(db).catch(() => undefined);
+	}, [db, pathname, trips]);
 	const steps = SECTIONS.filter((section) => section.to !== "/settings");
 	const tools = SECTIONS.filter((section) => section.to === "/settings");
 

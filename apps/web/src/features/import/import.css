@@ -16,6 +16,7 @@
 	display: grid;
 	gap: var(--vp-space-4);
 	min-width: 0;
+	container-type: inline-size;
 }
 .import-csv-slot {
 	grid-area: csv;
@@ -70,12 +71,23 @@
 .import-passport-form[data-layout="stacked"] > .import-form-submit {
 	padding-top: 0;
 }
-@media (max-width: 760px) {
-	.import-passport-form {
-		grid-template-columns: minmax(0, 1fr);
+/* The photos column is narrower than the window: below the room for one row
+   the name takes its own line, the dates share one, the button goes last. */
+@container (max-width: 700px) {
+	.import-passport-form:not([data-layout="stacked"]) {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.import-passport-form:not([data-layout="stacked"]) > :first-child {
+		grid-column: 1 / -1;
 	}
 	.import-passport-form > .import-form-submit {
+		grid-column: 1 / -1;
 		padding-top: 0;
+	}
+}
+@container (max-width: 420px) {
+	.import-passport-form:not([data-layout="stacked"]) {
+		grid-template-columns: minmax(0, 1fr);
 	}
 }
 
@@ -86,6 +98,37 @@
 }
 .import-messages:empty {
 	display: none;
+}
+
+/* Banner: a pixel sky with the title, the description below it. */
+.import-banner {
+	display: grid;
+	gap: var(--vp-space-1);
+}
+.import-banner-content {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--vp-space-4);
+}
+.import-banner h1 {
+	text-shadow: 2px 2px 0 light-dark(rgb(255 255 255 / 0.6), rgb(0 0 0 / 0.5));
+}
+.import-banner .vp-page-eyebrow {
+	color: light-dark(var(--vp-accent-text), var(--vp-accent-ink));
+}
+.import-banner-art {
+	flex: none;
+	margin-right: 18%;
+	rotate: -8deg;
+	filter: drop-shadow(3px 3px 0 rgb(0 0 0 / 0.25));
+}
+@media (max-width: 860px) {
+	.import-banner-art {
+		margin-right: 4px;
+		width: 48px;
+		height: auto;
+	}
 }
 
 /* Photo grid: the drop tile first, then one tile per page. */
@@ -131,8 +174,8 @@
 }
 .import-thumb-frame:hover,
 .import-thumb-frame:focus-within {
-	border-color: var(--vp-border-strong);
-	box-shadow: var(--vp-shadow);
+	border-color: var(--vp-border-accent);
+	box-shadow: var(--vp-glow-sm);
 }
 /* Fill the frame and keep the whole page visible; a sideways page is
    scaled so its rotated box (5:4) still fits the 4:5 frame. */
