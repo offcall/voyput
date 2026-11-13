@@ -111,7 +111,7 @@ export const VIZ_TABS: readonly VizTab[] = [
 	),
 	chartTab(
 		"map",
-		"Route map",
+		"Map",
 		{
 			title: "Route map",
 			sprite: "plane",

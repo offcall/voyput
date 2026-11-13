@@ -2,6 +2,7 @@ import type { CountryStat, VizData } from "@voyput/core";
 import { useCountryColour } from "../../../app/countryColours";
 
 import { flag, formatInt, NoData, OTHER_COLOR } from "./format";
+import { type TipText, useMarkTip } from "./useMarkTip";
 
 const TOP = 24;
 
@@ -20,6 +21,7 @@ function withAlpha(color: string, alpha: number): string {
 
 export function MatrixChart({ data }: { data: VizData }) {
 	const countryColor = useCountryColour();
+	const { hostRef, mark, tip } = useMarkTip<HTMLElement>();
 	const { years, countries } = data;
 	if (countries.length === 0) return <NoData />;
 	const top = countries.slice(0, TOP);
@@ -32,11 +34,11 @@ export function MatrixChart({ data }: { data: VizData }) {
 		key: string,
 		count: number,
 		color: string | null,
-		title: string,
+		text: TipText,
 	) => (
 		<td
 			key={key}
-			title={count > 0 ? title : undefined}
+			{...(count > 0 ? mark(text.label, text, null) : {})}
 			style={
 				count > 0 && color
 					? {
@@ -55,6 +57,7 @@ export function MatrixChart({ data }: { data: VizData }) {
 	const row = (
 		key: string,
 		label: string,
+		name: string,
 		list: readonly CountryStat[],
 		color: string | null,
 		className?: string,
@@ -65,50 +68,59 @@ export function MatrixChart({ data }: { data: VizData }) {
 			<tr key={key} className={className}>
 				<th scope="row">{label}</th>
 				{counts.map((count, i) =>
-					cell(
-						years[i] ?? `${i}`,
-						count,
-						color,
-						`${label} · ${years[i]} · ${formatInt(count)} photos`,
-					),
+					cell(years[i] ?? `${i}`, count, color, {
+						label: `${name} · ${years[i]}`,
+						value: `${formatInt(count)} photos`,
+					}),
 				)}
-				{cell(
-					"total",
-					total,
-					color,
-					`${label} · total · ${formatInt(total)} photos`,
-				)}
+				{cell("total", total, color, {
+					label: `${name} · total`,
+					value: `${formatInt(total)} photos`,
+				})}
 			</tr>
 		);
 	};
 
 	return (
-		<figure className="vp-viz-figure vp-viz-scroll">
-			<table className="vp-viz-table vp-viz-matrix">
-				<thead>
-					<tr>
-						<th />
-						{years.map((year) => (
-							<th key={year} scope="col">
-								{year}
-							</th>
-						))}
-						<th scope="col">Total</th>
-					</tr>
-				</thead>
-				<tbody>
-					{row("all", "All countries", countries, null, "vp-viz-total")}
-					{top.map((c) =>
-						row(
-							c.code,
-							`${flag(c.code)} ${c.country}`,
-							[c],
-							countryColor(c.code),
-						),
-					)}
-					{rest.length > 0 ? row("other", "Other", rest, OTHER_COLOR) : null}
-				</tbody>
-			</table>
+		<figure className="vp-viz-figure vp-viz-tipped" ref={hostRef}>
+			<div className="vp-viz-scroll">
+				<table className="vp-viz-table vp-viz-matrix">
+					<thead>
+						<tr>
+							<th />
+							{years.map((year) => (
+								<th key={year} scope="col">
+									{year}
+								</th>
+							))}
+							<th scope="col">Total</th>
+						</tr>
+					</thead>
+					<tbody>
+						{row(
+							"all",
+							"All countries",
+							"All countries",
+							countries,
+							null,
+							"vp-viz-total",
+						)}
+						{top.map((c) =>
+							row(
+								c.code,
+								`${flag(c.code)} ${c.country}`,
+								c.country,
+								[c],
+								countryColor(c.code),
+							),
+						)}
+						{rest.length > 0
+							? row("other", "Other", "Other", rest, OTHER_COLOR)
+							: null}
+					</tbody>
+				</table>
+			</div>
+			{tip}
 			<figcaption className="vp-viz-muted">
 				Stronger colour means more photos
 			</figcaption>

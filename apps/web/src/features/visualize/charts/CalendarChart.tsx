@@ -1,6 +1,7 @@
 import type { VizData } from "@voyput/core";
 import { formatInt, NoData } from "./format";
 import { LineChart, type LinePoint } from "./LineChart";
+import { type MarkProps, type TipText, useMarkTip } from "./useMarkTip";
 
 const CELL = 11;
 const GAP = 2;
@@ -50,9 +51,11 @@ const DAY_MS = 86_400_000;
 function YearGrid({
 	year,
 	dayCounts,
+	mark,
 }: {
 	year: number;
 	dayCounts: Record<string, number>;
+	mark: (key: string, text: TipText) => MarkProps;
 }) {
 	const jan1 = Date.UTC(year, 0, 1);
 	const offset = (new Date(jan1).getUTCDay() + 6) % 7; // Monday first
@@ -72,18 +75,21 @@ function YearGrid({
 				height={CELL}
 				rx={2}
 				style={{ fill: levelColor(count) }}
-			>
-				<title>{`${iso} · ${count ? `${formatInt(count)} photos` : "no photos"}`}</title>
-			</rect>,
+				{...mark(iso, {
+					label: iso,
+					value: count ? `${formatInt(count)} photos` : "no photos",
+				})}
+			/>,
 		);
 	}
 	return (
 		<div className="vp-viz-calendar-year">
 			<strong className="vp-viz-year">{year}</strong>
+			{/* biome-ignore lint/a11y/useSemanticElements: an SVG chart with focusable marks cannot be a fieldset. */}
 			<svg
 				width={LEFT + weeks * PITCH}
 				height={TOP + 7 * PITCH}
-				role="img"
+				role="group"
 				aria-label={`Photos per day in ${year}`}
 				className="vp-viz-calendar"
 			>
@@ -138,6 +144,7 @@ export function monthPoints(data: VizData): LinePoint[] {
 }
 
 export function CalendarChart({ data }: { data: VizData }) {
+	const { hostRef, mark, tip } = useMarkTip();
 	if (data.years.length === 0) return <NoData />;
 	return (
 		<figure className="vp-viz-figure">
@@ -148,10 +155,16 @@ export function CalendarChart({ data }: { data: VizData }) {
 				format={(n) => `${formatInt(n)} photos`}
 			/>
 			<h3 className="vp-viz-subtitle">Photos per day</h3>
-			<div className="vp-viz-calendar-years">
+			<div className="vp-viz-calendar-years vp-viz-tipped" ref={hostRef}>
 				{data.years.map((year) => (
-					<YearGrid key={year} year={Number(year)} dayCounts={data.dayCounts} />
+					<YearGrid
+						key={year}
+						year={Number(year)}
+						dayCounts={data.dayCounts}
+						mark={mark}
+					/>
 				))}
+				{tip}
 			</div>
 			<figcaption className="vp-viz-legend">
 				Fewer

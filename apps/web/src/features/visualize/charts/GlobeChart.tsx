@@ -160,6 +160,8 @@ export function GlobeChart({
 	const countryColor = useCountryColour();
 	const pausedRef = useRef(paused);
 	pausedRef.current = paused;
+	// Outlives the draw effect, so a theme change or new data keeps the angle.
+	const rotation = useRef(-Math.PI / 2);
 
 	useEffect(() => {
 		const canvas = ref.current;
@@ -171,14 +173,13 @@ export function GlobeChart({
 		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 		const paint = painter(canvas.parentElement ?? document.body);
 
-		let rotY = -Math.PI / 2;
 		let dragX: number | null = null;
 		let frame = 0;
 		const tick = () => {
 			frame = requestAnimationFrame(tick);
 			if (document.hidden) return;
-			if (!pausedRef.current && dragX === null) rotY += 0.0016;
-			drawGlobe(ctx, data, world, rotY, paint, countryColor);
+			if (!pausedRef.current && dragX === null) rotation.current += 0.0016;
+			drawGlobe(ctx, data, world, rotation.current, paint, countryColor);
 		};
 		const down = (e: PointerEvent) => {
 			dragX = e.clientX;
@@ -186,7 +187,7 @@ export function GlobeChart({
 		};
 		const move = (e: PointerEvent) => {
 			if (dragX === null) return;
-			rotY += (e.clientX - dragX) * 0.005;
+			rotation.current += (e.clientX - dragX) * 0.005;
 			dragX = e.clientX;
 		};
 		const up = () => {

@@ -239,7 +239,8 @@
 	fill: var(--vp-muted);
 }
 .vp-viz-sankey-label {
-	font-size: 20px;
+	font-family: var(--vp-font-pixel);
+	font-size: 18px;
 	fill: var(--vp-text);
 }
 .vp-viz-sankey-label tspan,
@@ -274,10 +275,33 @@
 .vp-viz-donut-seg:hover {
 	opacity: 0.75;
 }
-.vp-viz-flags {
-	font-size: 2rem;
-	line-height: 1.4;
-	overflow-wrap: anywhere;
+.vp-viz-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 0 0 var(--vp-space-4);
+	padding: 0;
+	list-style: none;
+}
+/* A country code on its palette colour, like the Route tab's stop chip. */
+.vp-viz-chip {
+	display: inline-grid;
+	place-items: center;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 3px;
+	box-sizing: border-box;
+	border: 2px solid rgb(0 0 0 / 0.35);
+	font-family: var(--vp-font-pixel);
+	font-size: 11px;
+	color: var(--vp-accent-text);
+	vertical-align: middle;
+}
+.vp-viz-chip-sm {
+	min-width: 24px;
+	height: 20px;
+	font-size: 10px;
+	border-width: 1px;
 }
 .vp-viz-share {
 	width: 32%;
@@ -351,29 +375,26 @@
 	fill: transparent;
 }
 
-/* Hover tip of the line chart. */
-.vp-viz-tip {
-	position: absolute;
-	transform: translate(-50%, calc(-100% - 14px));
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 2px;
-	padding: 6px 10px;
-	border: 1px solid var(--vp-border-accent);
-	border-radius: var(--vp-radius);
-	background: var(--vp-surface-2);
-	box-shadow: var(--vp-shadow), var(--vp-glow-sm);
-	font-size: var(--vp-text-xs);
-	color: var(--vp-muted);
-	white-space: nowrap;
-	pointer-events: none;
+/* Hosts a ChartTip: the tip is placed in this box. */
+.vp-viz-tipped {
+	position: relative;
 }
-.vp-viz-tip strong {
-	font-family: var(--vp-font-pixel);
-	font-size: 16px;
-	font-weight: 400;
-	color: var(--vp-text);
+.vp-viz-tipped [data-tip]:focus {
+	outline: none;
+}
+.vp-viz-tipped [data-tip]:focus-visible {
+	outline: 2px solid var(--vp-accent);
+	outline-offset: 1px;
+}
+.vp-viz-tipped svg [data-tip]:focus-visible {
+	outline: none;
+	stroke: var(--vp-accent);
+	stroke-width: 2px;
+	vector-effect: non-scaling-stroke;
+}
+/* A spot without a tip lets the pointer through to its country. */
+.vp-viz-spots rect:not([data-tip]) {
+	pointer-events: none;
 }
 
 @media (max-width: 600px) {

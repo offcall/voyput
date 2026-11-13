@@ -93,13 +93,13 @@ describe("visualize", () => {
 		const tabs: [string, () => unknown][] = [
 			[
 				"Periods",
-				() => panel().getByRole("img", { name: "Sequence of countries" }),
+				() => panel().getByRole("list", { name: "Sequence of countries" }),
 			],
 			[
 				"Countries",
 				() => panel().getByRole("row", { name: /Romania 2 33.3%/ }),
 			],
-			["Route map", () => panel().getByRole("img", { name: "Route map" })],
+			["Map", () => panel().getByRole("group", { name: "Route map" })],
 			// Canvas charts draw nothing in jsdom but must not crash.
 			["Heatmap", () => panel().getByRole("img", { name: "Photo heatmap" })],
 			["Globe", () => panel().getByRole("img", { name: "Globe" })],
@@ -110,14 +110,17 @@ describe("visualize", () => {
 			[
 				"Calendar",
 				() =>
-					panel().getByRole("img", { name: "Photos per day in 2024" }) &&
+					panel().getByRole("group", { name: "Photos per day in 2024" }) &&
 					panel().getByRole("img", { name: "Photos per month" }),
 			],
 			[
 				"Moves",
-				() => panel().getByRole("img", { name: "Moves between countries" }),
+				() => panel().getByRole("group", { name: "Moves between countries" }),
 			],
-			["Years", () => panel().getByRole("img", { name: "Countries in 2024" })],
+			[
+				"Years",
+				() => panel().getByRole("group", { name: "Countries in 2024" }),
+			],
 			[
 				"Distance",
 				() =>
@@ -135,7 +138,7 @@ describe("visualize", () => {
 		await user.click(screen.getByRole("link", { name: "Moves" }));
 		// A single Japan → Korea move is still a chart.
 		expect(
-			panel().getByRole("img", { name: "Moves between countries" }),
+			panel().getByRole("group", { name: "Moves between countries" }),
 		).toBeTruthy();
 
 		await user.click(screen.getByRole("checkbox", { name: /Romania/ }));

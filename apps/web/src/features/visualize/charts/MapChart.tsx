@@ -8,14 +8,16 @@ import {
 import { TwinkleStars } from "@voyput/ui";
 import { useMemo } from "react";
 import { useCountryColour } from "../../../app/countryColours";
-import { NoData } from "./format";
+import { formatInt, NoData } from "./format";
+import { useMarkTip } from "./useMarkTip";
 import { fitView } from "./view";
 
 interface Arc {
 	key: string;
 	d: string;
 	color: string;
-	title: string;
+	label: string;
+	value: string;
 }
 
 /** Quadratic arcs between country centroids for each change of country. */
@@ -43,10 +45,18 @@ function buildArcs(
 			key: `${i}`,
 			d: `M${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`,
 			color: countryColor(to.code),
-			title: `${from.code} → ${to.code} · ${to.start} – ${to.end}`,
+			label: `${from.country} → ${to.country}`,
+			value: `${from.code} → ${to.code}`,
 		});
 	});
 	return arcs;
+}
+
+function countryTip(country: VizData["countries"][number]) {
+	return {
+		label: country.country,
+		value: `${formatInt(country.photos)} photos`,
+	};
 }
 
 export function MapChart({
@@ -57,6 +67,7 @@ export function MapChart({
 	world: WorldShapes | null;
 }) {
 	const countryColor = useCountryColour();
+	const { hostRef, mark, tip } = useMarkTip<HTMLElement>();
 	const arcs = useMemo(
 		() => buildArcs(data.moves, countryColor),
 		[data.moves, countryColor],
@@ -69,12 +80,13 @@ export function MapChart({
 	// World-box units per screen-ish unit at this zoom, for marks of a fixed size.
 	const unit = view[2] / WORLD_WIDTH;
 	return (
-		<figure className="vp-viz-figure">
+		<figure className="vp-viz-figure vp-viz-tipped" ref={hostRef}>
 			<div className="vp-viz-sky">
 				<TwinkleStars count={28} seed={11} />
+				{/* biome-ignore lint/a11y/useSemanticElements: an SVG chart with focusable marks cannot be a fieldset. */}
 				<svg
 					viewBox={view.map((n) => n.toFixed(1)).join(" ")}
-					role="img"
+					role="group"
 					aria-label="Route map"
 					className="vp-viz-svg"
 				>
@@ -98,9 +110,8 @@ export function MapChart({
 										fillOpacity={0.55}
 										strokeWidth={0.6 * unit}
 										fillRule="evenodd"
-									>
-										<title>{country.country}</title>
-									</path>
+										{...mark(`country-${country.code}`, countryTip(country))}
+									/>
 								);
 							})
 						: null}
@@ -113,9 +124,8 @@ export function MapChart({
 								strokeWidth={1.6 * unit}
 								strokeLinecap="round"
 								opacity={0.9}
-							>
-								<title>{arc.title}</title>
-							</path>
+								{...mark(`move-${arc.key}`, arc)}
+							/>
 						))}
 					</g>
 					<g className="vp-viz-spots" shapeRendering="crispEdges">
@@ -131,14 +141,17 @@ export function MapChart({
 									width={6 * unit}
 									height={6 * unit}
 									strokeWidth={1.5 * unit}
-								>
-									<title>{country.country}</title>
-								</rect>
+									// The country shape below has the tip; without one the spot does.
+									{...(world?.countryPaths[country.code]
+										? {}
+										: mark(`spot-${country.code}`, countryTip(country)))}
+								/>
 							);
 						})}
 					</g>
 				</svg>
 			</div>
+			{tip}
 			<figcaption className="vp-viz-muted">
 				Highlighted countries were visited · arcs are moves between them
 			</figcaption>

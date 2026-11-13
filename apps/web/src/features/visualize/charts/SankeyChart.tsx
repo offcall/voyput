@@ -1,6 +1,7 @@
 import type { VizData } from "@voyput/core";
 import { useCountryColour } from "../../../app/countryColours";
-import { flag, NoData, OTHER_COLOR } from "./format";
+import { NoData, OTHER_COLOR } from "./format";
+import { useMarkTip } from "./useMarkTip";
 
 const TOP = 12;
 const OTHER = "OTHER";
@@ -33,6 +34,7 @@ function layout(entries: { code: string; flow: number }[]): Map<string, Node> {
 /** Country-to-country moves: where you left from (left) and where you went (right). */
 export function SankeyChart({ data }: { data: VizData }) {
 	const countryColor = useCountryColour();
+	const { hostRef, mark, tip } = useMarkTip<HTMLElement>();
 	const transitions = data.transitions;
 	if (transitions.length === 0) return <NoData />;
 	const names = new Map(data.countries.map((c) => [c.code, c.country]));
@@ -73,10 +75,11 @@ export function SankeyChart({ data }: { data: VizData }) {
 	const maxCount = Math.max(...transitions.map((t) => t.count));
 
 	return (
-		<figure className="vp-viz-figure">
+		<figure className="vp-viz-figure vp-viz-tipped" ref={hostRef}>
+			{/* biome-ignore lint/a11y/useSemanticElements: an SVG chart with focusable marks cannot be a fieldset. */}
 			<svg
 				viewBox="0 0 1000 600"
-				role="img"
+				role="group"
 				aria-label="Moves between countries"
 				className="vp-viz-svg"
 			>
@@ -94,9 +97,11 @@ export function SankeyChart({ data }: { data: VizData }) {
 								d={`M ${x1},${y1} C 480,${y1} 520,${y2} ${RIGHT_X},${y2}`}
 								style={{ stroke: color(t.to) }}
 								strokeWidth={Math.max(1, (t.count * 14) / maxCount)}
-							>
-								<title>{`${name(t.from)} → ${name(t.to)} · ${t.count}×`}</title>
-							</path>
+								{...mark(`${t.from}-${t.to}`, {
+									label: `${name(t.from)} → ${name(t.to)}`,
+									value: `${t.count}×`,
+								})}
+							/>
 						);
 					})}
 				</g>
@@ -113,6 +118,10 @@ export function SankeyChart({ data }: { data: VizData }) {
 								height={n.h}
 								rx={3}
 								style={{ fill: color(n.code) }}
+								{...mark(`${side}-${n.code}`, {
+									label: `${side === "left" ? "From" : "To"} ${name(n.code)}`,
+									value: `${n.flow}×`,
+								})}
 							/>
 							<text
 								x={side === "left" ? x - 8 : x + NODE_W + 8}
@@ -121,13 +130,13 @@ export function SankeyChart({ data }: { data: VizData }) {
 								dominantBaseline="central"
 								className="vp-viz-sankey-label"
 							>
-								{n.code === OTHER ? "Other" : flag(n.code)}
-								<title>{name(n.code)}</title>
+								{n.code === OTHER ? "Other" : n.code}
 							</text>
 						</g>
 					)),
 				)}
 			</svg>
+			{tip}
 			<figcaption className="vp-viz-muted">
 				Moves on days the country changed
 			</figcaption>

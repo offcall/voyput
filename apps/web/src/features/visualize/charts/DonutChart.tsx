@@ -1,6 +1,7 @@
 import type { VizData } from "@voyput/core";
 import { useCountryColour } from "../../../app/countryColours";
 import { flag, formatInt, NoData, OTHER_COLOR } from "./format";
+import { useMarkTip } from "./useMarkTip";
 
 const R1 = 62;
 const R2 = 44;
@@ -30,6 +31,7 @@ function ringPath(a0: number, a1: number): string {
 /** One ring per year: share of photos by country. */
 export function DonutChart({ data }: { data: VizData }) {
 	const countryColor = useCountryColour();
+	const { hostRef, mark, tip } = useMarkTip();
 	const rings = data.years.flatMap((year) => {
 		const parts = data.countries
 			.map((c) => ({
@@ -70,15 +72,16 @@ export function DonutChart({ data }: { data: VizData }) {
 					Other
 				</span>
 			</div>
-			<div className="vp-viz-donuts">
+			<div className="vp-viz-donuts vp-viz-tipped" ref={hostRef}>
 				{rings.map((ring) => (
+					// biome-ignore lint/a11y/useSemanticElements: an SVG chart with focusable marks cannot be a fieldset.
 					<svg
 						className="vp-viz-donut"
 						key={ring.year}
 						viewBox="0 0 150 150"
 						width={170}
 						height={170}
-						role="img"
+						role="group"
 						aria-label={`Countries in ${ring.year}`}
 					>
 						{ring.arcs.map((arc) => (
@@ -91,11 +94,11 @@ export function DonutChart({ data }: { data: VizData }) {
 								stroke="var(--vp-surface)"
 								strokeWidth={2.5}
 								className="vp-viz-donut-seg"
-							>
-								<title>
-									{`${arc.name} · ${formatInt(arc.count)} · ${Math.round((arc.count / ring.total) * 100)}%`}
-								</title>
-							</path>
+								{...mark(`${ring.year}-${arc.code || "other"}`, {
+									label: `${arc.name} · ${ring.year}`,
+									value: `${formatInt(arc.count)} · ${Math.round((arc.count / ring.total) * 100)}%`,
+								})}
+							/>
 						))}
 						<text
 							x={C}
@@ -115,6 +118,7 @@ export function DonutChart({ data }: { data: VizData }) {
 						</text>
 					</svg>
 				))}
+				{tip}
 			</div>
 		</figure>
 	);

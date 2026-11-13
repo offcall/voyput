@@ -89,7 +89,7 @@ describe("visualize placeholders", () => {
 		expect(await screen.findByText("No location history yet")).toBeTruthy();
 		expect(main().getByText(/You have 1 trip, but this view/)).toBeTruthy();
 		expect(hrefOf("Import locations")).toBe("/import");
-		expect(screen.queryByRole("img", { name: "Route map" })).toBeNull();
+		expect(screen.queryByRole("group", { name: "Route map" })).toBeNull();
 	});
 
 	it("plays saved trips without locations and hints at the import", async () => {
@@ -107,7 +107,9 @@ describe("visualize placeholders", () => {
 		renderApp("/visualize/map", {
 			db: await seed("needs-filter", { locations: true, trips: false }),
 		});
-		expect(await screen.findByRole("img", { name: "Route map" })).toBeTruthy();
+		expect(
+			await screen.findByRole("group", { name: "Route map" }),
+		).toBeTruthy();
 		expect(
 			main().getByText("Save trips to filter these charts by journey."),
 		).toBeTruthy();
@@ -118,7 +120,9 @@ describe("visualize placeholders", () => {
 		renderApp("/visualize/map", {
 			db: await seed("needs-full", { locations: true, trips: true }),
 		});
-		expect(await screen.findByRole("img", { name: "Route map" })).toBeTruthy();
+		expect(
+			await screen.findByRole("group", { name: "Route map" }),
+		).toBeTruthy();
 		expect(main().getByRole("checkbox", { name: /Romania/ })).toBeTruthy();
 		expect(main().queryByRole("link", { name: "Build trips" })).toBeNull();
 	});

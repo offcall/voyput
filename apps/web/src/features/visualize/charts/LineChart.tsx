@@ -1,3 +1,4 @@
+import { ChartTip } from "@voyput/ui";
 import { useEffect, useId, useRef, useState } from "react";
 
 export interface LinePoint {
@@ -210,16 +211,12 @@ export function LineChart({
 				})}
 			</svg>
 			{tip && tipAt ? (
-				<div
-					className="vp-viz-tip"
-					style={{
-						left: Math.min(Math.max(tipAt[0], 60), width - 60),
-						top: tipAt[1],
-					}}
-				>
-					<span>{tip.title ?? tip.label}</span>
-					<strong>{format(tip.value)}</strong>
-				</div>
+				<ChartTip
+					label={tip.title ?? tip.label}
+					value={format(tip.value)}
+					x={Math.min(Math.max(tipAt[0], 60), width - 60)}
+					y={tipAt[1]}
+				/>
 			) : null}
 		</div>
 	);
