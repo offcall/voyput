@@ -180,20 +180,32 @@ function parseLocations(text: string): LocationRow[] {
 	return csv.rows;
 }
 
-/** Deletes demo rows by their ids, and trips built on demo stamps. Call inside a transaction. */
+/**
+ * Deletes demo rows by their ids, every stamp on a demo page (also stamps the
+ * user added there by hand or by re-extracting) and trips built on any of
+ * those stamps. Call inside a transaction.
+ */
 async function deleteDemoRows(db: VoyputDb): Promise<void> {
 	const photoIds = await db.photos
 		.where("id")
 		.startsWith(DEMO_PHOTO_PREFIX)
 		.primaryKeys();
+	const onDemoPages = new Set(photoIds);
+	const stampIds = new Set(
+		await db.stamps
+			.filter(
+				(stamp) =>
+					stamp.id.startsWith(DEMO_STAMP_PREFIX) ||
+					onDemoPages.has(stamp.photoId),
+			)
+			.primaryKeys(),
+	);
 	await db.extractions.bulkDelete(photoIds);
 	await db.photos.bulkDelete(photoIds);
-	await db.stamps.where("id").startsWith(DEMO_STAMP_PREFIX).delete();
+	await db.stamps.bulkDelete([...stampIds]);
 	await db.locations.where("uuid").startsWith(DEMO_LOCATION_PREFIX).delete();
 	await db.trips
-		.filter((trip) =>
-			trip.stampIds.some((id) => id.startsWith(DEMO_STAMP_PREFIX)),
-		)
+		.filter((trip) => trip.stampIds.some((id) => stampIds.has(id)))
 		.delete();
 }
 
