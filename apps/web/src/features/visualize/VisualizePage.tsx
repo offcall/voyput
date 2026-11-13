@@ -1,30 +1,17 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import { buildVizData, splitRowsByTrips } from "@voyput/core";
 import {
 	EmptyState,
 	PageHeader,
 	PixelArt,
-	type SpriteName,
 	Stack,
 	Stat,
 	StatGroup,
-	type TabItem,
-	Tabs,
 } from "@voyput/ui";
-import { type ReactNode, useMemo, useState } from "react";
-import { ChartPanel } from "./ChartPanel";
-import { CalendarChart } from "./charts/CalendarChart";
-import { CountriesTable } from "./charts/CountriesTable";
-import { DistanceChart } from "./charts/DistanceChart";
-import { DonutChart } from "./charts/DonutChart";
+import { useMemo, useState } from "react";
 import { formatInt } from "./charts/format";
-import { GlobeChart } from "./charts/GlobeChart";
-import { HeatmapChart } from "./charts/HeatmapChart";
-import { MapChart } from "./charts/MapChart";
-import { MatrixChart } from "./charts/MatrixChart";
-import { MovementsTable } from "./charts/MovementsTable";
-import { SankeyChart } from "./charts/SankeyChart";
 import { TripFilter } from "./TripFilter";
+import { findVizTab, firstVizTab } from "./tabs";
 import { useVizSource } from "./useVizSource";
 import { useWorld } from "./useWorld";
 import "./visualize.css";
@@ -40,7 +27,14 @@ function Header() {
 	);
 }
 
+/**
+ * The `/visualize` layout: loads the data once and keeps the trip filter while the
+ * `/visualize/$tab` child changes; the shell nav lists the tabs.
+ */
 export function VisualizePage() {
+	const { tab: tabId } = useParams({ strict: false });
+	// The router redirects unknown ids; the fallback only covers the redirect's render.
+	const tab = (tabId ? findVizTab(tabId) : undefined) ?? firstVizTab();
 	const source = useVizSource();
 	const world = useWorld();
 	const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -87,118 +81,15 @@ export function VisualizePage() {
 		);
 	}
 
-	const panel = (
-		title: string,
-		sprite: SpriteName,
-		description: string,
-		chart: ReactNode,
-	) => (
-		<ChartPanel title={title} sprite={sprite} description={description}>
-			{chart}
-		</ChartPanel>
-	);
-	const tabs: TabItem[] = [
-		{
-			value: "movements",
-			label: "Periods",
-			content: panel(
-				"Country periods",
-				"passport",
-				"Each run of days in one country, in order.",
-				<MovementsTable data={data} />,
-			),
-		},
-		{
-			value: "countries",
-			label: "Countries",
-			content: panel(
-				"Countries",
-				"stamp",
-				"Where your photos were taken, most first.",
-				<CountriesTable data={data} />,
-			),
-		},
-		{
-			value: "map",
-			label: "Route map",
-			content: panel(
-				"Route map",
-				"plane",
-				"Visited countries and the moves between them.",
-				<MapChart data={data} world={world} />,
-			),
-		},
-		{
-			value: "heatmap",
-			label: "Heatmap",
-			content: panel(
-				"Heatmap",
-				"sun",
-				"Where photos pile up.",
-				<HeatmapChart data={data} world={world} />,
-			),
-		},
-		{
-			value: "globe",
-			label: "Globe",
-			content: panel(
-				"Globe",
-				"globe",
-				"Photo spots and moves on a turning globe.",
-				<GlobeChart data={data} world={world} />,
-			),
-		},
-		{
-			value: "matrix",
-			label: "Year × country",
-			content: panel(
-				"Year × country",
-				"suitcase",
-				"Photos per country in each year.",
-				<MatrixChart data={data} />,
-			),
-		},
-		{
-			value: "calendar",
-			label: "Calendar",
-			content: panel(
-				"Calendar",
-				"star",
-				"Photos per month and per day.",
-				<CalendarChart data={data} />,
-			),
-		},
-		{
-			value: "sankey",
-			label: "Moves",
-			content: panel(
-				"Moves",
-				"plane",
-				"Where you left from and where you went.",
-				<SankeyChart data={data} />,
-			),
-		},
-		{
-			value: "donut",
-			label: "Years",
-			content: panel(
-				"Years",
-				"trophy",
-				"Share of photos by country, one ring per year.",
-				<DonutChart data={data} />,
-			),
-		},
-		{
-			value: "distance",
-			label: "Distance",
-			content: panel(
-				"Distance",
-				"suitcase",
-				"How far you went between photos.",
-				<DistanceChart data={data} />,
-			),
-		},
-	];
+	const ctx = { rows: source.rows, trips: source.trips, data, world };
+	if (!tab.usesTripFilter) {
+		return (
+			<Stack>
+				<Header />
+				{tab.render(ctx)}
+			</Stack>
+		);
+	}
 
 	return (
 		<Stack>
@@ -225,7 +116,7 @@ export function VisualizePage() {
 					No photos fall inside the selected trips.
 				</p>
 			) : null}
-			<Tabs items={tabs} />
+			{tab.render(ctx)}
 		</Stack>
 	);
 }

@@ -193,7 +193,7 @@ describe("Your plan on Import", () => {
 		await waitFor(async () =>
 			expect((await db.kv.get("plan:visualized"))?.value).toBe(true),
 		);
-		await user.click(screen.getByRole("link", { name: "Import" }));
+		await user.click(screen.getByRole("link", { name: "Collect" }));
 		const done = await screen.findByRole(
 			"region",
 			{ name: "Your plan" },

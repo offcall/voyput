@@ -1,7 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { SECTIONS } from "../src/app/Layout";
+import { COLLECT_SECTIONS } from "../src/app/Layout";
 import type { VoyputDb } from "../src/db/db";
 import { renderApp } from "./renderApp";
 
@@ -40,14 +40,17 @@ const badgesOf = (label: string) =>
 	].map((badge) => badge.textContent);
 
 describe("app shell", () => {
-	it("opens on Import and reaches every section from the nav", async () => {
+	it("opens on Import and reaches every Collect page and Settings from the nav", async () => {
 		const user = userEvent.setup();
 		renderApp("/");
 		expect(
 			await screen.findByRole("heading", { level: 1, name: "Import" }),
 		).toBeTruthy();
 
-		for (const section of SECTIONS) {
+		for (const section of [
+			...COLLECT_SECTIONS,
+			{ to: "/settings", label: "Settings" },
+		]) {
 			await user.click(screen.getByRole("link", { name: section.label }));
 			expect(
 				await screen.findByRole("heading", { level: 1, name: section.label }),

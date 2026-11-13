@@ -87,7 +87,7 @@ describe("visualize", () => {
 		expect(stat("Photos")).toBe("6");
 		expect(stat("Days with photos")).toBe("6");
 
-		const panel = () => within(screen.getByRole("tabpanel"));
+		const panel = () => within(screen.getByRole("main"));
 		const tabs: [string, () => unknown][] = [
 			[
 				"Periods",
@@ -124,13 +124,13 @@ describe("visualize", () => {
 			],
 		];
 		for (const [name, content] of tabs) {
-			await user.click(screen.getByRole("tab", { name }));
+			await user.click(screen.getByRole("link", { name }));
 			expect(content()).toBeTruthy();
 		}
 
 		await user.click(screen.getByRole("checkbox", { name: /East Asia/ }));
 		await expectCountries("2");
-		await user.click(screen.getByRole("tab", { name: "Moves" }));
+		await user.click(screen.getByRole("link", { name: "Moves" }));
 		// A single Japan → Korea move is still a chart.
 		expect(
 			panel().getByRole("img", { name: "Moves between countries" }),
@@ -146,7 +146,7 @@ describe("visualize", () => {
 		).toBeTruthy();
 		// The tabs stay and keep the chosen tab.
 		expect(
-			screen.getByRole("tab", { name: "Moves", selected: true }),
-		).toBeTruthy();
+			screen.getByRole("link", { name: "Moves" }).getAttribute("aria-current"),
+		).toBe("page");
 	});
 });

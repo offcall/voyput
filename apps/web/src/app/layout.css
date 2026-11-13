@@ -114,3 +114,91 @@
 		height: 8px;
 	}
 }
+
+/* Collect / Visualize switch (ADR 0015): a segmented pill at the top of the
+   sidebar, the active area in green. */
+.vp-area-switch {
+	display: flex;
+	gap: 2px;
+	margin: 0 0 var(--vp-space-2);
+	padding: 3px;
+	min-width: 0;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius-full);
+	background: var(--vp-surface-2);
+}
+.vp-shell-nav .vp-area-switch a {
+	flex: 1;
+	justify-content: center;
+	padding: 7px 6px;
+	border-radius: var(--vp-radius-full);
+	font-family: var(--vp-font-pixel);
+	font-size: 11px;
+	font-weight: 400;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	box-shadow: none;
+	background: transparent;
+	color: var(--vp-muted);
+}
+.vp-shell-nav .vp-area-switch a:hover {
+	color: var(--vp-text);
+}
+.vp-shell-nav .vp-area-switch a[aria-current] {
+	background: var(--vp-accent);
+	color: var(--vp-accent-text);
+	box-shadow: 0 0 12px -2px var(--vp-accent);
+}
+.vp-area-switch .vp-nav-icon {
+	display: none;
+}
+.vp-area-switch .vp-nav-label {
+	flex: none;
+}
+
+@media (max-width: 860px) {
+	/* Phones: the switch is just the other area, as the first tab. */
+	.vp-area-switch {
+		display: contents;
+	}
+	.vp-shell-nav .vp-area-switch a[aria-current] {
+		display: none;
+	}
+	.vp-area-switch .vp-nav-icon {
+		display: grid;
+	}
+	.vp-shell-header > .vp-shell-nav .vp-area-switch a {
+		font-family: var(--vp-font);
+		font-size: 11px;
+		font-weight: 700;
+		text-transform: none;
+		letter-spacing: 0;
+		border-radius: 0;
+	}
+	/* In Visualize the bar holds every tab: it scrolls, the switch stays put. */
+	.vp-shell-header
+	> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"]) {
+		justify-content: flex-start;
+		padding-left: 0;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.vp-shell-header
+		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"])
+		> a,
+	.vp-shell-header
+		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"])
+		.vp-area-switch
+		a {
+		flex: none;
+		min-width: 68px;
+	}
+	.vp-shell-header > .vp-shell-nav .vp-area-switch a:not([aria-current]) {
+		position: sticky;
+		left: 0;
+		z-index: 1;
+		background: var(--vp-surface);
+		border-right: 1px solid var(--vp-border);
+		color: var(--vp-accent-ink);
+	}
+}

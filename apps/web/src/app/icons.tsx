@@ -50,6 +50,14 @@ export const icons = {
 			<path d="m12.5 13.5 3-3" />
 		</Icon>
 	),
+	/** A stack of photos: the Collect area. */
+	collect: (
+		<Icon>
+			<rect x="4" y="8" width="13" height="12" rx="2" />
+			<path d="M8 4.5h10a2 2 0 0 1 2 2V16" />
+			<path d="m6.5 17 3-3.5 2.5 2.5 1.5-1.5 2 2.5" />
+		</Icon>
+	),
 	visualize: (
 		<Icon>
 			<circle cx="12" cy="12" r="8.5" />

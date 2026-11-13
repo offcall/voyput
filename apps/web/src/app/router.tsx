@@ -9,6 +9,7 @@ import { ExtractPage } from "../features/extract/ExtractPage";
 import { ImportPage } from "../features/import/ImportPage";
 import { ReviewPage } from "../features/review/ReviewPage";
 import { TripsPage } from "../features/trips/TripsPage";
+import { findVizTab, firstVizTab } from "../features/visualize/tabs";
 import { VisualizePage } from "../features/visualize/VisualizePage";
 import { SettingsPage } from "../settings/SettingsPage";
 import { Layout } from "./Layout";
@@ -65,13 +66,40 @@ const tripRoute = createRoute({
 	path: "$tripId",
 });
 
+/** Visualize stays mounted while the tab changes: data and the trip filter survive the switch. */
+const visualizeRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/visualize",
+	component: VisualizePage,
+});
+const toFirstVizTab = () =>
+	redirect({
+		to: "/visualize/$tab",
+		params: { tab: firstVizTab().id },
+		replace: true,
+	});
+const visualizeIndexRoute = createRoute({
+	getParentRoute: () => visualizeRoute,
+	path: "/",
+	beforeLoad: () => {
+		throw toFirstVizTab();
+	},
+});
+const visualizeTabRoute = createRoute({
+	getParentRoute: () => visualizeRoute,
+	path: "$tab",
+	beforeLoad: ({ params }) => {
+		if (!findVizTab(params.tab)) throw toFirstVizTab();
+	},
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	page("/import", ImportPage),
 	page("/extract", ExtractPage),
 	reviewRoute,
 	tripsRoute.addChildren([tripsIndexRoute, tripRoute]),
-	page("/visualize", VisualizePage),
+	visualizeRoute.addChildren([visualizeIndexRoute, visualizeTabRoute]),
 	page("/settings", SettingsPage),
 ]);
 
