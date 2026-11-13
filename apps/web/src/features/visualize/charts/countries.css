@@ -1,0 +1,69 @@
+/* ---------- Countries table ---------- */
+
+.vp-countries td {
+	vertical-align: middle;
+}
+.vp-countries-rank {
+	width: 3ch;
+	font-family: var(--vp-font-pixel);
+	font-size: 13px;
+	color: var(--vp-muted);
+}
+.vp-countries-sort {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	letter-spacing: inherit;
+	text-transform: inherit;
+	cursor: pointer;
+}
+.vp-countries-sort:hover,
+th[aria-sort] .vp-countries-sort {
+	color: var(--vp-text);
+}
+.vp-countries-sort:focus-visible {
+	outline: 2px solid var(--vp-focus);
+	outline-offset: 2px;
+}
+td.vp-countries-photos {
+	width: 50%;
+}
+.vp-countries-bar-cell {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.vp-countries-num {
+	min-width: 5ch;
+	font-family: var(--vp-font-pixel);
+	font-size: 15px;
+	font-weight: 400;
+	text-align: right;
+}
+.vp-countries-bar {
+	flex: 1;
+	min-width: 60px;
+	height: 10px;
+	border: 1px solid var(--vp-border);
+	background: var(--vp-surface-3);
+}
+.vp-countries-bar > span {
+	display: block;
+	height: 100%;
+}
+.vp-countries-share {
+	min-width: 6ch;
+	text-align: right;
+	color: var(--vp-muted);
+}
+@media (max-width: 640px) {
+	.vp-countries th:nth-child(5),
+	.vp-countries td:nth-child(5) {
+		display: none;
+	}
+	.vp-countries-bar {
+		min-width: 40px;
+	}
+}
