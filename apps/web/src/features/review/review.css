@@ -276,6 +276,27 @@
 .review-strip-run[data-match] {
 	background: color-mix(in srgb, var(--review-country) 45%, var(--vp-surface));
 }
+/* Days without photos: a hatch, not a country. */
+.review-strip-run[data-empty] {
+	background: repeating-linear-gradient(
+		-45deg,
+		color-mix(in srgb, var(--vp-muted) 28%, transparent) 0 2px,
+		transparent 2px 6px
+	);
+}
+/* One faint tick on the start of every day. */
+.review-strip-ticks {
+	position: absolute;
+	bottom: 0;
+	height: 35%;
+	pointer-events: none;
+	background-image: linear-gradient(
+		to right,
+		color-mix(in srgb, var(--vp-text) 22%, transparent) 0 1px,
+		transparent 1px
+	);
+	background-repeat: repeat-x;
+}
 .review-strip-label {
 	font-size: 10px;
 	font-weight: 700;
@@ -289,6 +310,7 @@
 	width: 2px;
 	transform: translateX(-1px);
 	background: var(--vp-bad);
+	pointer-events: none;
 }
 
 /* Photos tab: filters and thumbnail strip */
@@ -1375,6 +1397,10 @@ fieldset.review-filters {
 .review-pan-date {
 	font-weight: 600;
 	color: var(--vp-text);
+}
+.review-pan-edge {
+	font-weight: 400;
+	color: var(--vp-muted);
 }
 .review-pan-reset {
 	display: flex;

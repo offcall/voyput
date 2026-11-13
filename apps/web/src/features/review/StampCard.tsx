@@ -13,7 +13,14 @@ import {
 import { Badge, Button } from "@voyput/ui";
 import { useEffect, useRef, useState } from "react";
 import { CountryTag } from "./CountryTag";
-import { CROSSINGS, crossingIcon, DIRECTIONS, directionIcon } from "./format";
+import {
+	CROSSINGS,
+	crossingIcon,
+	DIRECTIONS,
+	directionIcon,
+	formatDatesIn,
+	formatDay,
+} from "./format";
 import { PannableDayStrip } from "./PannableDayStrip";
 import { problemParts, type StampEdit } from "./reviewStore";
 
@@ -152,7 +159,9 @@ export function StampCard({
 					<span className="review-row-dir" data-direction={stamp.direction}>
 						{directionIcon(stamp.direction)} {stamp.direction}
 					</span>
-					<span className="review-stamp-date">{stamp.date ?? "no date"}</span>
+					<span className="review-stamp-date">
+						{stamp.date ? formatDay(stamp.date) : "no date"}
+					</span>
 					<span className="review-stamp-place">
 						{stamp.country ?? "unknown country"}
 						{stamp.location ? (
@@ -303,7 +312,7 @@ export function StampCard({
 									<span className="review-note-tag">{NOTE_LABELS[kind]}</span>
 									{lines.map((line) => (
 										<span key={line} className="review-note-line">
-											{line}
+											{formatDatesIn(line)}
 										</span>
 									))}
 								</span>
@@ -326,6 +335,7 @@ export function StampCard({
 							<PannableDayStrip
 								dayRuns={dayRuns}
 								date={stamp.date}
+								direction={stamp.direction}
 								readDate={
 									stamp.readDate === undefined ? stamp.date : stamp.readDate
 								}
@@ -344,7 +354,7 @@ export function StampCard({
 											title={photo.filename}
 										>
 											<CountryTag code={photo.countryCode} />
-											<span>{photo.date}</span>
+											<span>{formatDay(photo.date)}</span>
 											<span className="review-muted">
 												{photo.gap === 0 ? "same day" : `${photo.gap} d`}
 												{count > 1 ? ` · ${count} photos` : ""}
@@ -427,7 +437,7 @@ function ValidateRow({
 					<Badge tone={validation.result.ok ? "good" : "warn"}>
 						{validation.result.ok ? "looks right" : "needs a fix"}
 					</Badge>{" "}
-					{validation.result.explanation}
+					{formatDatesIn(validation.result.explanation)}
 					{!validation.result.ok && validation.result.correction ? (
 						<p>
 							Suggested:{" "}

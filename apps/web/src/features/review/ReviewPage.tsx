@@ -4,7 +4,7 @@ import { Button, Progress, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
-import { errorMessage } from "./format";
+import { errorMessage, formatDay } from "./format";
 import { PhotoReview } from "./PhotoReview";
 import {
 	DEFAULT_UI_STATE,
@@ -176,7 +176,7 @@ export function ReviewPage() {
 				<div className="review-toast" role="status">
 					<span>
 						Stamp deleted ({deleted.country ?? "unknown country"},{" "}
-						{deleted.date ?? "no date"}).
+						{deleted.date ? formatDay(deleted.date) : "no date"}).
 					</span>
 					<Button
 						onClick={() =>

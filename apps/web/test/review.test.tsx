@@ -49,12 +49,12 @@ describe("review", () => {
 		renderApp("/review", { db });
 		const again = within(await card(1));
 		const toggle = again.getByRole("button", { expanded: false });
-		expect(toggle.textContent).toContain("2016-08-09");
+		expect(toggle.textContent).toContain("9 Aug 2016");
 		expect(again.getByText("reviewed")).toBeTruthy();
 
 		await user.click(screen.getByRole("button", { name: "Delete stamp 2" }));
 		const toast = await screen.findByRole("status");
-		expect(toast.textContent).toContain("Spain, 2016-08-10");
+		expect(toast.textContent).toContain("Spain, 10 Aug 2016");
 		expect(await db.stamps.get("demo-stamp-02")).toBeUndefined();
 		await user.click(within(toast).getByRole("button", { name: "Undo" }));
 		await waitFor(async () =>
@@ -85,7 +85,7 @@ describe("review", () => {
 					name: "Stamp date on the photo location history",
 				})
 				.getAttribute("aria-valuetext"),
-		).toBe("2016-08-10");
+		).toBe("10 Aug 2016");
 	});
 
 	it("sets the stamp date from the photo location strip and resets it", async () => {
@@ -121,7 +121,7 @@ describe("review", () => {
 		expect((again.getByLabelText("Date") as HTMLInputElement).value).toBe(
 			"2016-08-09",
 		);
-		expect(again.getByText("Read as 2016-08-10")).toBeTruthy();
+		expect(again.getByText("Read as 10 Aug 2016")).toBeTruthy();
 		await user.click(again.getByRole("button", { name: "Reset to read date" }));
 		await waitFor(async () =>
 			expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-10"),
@@ -228,7 +228,7 @@ describe("review", () => {
 		const opened = within(await card(2));
 		expect(
 			opened.getByRole("button", { expanded: true }).textContent,
-		).toContain("2017-05-03");
+		).toContain("3 May 2017");
 	});
 
 	it("keeps both of two overlapping saves", async () => {

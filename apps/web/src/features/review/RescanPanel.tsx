@@ -2,7 +2,7 @@ import type { ReadStamp } from "@voyput/core";
 import { Badge, Button, TextField } from "@voyput/ui";
 import { type ReactNode, useState } from "react";
 import { CountryTag } from "./CountryTag";
-import { directionIcon, errorMessage } from "./format";
+import { directionIcon, errorMessage, formatDay } from "./format";
 
 type RescanState =
 	| { status: "idle" }
@@ -78,7 +78,8 @@ export function RescanPanel({
 							>
 								<CountryTag code={stamp.countryCode} />
 								<span className="review-draft-text">
-									{directionIcon(stamp.direction)} {stamp.date ?? "no date"} ·{" "}
+									{directionIcon(stamp.direction)}{" "}
+									{stamp.date ? formatDay(stamp.date) : "no date"} ·{" "}
 									{stamp.country ?? "?"}
 									{stamp.location ? ` · ${stamp.location}` : ""}
 								</span>

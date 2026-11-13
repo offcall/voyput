@@ -20,7 +20,14 @@ import {
 } from "react";
 import { CountryTag, useColourOf } from "./CountryTag";
 import { DayStrip } from "./DayStrip";
-import { crossingIcon, directionIcon, flagOf, plural } from "./format";
+import {
+	crossingIcon,
+	directionIcon,
+	flagOf,
+	formatDay,
+	formatDayRange,
+	plural,
+} from "./format";
 import { TIMELINE_WINDOWS } from "./reviewStore";
 import {
 	buildTimeline,
@@ -319,7 +326,7 @@ function StampRow({
 			<span className="review-row-dir" data-direction={stamp.direction}>
 				{directionIcon(stamp.direction)} {stamp.direction}
 			</span>
-			<span className="review-row-date">{stamp.date}</span>
+			<span className="review-row-date">{formatDay(stamp.date)}</span>
 			<span className="review-row-place">
 				{stamp.location ?? stamp.country ?? "unknown place"}{" "}
 				<span aria-hidden="true">{crossingIcon(stamp.borderCrossing)}</span>
@@ -350,12 +357,13 @@ function StampRow({
 				<DayStrip
 					dayRuns={dayRuns}
 					date={stamp.date}
+					direction={stamp.direction}
 					stampCode={stamp.countryCode}
 					radius={stripDays}
 				/>
 				<span className="review-row-nearest">
 					{nearest
-						? `Nearest photo: ${nearest.countryCode} ${nearest.date}${nearest.gap ? ` (${plural(nearest.gap, "day")} away)` : " (same day)"}`
+						? `Nearest photo: ${nearest.countryCode} ${formatDay(nearest.date)}${nearest.gap ? ` (${plural(nearest.gap, "day")} away)` : " (same day)"}`
 						: "No photo locations"}
 				</span>
 			</span>
@@ -408,7 +416,7 @@ function OverviewBand({
 			<div className="review-band-head">
 				<Button onClick={() => onMove(from - windowDays)}>← Earlier</Button>
 				<strong className="review-band-range">
-					{fromIso} – {toIso}
+					{formatDayRange(fromIso, toIso)}
 				</strong>
 				<Button onClick={() => onMove(from + windowDays)}>Later →</Button>
 				<label className="review-band-window">
@@ -441,7 +449,7 @@ function OverviewBand({
 								data-severity={levels.get(s.id)}
 								data-reviewed={s.reviewed || undefined}
 								aria-label={`Open stamp: ${stampLabel(s)}`}
-								title={`${s.date} ${s.direction} ${s.country ?? s.countryCode ?? ""}`}
+								title={`${formatDay(s.date)} ${s.direction} ${s.country ?? s.countryCode ?? ""}`}
 								style={{
 									...hueStyle(s.countryCode),
 									left: pct(at(s.date) + 0.5),
@@ -461,7 +469,7 @@ function OverviewBand({
 							<span
 								key={`${run.start}-${run.countryCode}`}
 								className="review-band-run"
-								title={`${run.countryCode}: ${run.start} – ${run.end}`}
+								title={`${run.countryCode} · ${formatDayRange(run.start, run.end)}`}
 								style={{
 									...hueStyle(run.countryCode),
 									left: pct(at(run.start)),

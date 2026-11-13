@@ -31,6 +31,7 @@ function Harness({ dates }: { dates: string[] }) {
 			]}
 			date={date}
 			readDate="2024-03-10"
+			direction="entry"
 			stampCode="RO"
 			radius={5}
 			onDate={(next) => {
@@ -51,17 +52,17 @@ describe("photo location strip sets the stamp date", () => {
 		const dates: string[] = [];
 		render(<Harness dates={dates} />);
 		const track = slider();
-		// 11 days over 220 px: 20 px per day.
+		// 10 days over 220 px: 22 px per day.
 		track.getBoundingClientRect = () => ({ width: 220 }) as DOMRect;
 		fireEvent.pointerDown(track, { pointerId: 1, clientX: 100, button: 0 });
 		fireEvent.pointerMove(track, { pointerId: 1, clientX: 164 });
 		// Mid-drag the line shows the nearest whole day; nothing is saved yet.
-		expect(slider().getAttribute("aria-valuetext")).toBe("2024-03-07");
+		expect(slider().getAttribute("aria-valuetext")).toBe("7 Mar 2024");
 		expect(dates).toEqual([]);
 		fireEvent.pointerUp(track, { pointerId: 1, clientX: 164 });
-		// 64 px right is 3.2 days earlier: the date lands on the 7th.
+		// 64 px right is 2.9 days earlier: the date lands on the 7th.
 		expect(dates).toEqual(["2024-03-07"]);
-		expect(slider().getAttribute("aria-valuetext")).toBe("2024-03-07");
+		expect(slider().getAttribute("aria-valuetext")).toBe("7 Mar 2024");
 		expect(slider().getAttribute("aria-valuenow")).toBe("-3");
 	});
 
@@ -81,7 +82,7 @@ describe("photo location strip sets the stamp date", () => {
 			"2024-03-05",
 			"2024-03-06",
 		]);
-		expect(screen.getByText("Read as 2024-03-10")).toBeTruthy();
+		expect(screen.getByText("Read as 10 Mar 2024")).toBeTruthy();
 		await user.click(
 			screen.getByRole("button", { name: "Reset to read date" }),
 		);
