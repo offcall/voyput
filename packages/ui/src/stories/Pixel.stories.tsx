@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Button } from "../Button";
+import { ChartTip } from "../ChartTip";
 import { PixelArt } from "../pixel/PixelArt";
 import { PixelSky } from "../pixel/PixelSky";
 import { SPRITE_NAMES } from "../pixel/sprites";
@@ -43,7 +44,8 @@ export const Twinkle: StoryObj = {
 				position: "relative",
 				height: 180,
 				borderRadius: 14,
-				background: "var(--vp-surface)",
+				background:
+					"linear-gradient(180deg, var(--vp-sky-top), var(--vp-sky-bottom))",
 				border: "1px solid var(--vp-border)",
 			}}
 		>
@@ -69,6 +71,23 @@ export const SkyDayAndNight: StoryObj = {
 			<PixelSky time="night" height={140}>
 				<Button variant="primary">Load demo data</Button>
 			</PixelSky>
+		</div>
+	),
+};
+
+export const ChartTips: StoryObj = {
+	render: () => (
+		<div
+			style={{
+				position: "relative",
+				height: 160,
+				borderRadius: 14,
+				background: "var(--vp-surface)",
+				border: "1px solid var(--vp-border)",
+			}}
+		>
+			<ChartTip label="Romania · 2024" value="1,204 photos" x={140} y={90} />
+			<ChartTip label="MD → RO" value="3×" x={360} y={30} below />
 		</div>
 	),
 };

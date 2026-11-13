@@ -104,7 +104,9 @@
 	--vp-hill-far: light-dark(#8fd18f, #1f3f28);
 	--vp-hill-shade: light-dark(#3f9a46, #1d4226);
 	--vp-star: light-dark(#ffffff00, #f4f1c9);
-	--vp-twinkle: light-dark(rgb(76 174 76 / 0.55), #f4f1c9);
+	--vp-twinkle: light-dark(#ffffff, #f4f1c9);
+	/* Soft halo that lifts white day sparkles off the pale sky; none at night. */
+	--vp-twinkle-glow: light-dark(rgb(58 120 214 / 0.45), transparent);
 	--vp-sun: light-dark(#ffd23f, #f1edc8);
 	--vp-pixel-ink: light-dark(#1a2a36, #4d5560);
 	--vp-pixel-paper: light-dark(#ffffff, #e9ecef);
@@ -1007,6 +1009,55 @@ a[aria-current="page"] .vp-nav-count {
 	text-overflow: ellipsis;
 }
 
+/* ---------- Chart tip ---------- */
+
+/* Always dark, also in the light theme: the tokens resolve dark inside. */
+.vp-chart-tip {
+	color-scheme: dark;
+	position: absolute;
+	z-index: 2;
+	transform: translate(-50%, calc(-100% - 12px));
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 6px 10px;
+	border: 2px solid var(--vp-accent);
+	border-radius: var(--vp-radius-sm);
+	background: var(--vp-surface-2);
+	box-shadow: var(--vp-shadow), var(--vp-glow-sm);
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted);
+	white-space: nowrap;
+	pointer-events: none;
+}
+.vp-chart-tip[data-below] {
+	transform: translate(-50%, 12px);
+}
+/* A square pixel pointer in the accent. */
+.vp-chart-tip::after {
+	content: "";
+	position: absolute;
+	left: 50%;
+	top: 100%;
+	width: 6px;
+	height: 6px;
+	margin: 2px 0 0 -3px;
+	background: var(--vp-accent);
+}
+.vp-chart-tip[data-below]::after {
+	top: auto;
+	bottom: 100%;
+	margin: 0 0 2px -3px;
+}
+.vp-chart-tip strong {
+	font-family: var(--vp-font-pixel);
+	font-size: 16px;
+	font-weight: 400;
+	line-height: 20px;
+	color: var(--vp-text);
+}
+
 /* ---------- Disclosure ---------- */
 
 .vp-disclosure {
@@ -1113,6 +1164,7 @@ a[aria-current="page"] .vp-nav-count {
 .vp-twinkle-star {
 	position: absolute;
 	line-height: 0;
+	filter: drop-shadow(0 0 1px var(--vp-twinkle-glow));
 	animation: vp-twinkle 3.2s steps(4) infinite;
 }
 .vp-twinkle-dot {
