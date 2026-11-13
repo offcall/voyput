@@ -4,13 +4,16 @@ import {
 	deriveTrips,
 	guessHomeCountry,
 	homeOf,
+	mergeKept,
 	type Stamp,
 	stayHints,
 	suggestStays,
+	type TravelStay,
 	usableStamps,
 } from "@voyput/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
+import { removeDemo } from "../src/features/demo/loadDemo";
 import { seedDemo, stubDemoFetch, stubObjectUrls } from "./fixtures/demo";
 import { renderApp } from "./renderApp";
 
@@ -184,5 +187,55 @@ describe("demo data", () => {
 			["2018-10-12", "2018-10-20", ["GE"]],
 			["2019-07-01", "2019-07-15", ["IT", "FR"]],
 		]);
+	});
+
+	it("removes only the stays built on demo data, not the user's own", async () => {
+		const db = new VoyputDb("demo-mixed-history");
+		await seedDemo(db);
+		await seedOwnData(db);
+		const stamps = usableStamps(await db.stamps.toArray());
+		const locations = await db.locations.toArray();
+		const own: TravelStay = {
+			id: "own-spain",
+			countryCode: "ES",
+			place: "Madrid",
+			kind: "stay",
+			arrival: {
+				date: "2020-02-01",
+				source: "stamp",
+				method: "plane",
+				stampId: "mine-stamp",
+			},
+			departure: { date: "2020-02-05", source: "manual", method: "plane" },
+			stampIds: ["mine-stamp"],
+			photoIds: ["mine-uuid"],
+			approved: true,
+		};
+		const history = mergeKept(
+			suggestStays({ stamps, locations, home: "UA" }).filter(
+				(s) => s.countryCode !== "ES" || s.arrival.date !== "2020-02-01",
+			),
+			[own],
+		);
+		// A demo home stay that also holds one of the user's photos keeps it.
+		const mixed = history.findIndex((s) => s.arrival.date === "2019-07-15");
+		history[mixed] = {
+			...(history[mixed] as TravelStay),
+			photoIds: [...(history[mixed]?.photoIds ?? []), "mine-uuid"],
+		};
+		await db.stays.bulkPut(history);
+
+		await removeDemo(db);
+		const left = (await db.stays.toArray()).sort((a, b) =>
+			(a.arrival.date ?? "").localeCompare(b.arrival.date ?? ""),
+		);
+		expect(
+			left.map((s) => [s.id, s.countryCode, s.photoIds, s.approved]),
+		).toEqual([
+			[history[mixed]?.id, "UA", ["mine-uuid"], false],
+			["own-spain", "ES", ["mine-uuid"], true],
+		]);
+		expect(left[0]?.arrival).toMatchObject({ source: "estimated" });
+		expect(left[0]?.arrival.stampId).toBeUndefined();
 	});
 });

@@ -23,3 +23,4 @@ Trips were stored as periods outside a home country, with stops per day and two 
 - Stored stays do not follow later imports on their own; the Trips step rebuilds suggestions around the stays the user approved.
 - Trip ids change: a derived trip's id comes from its first stay.
 - Every consumer of trips (Collect plan, Visualize filter, Route, Explore) reads the stays.
+- Removing demo data (ADR 0010) removes only demo evidence from the history (`withoutEvidence`): stays built only on it go, the user's own stays keep their edits and approvals.

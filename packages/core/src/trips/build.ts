@@ -625,3 +625,45 @@ export function homeAfterTrips(
 	});
 	return out;
 }
+
+/**
+ * The history without some evidence (removed demo data): a stay whose
+ * stamps and photos were all removed goes; others keep their own evidence,
+ * and an edge read from a removed stamp becomes an estimate. Stays of one
+ * country that a removed stay separated join, approved only if both were.
+ */
+export function withoutEvidence(
+	stays: readonly TravelStay[],
+	removed: { stamp: (id: string) => boolean; photo: (id: string) => boolean },
+): TravelStay[] {
+	const out: TravelStay[] = [];
+	let dropped = false;
+	const unstamped = (e: StayEdge): StayEdge => {
+		if (!e.stampId || !removed.stamp(e.stampId)) return e;
+		const { stampId: _, ...rest } = e;
+		return { ...rest, source: "estimated" };
+	};
+	for (const stay of stays) {
+		const stampIds = stay.stampIds.filter((id) => !removed.stamp(id));
+		const photoIds = stay.photoIds.filter((id) => !removed.photo(id));
+		const had = stay.stampIds.length + stay.photoIds.length;
+		if (had > 0 && stampIds.length + photoIds.length === 0) {
+			dropped = true;
+			continue;
+		}
+		const s: TravelStay = {
+			...stay,
+			stampIds,
+			photoIds,
+			arrival: unstamped(stay.arrival),
+			departure: unstamped(stay.departure),
+		};
+		const last = out.at(-1);
+		if (dropped && last && last.countryCode === s.countryCode) {
+			joinInto(last, s);
+			last.approved = last.approved && s.approved;
+		} else out.push(s);
+		dropped = false;
+	}
+	return out;
+}

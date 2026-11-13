@@ -6,7 +6,9 @@ import {
 	type PhotoExtraction,
 	parseLocationCsv,
 	type Stamp,
+	sortStays,
 	summarizeLocations,
+	withoutEvidence,
 } from "@voyput/core";
 import type { VoyputDb } from "../../db/db";
 
@@ -182,10 +184,9 @@ function parseLocations(text: string): LocationRow[] {
 
 /**
  * Deletes demo rows by their ids and every stamp on a demo page (also stamps
- * the user added there by hand or by re-extracting). A stored history built on
- * any of those stamps or on demo photos goes as a whole: it is one sequence,
- * and the Trips step suggests it again from what is left. Call inside a
- * transaction.
+ * the user added there by hand or by re-extracting). Stays built only on
+ * those stamps or on demo photos go; the user's own stays keep their edits and
+ * approvals. Call inside a transaction.
  */
 async function deleteDemoRows(db: VoyputDb): Promise<void> {
 	const photoIds = await db.photos
@@ -206,14 +207,14 @@ async function deleteDemoRows(db: VoyputDb): Promise<void> {
 	await db.photos.bulkDelete(photoIds);
 	await db.stamps.bulkDelete([...stampIds]);
 	await db.locations.where("uuid").startsWith(DEMO_LOCATION_PREFIX).delete();
-	const onDemo = await db.stays
-		.filter(
-			(stay) =>
-				stay.stampIds.some((id) => stampIds.has(id)) ||
-				stay.photoIds.some((id) => id.startsWith(DEMO_LOCATION_PREFIX)),
-		)
-		.count();
-	if (onDemo > 0) await db.stays.clear();
+	// Only demo evidence goes: stays built on it alone, not the user's own (ADR 0010).
+	const stays = sortStays(await db.stays.toArray());
+	const kept = withoutEvidence(stays, {
+		stamp: (id) => stampIds.has(id),
+		photo: (id) => id.startsWith(DEMO_LOCATION_PREFIX),
+	});
+	await db.stays.clear();
+	await db.stays.bulkPut(kept);
 }
 
 function demoTables(db: VoyputDb) {

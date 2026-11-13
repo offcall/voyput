@@ -95,6 +95,7 @@ export {
 	type StayEvidence,
 	sortStays,
 	suggestStays,
+	withoutEvidence,
 } from "./trips/build";
 export { COUNTRY_CODES, isCountryCode } from "./trips/countries";
 export {

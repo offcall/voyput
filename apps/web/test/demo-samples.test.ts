@@ -62,7 +62,7 @@ describe("demo sample pages from Wikimedia Commons", () => {
 		expect(await db.photos.count()).toBe(1);
 	});
 
-	it("removes stamps the user added on a sample page and the history built on them", async () => {
+	it("removes stamps the user added on a sample page and the stays built only on them", async () => {
 		const db = new VoyputDb("demo-samples-added-stamp");
 		await seedDemo(db);
 		const added: Stamp = {
@@ -96,14 +96,16 @@ describe("demo sample pages from Wikimedia Commons", () => {
 		});
 		await db.stays.bulkPut([
 			stay("on-sample-stamp", [added.id]),
-			stay("own-stay", ["mine-stamp"]),
+			{ ...stay("own-stay", ["mine-stamp"]), countryCode: "GE" },
 		]);
 
 		await removeDemo(db);
 		expect(await db.stamps.get(added.id)).toBeUndefined();
 		expect(await db.stamps.count()).toBe(0);
-		// A history built on a demo stamp goes as a whole (ADR 0019).
-		expect(await db.stays.count()).toBe(0);
+		// Only the stay built on the demo stamp goes; the user's own stays (ADR 0010).
+		expect(await db.stays.toArray()).toEqual([
+			{ ...stay("own-stay", ["mine-stamp"]), countryCode: "GE" },
+		]);
 	});
 
 	it("rejects a samples file with a stamp that is not a demo row", async () => {
