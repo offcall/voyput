@@ -104,7 +104,7 @@ export function Layout() {
 			brand={
 				<>
 					<BrandMark />
-					voyput
+					<span className="vp-brand-name">VOYPUT</span>
 				</>
 			}
 			nav={

@@ -31,3 +31,38 @@
 	width: 16px;
 	height: 16px;
 }
+
+/* Pixel logo: the mark and the name in the pixel font, a hard drop shadow. */
+.vp-brand-name {
+	letter-spacing: 0.06em;
+	text-shadow: 2px 2px 0 var(--vp-accent-soft);
+}
+.vp-shell-brand svg {
+	flex: none;
+}
+
+/* Bottom tab bar on phones: the active tab gets a green pill behind its icon. */
+@media (max-width: 860px) {
+	/* Short pages: keep the top bar its own height instead of sharing 100vh. */
+	.vp-shell {
+		grid-template-rows: auto 1fr;
+	}
+	.vp-shell-header > .vp-shell-nav a[aria-current="page"] {
+		background: transparent;
+		box-shadow: none;
+		color: var(--vp-accent-ink);
+	}
+	.vp-shell-header > .vp-shell-nav .vp-nav-icon {
+		width: 48px;
+		height: 26px;
+		border-radius: var(--vp-radius-full);
+		transition: background var(--vp-duration) var(--vp-ease);
+	}
+	.vp-shell-header > .vp-shell-nav a[aria-current="page"] .vp-nav-icon {
+		background: var(--vp-accent);
+		color: var(--vp-accent-text);
+	}
+	.vp-shell-header > .vp-shell-nav .vp-nav-label {
+		font-weight: 700;
+	}
+}

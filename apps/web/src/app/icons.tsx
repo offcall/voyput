@@ -73,19 +73,41 @@ export const icons = {
 	),
 };
 
-/** The brand mark: a stamp-like rounded square. */
+/** The brand mark as pixel art: a green tile with a pixel "V" (`x` = letter). */
+const BRAND_ROWS = [
+	"..........",
+	".xx....xx.",
+	".xx....xx.",
+	".xx....xx.",
+	"..xx..xx..",
+	"..xx..xx..",
+	"...xxxx...",
+	"....xx....",
+	"..........",
+];
+
+const BRAND_LETTER = BRAND_ROWS.flatMap((row, y) =>
+	[...row].flatMap((cell, x) => (cell === "x" ? [`M${x} ${y}h1v1h-1z`] : [])),
+).join("");
+
 export function BrandMark() {
 	return (
-		<svg aria-hidden="true" viewBox="0 0 28 28" width="28" height="28">
-			<rect width="28" height="28" rx="8" fill="var(--vp-accent)" />
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 10 10"
+			width="30"
+			height="30"
+			shapeRendering="crispEdges"
+		>
 			<path
-				d="M8 9.5 14 19l6-9.5"
-				fill="none"
-				stroke="var(--vp-accent-text)"
-				strokeWidth="2.6"
-				strokeLinecap="round"
-				strokeLinejoin="round"
+				d="M1 0h8v1h1v8h-1v1h-8v-1h-1v-8h1z"
+				style={{ fill: "var(--vp-accent)" }}
 			/>
+			<path
+				d="M1 9h8v1h-8z"
+				style={{ fill: "var(--vp-accent-ink)", opacity: 0.5 }}
+			/>
+			<path d={BRAND_LETTER} style={{ fill: "var(--vp-accent-text)" }} />
 		</svg>
 	);
 }
