@@ -5,9 +5,8 @@ import { flagOf, formatDay } from "./format";
 import {
 	segmentBox,
 	segmentTip,
-	stampLine,
 	stripSegments,
-	stripWindow,
+	stripView,
 	type TravelDays,
 } from "./strip";
 
@@ -61,18 +60,19 @@ export function DayStrip({
 	const [ref, width] = useWidth<HTMLSpanElement>();
 	const target = dayNumber(date);
 	if (target === null) return null;
-	const { from, days } = stripWindow(
-		stampLine(target, direction, stampCode, travelDays),
+	const view = stripView(
+		{ day: target, direction, stampCode, travelDays },
 		radius,
 		shift,
 	);
+	const { from, days } = view;
 	const first = Math.floor(from);
 	const last = Math.ceil(from + days) - 1;
 	const segments = stripSegments(dayRuns, travelDays, first, last);
 	const pxPerDay = width > 0 ? width / days : FALLBACK_PX_PER_DAY;
 	const pct = (n: number) => `${n}%`;
 
-	const centre = formatDay(dayIso(target + Math.round(shift)));
+	const centre = formatDay(dayIso(view.day));
 	const label = segments.every((s) => s.countryCode === null)
 		? `No photo locations within ${radius} days of ${centre}`
 		: `Photos around ${centre}: ${segments.map(segmentTip).join(", ")}`;
@@ -91,9 +91,11 @@ export function DayStrip({
 							title={segmentTip(segment)}
 							style={{ left: pct(box.left), right: pct(box.right) }}
 						>
-							{segment.via.map((part) => (
+							{segment.via.map((part, i) => (
 								<span
-									key={part}
+									// A same-day return repeats a country; the order is fixed.
+									// biome-ignore lint/suspicious/noArrayIndexKey: parts never reorder
+									key={i}
 									className="review-strip-part"
 									data-match={part === stampCode || undefined}
 									style={

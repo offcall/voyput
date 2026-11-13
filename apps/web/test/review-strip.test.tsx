@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { dayNumber } from "@voyput/core";
+import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { DayStrip } from "../src/features/review/DayStrip";
 import {
@@ -15,7 +16,7 @@ import {
 	segmentTip,
 	stampLine,
 	stripSegments,
-	stripWindow,
+	stripView,
 	travelDaysOf,
 } from "../src/features/review/strip";
 
@@ -70,7 +71,28 @@ describe("stamp line on the strip", () => {
 		).toBeCloseTo(100 + 2 / 3, 10);
 	});
 
-	it("orders a travel day's countries by their first photo", () => {
+	it("keeps a same-day return, ordered by the photos' instants", () => {
+		const d = day("2016-08-10");
+		// ES 08:30+02 is 06:30 UTC, after UA 09:00+03 (06:00 UTC).
+		const travel = travelDaysOf([
+			{ date: "2016-08-10T08:30:00+02:00", countryCode: "ES" },
+			{ date: "2016-08-10T22:00:00+03:00", countryCode: "UA" },
+			{ date: "2016-08-10T09:00:00+03:00", countryCode: "UA" },
+			{ date: "2016-08-10T15:00:00+02:00", countryCode: "ES" },
+		]);
+		expect(travel).toEqual(new Map([[d, ["UA", "ES", "UA"]]]));
+		// Entry back into UA: on the return, not at the day start.
+		expect(stampLine(d, "entry", "UA", travel)).toBeCloseTo(d + 2 / 3, 10);
+		expect(stampLine(d, "exit", "UA", travel)).toBeCloseTo(d + 1 / 3, 10);
+		expect(stampLine(d, "entry", "ES", travel)).toBeCloseTo(d + 1 / 3, 10);
+		expect(stampLine(d, "exit", "ES", travel)).toBeCloseTo(d + 2 / 3, 10);
+		// Two trips out and back: the last crossing, the side the day ends on.
+		const twice = new Map([[d, ["UA", "ES", "UA", "ES"]]]);
+		expect(stampLine(d, "entry", "ES", twice)).toBe(d + 3 / 4);
+		expect(stampLine(d, "exit", "UA", twice)).toBe(d + 3 / 4);
+	});
+
+	it("lists a travel day's countries in photo order, case-insensitive", () => {
 		expect(
 			travelDaysOf([
 				{ date: "2016-08-10T18:00:00+02:00", countryCode: "ES" },
@@ -78,19 +100,35 @@ describe("stamp line on the strip", () => {
 				{ date: "2016-08-10T20:00:00+02:00", countryCode: "UA" },
 				{ date: "2016-08-11T09:00:00+02:00", countryCode: "ES" },
 			]),
-		).toEqual(new Map([[day("2016-08-10"), ["UA", "ES"]]]));
+		).toEqual(new Map([[day("2016-08-10"), ["UA", "ES", "UA"]]]));
 	});
 
 	it("has as many days on each side, so it is in the exact middle", () => {
 		for (const direction of ["entry", "exit", "unknown"] as const) {
-			const edge = stampLine(100, direction, "ES", travel);
-			const { from, days } = stripWindow(edge, 10);
+			const stamp = {
+				day: 100,
+				direction,
+				stampCode: "ES",
+				travelDays: travel,
+			};
+			const { line, from, days } = stripView(stamp, 10);
 			expect(days).toBe(20);
-			expect((edge - from) / days).toBe(0.5);
+			expect((line - from) / days).toBe(0.5);
 		}
-		// Mid-drag too.
-		const { from, days } = stripWindow(100, 7, 1.3);
-		expect((101.3 - from) / days).toBe(0.5);
+		// Mid-drag: the line of the day under it, plus the part of a day not yet snapped.
+		const stamp = {
+			day: 99,
+			direction: "entry" as const,
+			stampCode: "ES",
+			travelDays: travel,
+		};
+		expect(stripView(stamp, 7, 1.3)).toEqual({
+			day: 100,
+			line: expect.closeTo(100.8, 10),
+			from: expect.closeTo(93.8, 10),
+			days: 14,
+		});
+		expect(stripView(stamp, 7, 0.4).line).toBeCloseTo(99.4, 10);
 	});
 });
 
@@ -310,6 +348,64 @@ describe("DayStrip", () => {
 			).toBeTruthy();
 			expect(screen.getByText("1 Aug 2016")).toBeTruthy();
 			expect(screen.getByText("19 Aug 2016")).toBeTruthy();
+		});
+	});
+
+	it("drags onto a travel day and back with the line on the change, no jump on release", () => {
+		const travel = new Map([[day("2016-08-10"), ["UA", "ES"]]]);
+		const trip = [
+			{ start: "2016-08-01", end: "2016-08-10", countryCode: "UA" },
+			{ start: "2016-08-11", end: "2016-08-20", countryCode: "ES" },
+		];
+		function Harness() {
+			const [date, setDate] = useState("2016-08-09");
+			return (
+				<PannableDayStrip
+					dayRuns={trip}
+					travelDays={travel}
+					date={date}
+					readDate="2016-08-09"
+					direction="entry"
+					stampCode="ES"
+					radius={5}
+					onDate={setDate}
+				/>
+			);
+		}
+		const { container } = render(<Harness />);
+		const track = screen.getByRole("slider");
+		// 10 days over 220 px: 22 px per day.
+		track.getBoundingClientRect = () => ({ width: 220 }) as DOMRect;
+		const travelBox = () => {
+			const el = container.querySelector(
+				".review-strip-run[data-travel]",
+			) as HTMLElement;
+			return [parseFloat(el.style.left), parseFloat(el.style.right)];
+		};
+		const caption = () =>
+			container.querySelector(".review-pan-date")?.textContent;
+		// At rest on 9 Aug the entry line is on the day start: 10 Aug is 60–70 %.
+		expect(travelBox()[0]).toBeCloseTo(60, 10);
+		const drag = (dx: number, check: () => void) => {
+			fireEvent.pointerDown(track, { pointerId: 1, clientX: 100, button: 0 });
+			fireEvent.pointerMove(track, { pointerId: 1, clientX: 100 + dx });
+			check();
+			fireEvent.pointerUp(track, { pointerId: 1, clientX: 100 + dx });
+			check();
+		};
+		// One day left: 10 Aug under the line, the line on the UA → ES change.
+		drag(-22, () => {
+			expect(caption()).toBe("10 Aug 2016 · border change in the day");
+			const [left, right] = travelBox();
+			expect(left).toBeCloseTo(45, 10);
+			expect(right).toBeCloseTo(45, 10);
+		});
+		// And back to the ordinary day: the line on its start again.
+		drag(22, () => {
+			expect(caption()).toBe("9 Aug 2016 · start of day");
+			const [left, right] = travelBox();
+			expect(left).toBeCloseTo(60, 10);
+			expect(right).toBeCloseTo(30, 10);
 		});
 	});
 });

@@ -3,7 +3,7 @@ import { Button } from "@voyput/ui";
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import { DayStrip } from "./DayStrip";
 import { formatDay } from "./format";
-import { stampLine, stripWindow, type TravelDays } from "./strip";
+import { stripView, type TravelDays } from "./strip";
 import { dragShift, snapShift } from "./stripPan";
 
 /**
@@ -52,6 +52,7 @@ export function PannableDayStrip({
 	if (saved === null) return null;
 	const target = pending?.base === date ? pending.day : saved;
 	const total = radius * 2;
+	const stamp = { day: target, direction, stampCode, travelDays };
 	const read = readDate ? dayNumber(readDate) : null;
 
 	const moveTo = (day: number) => {
@@ -90,7 +91,7 @@ export function PannableDayStrip({
 		if (!current || current.pointerId !== event.pointerId) return;
 		drag.current = null;
 		setMoving(null);
-		moveTo(target + snapShift(current.last));
+		moveTo(stripView(stamp, radius, current.last).day);
 	};
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
 		const step = event.shiftKey ? 7 : 1;
@@ -101,16 +102,14 @@ export function PannableDayStrip({
 		event.preventDefault();
 	};
 
-	/** The day under the date line, while dragging too. */
-	const centre = target + Math.round(moving ?? 0);
+	/** Where a release lands now: the day under the line and its window at rest. */
+	const view = stripView(stamp, radius, snapShift(moving ?? 0));
+	const centre = view.day;
 	const shown = formatDay(dayIso(centre));
-	/** The days shown at rest; the edges name the first and last whole day. */
-	const line = stampLine(centre, direction, stampCode, travelDays);
-	const view = stripWindow(line, radius);
 	const edge =
-		line === centre
+		view.line === centre
 			? "start of day"
-			: line === centre + 1
+			: view.line === centre + 1
 				? "end of day"
 				: "border change in the day";
 	return (
