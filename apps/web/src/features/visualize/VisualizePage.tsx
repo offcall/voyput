@@ -1,15 +1,26 @@
 import { useParams } from "@tanstack/react-router";
-import { buildVizData, splitRowsByTrips } from "@voyput/core";
+import { buildVizData, splitRowsByTrips, summarizeStays } from "@voyput/core";
 import { PageHeader, PixelArt, Stack, Stat, StatGroup } from "@voyput/ui";
 import { type ReactNode, useMemo, useState } from "react";
 import { formatInt } from "./charts/format";
-import { useStays } from "./data/useStays";
+import { type StaysData, useStays } from "./data/useStays";
 import { missingNeed, VizEmpty, type VizHave, VizHint } from "./needs";
 import { TripFilter } from "./TripFilter";
 import { findVizTab, firstVizTab, type VizTab } from "./tabs";
 import { useVizSource } from "./useVizSource";
 import { useWorld } from "./useWorld";
 import "./visualize.css";
+
+/** Stays for tabs that do not draw trips, while the real ones load or after they failed. */
+const NO_STAYS: StaysData = {
+	stays: [],
+	locations: [],
+	trips: [],
+	home: null,
+	summary: summarizeStays([], []),
+};
+
+const Loading = () => <p>Loading…</p>;
 
 function Layout({ children }: { children: ReactNode }) {
 	return (
@@ -44,7 +55,10 @@ export function VisualizePage() {
 		return buildVizData(splitRowsByTrips(source.rows, trips));
 	}, [source, selected]);
 
-	if (source.status === "error" || stays.status === "error") {
+	// Only tabs that draw trips wait for the stays (or fail with them).
+	const needs = tab.needs ?? ["locations"];
+	const needsStays = needs.includes("trips");
+	if (source.status === "error" || (needsStays && stays.status === "error")) {
 		const message =
 			source.status === "error"
 				? source.message
@@ -58,21 +72,33 @@ export function VisualizePage() {
 		);
 	}
 
-	if (source.status === "loading" || stays.status === "loading" || !data) {
+	if (
+		source.status === "loading" ||
+		(needsStays && stays.status === "loading") ||
+		!data
+	) {
 		return (
 			<Layout>
-				<p>Loading…</p>
+				<Loading />
 			</Layout>
 		);
 	}
 
+	const staysData = stays.status === "ready" ? stays.data : NO_STAYS;
 	const have: VizHave = {
 		locations: source.rows.length,
-		trips: stays.data.stays.length > 0 ? stays.data.trips.length : 0,
+		trips: staysData.stays.length > 0 ? staysData.trips.length : 0,
 		storedTrips: source.trips.length,
 	};
-	const missing = missingNeed(tab.needs ?? ["locations"], have);
+	const missing = missingNeed(needs, have);
 	if (missing) {
+		// The placeholder names the trips there are, so it waits for them.
+		if (stays.status === "loading")
+			return (
+				<Layout>
+					<Loading />
+				</Layout>
+			);
 		return (
 			<Layout>
 				<VizEmpty need={missing} have={have} />
@@ -85,7 +111,7 @@ export function VisualizePage() {
 		trips: source.trips,
 		data,
 		world,
-		stays: stays.data,
+		stays: staysData,
 		have,
 	};
 	if (!tab.usesTripFilter) {

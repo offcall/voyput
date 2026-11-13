@@ -68,6 +68,27 @@ describe("visualize", () => {
 		expect(screen.queryByText("No location history yet")).toBeNull();
 	});
 
+	it("fails only the trip tabs when the stays cannot be read", async () => {
+		const db = new VoyputDb("visualize-stays-error");
+		await db.locations.bulkPut([
+			photo("2024-03-02", "RO", "Romania", 44.4, 26.1),
+		]);
+		vi.spyOn(db.stamps, "toArray").mockRejectedValue(
+			new Error("stamps are gone"),
+		);
+		const map = renderApp("/visualize/map", { db });
+		expect(
+			await screen.findByRole("group", { name: "Route map" }),
+		).toBeTruthy();
+		expect(screen.queryByRole("alert")).toBeNull();
+		map.unmount();
+
+		renderApp("/visualize/explore", { db });
+		expect((await screen.findByRole("alert")).textContent).toContain(
+			"stamps are gone",
+		);
+	});
+
 	it("renders every tab and narrows them to the selected trips", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("visualize-filter");
