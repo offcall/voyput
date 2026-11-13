@@ -1,6 +1,10 @@
 import type { Trip } from "@voyput/core";
+import { useState } from "react";
 import { dayCount } from "./format";
 import { TripChip } from "./TripChip";
+
+/** Country chips shown before "+N more". */
+const COLLAPSED_CHIPS = 16;
 
 /** Totals over all listed trips. */
 export function TripsSummary({
@@ -17,6 +21,9 @@ export function TripsSummary({
 		.filter((cc) => cc !== home)
 		.sort();
 	const open = trips.filter((t) => !t.confirmed).length;
+	const [expanded, setExpanded] = useState(false);
+	const shown = expanded ? countries : countries.slice(0, COLLAPSED_CHIPS);
+	const hidden = countries.length - shown.length;
 	return (
 		<div className="vp-trips-summary">
 			<div className="vp-trips-stat">
@@ -37,9 +44,19 @@ export function TripsSummary({
 			</div>
 			{countries.length ? (
 				<div className="vp-trips-summary-countries">
-					{countries.map((cc) => (
+					{shown.map((cc) => (
 						<TripChip key={cc} code={cc} />
 					))}
+					{countries.length > COLLAPSED_CHIPS ? (
+						<button
+							type="button"
+							className="vp-trips-chips-toggle"
+							aria-expanded={expanded}
+							onClick={() => setExpanded(!expanded)}
+						>
+							{expanded ? "Show less" : `+${hidden} more`}
+						</button>
+					) : null}
 				</div>
 			) : null}
 		</div>

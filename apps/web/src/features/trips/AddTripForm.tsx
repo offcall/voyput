@@ -1,4 +1,4 @@
-import { Button, Dialog, TextField } from "@voyput/ui";
+import { Button, Dialog, PixelArt, TextField } from "@voyput/ui";
 import { useState } from "react";
 import { DateField, periodError } from "./DateField";
 
@@ -24,7 +24,9 @@ export function AddTripForm({
 				title="Add a trip"
 				actions={
 					<>
-						<Button onClick={() => setOpen(false)}>Cancel</Button>
+						<Button variant="ghost" onClick={() => setOpen(false)}>
+							Cancel
+						</Button>
 						<Button
 							variant="primary"
 							disabled={!!error}
@@ -42,10 +44,13 @@ export function AddTripForm({
 				}
 			>
 				<div className="vp-trips-add">
-					<p className="vp-trips-muted">
-						For a trip the suggestions missed. Stops and stamps in the period
-						are filled in from your data.
-					</p>
+					<div className="vp-trips-add-intro">
+						<PixelArt name="suitcase" scale={3} />
+						<p className="vp-trips-muted">
+							For a trip the suggestions missed. Stops and stamps in the period
+							are filled in from your data.
+						</p>
+					</div>
 					<TextField label="New trip title" value={title} onChange={setTitle} />
 					<div className="vp-trips-add-dates">
 						<DateField

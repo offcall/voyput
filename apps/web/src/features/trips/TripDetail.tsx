@@ -25,7 +25,7 @@ import {
 } from "./format";
 import type { PhotoDays } from "./photoDays";
 import { StatusBadge } from "./StatusBadge";
-import { TripChip } from "./TripChip";
+import { TripChip, TripChips } from "./TripChip";
 
 /** Days of context shown before and after the trip on the timeline. */
 const CONTEXT_DAYS = 5;
@@ -150,11 +150,7 @@ export function TripDetail({
 		<section className="vp-card vp-trips-detail">
 			<header className="vp-trips-detail-head">
 				<div>
-					<div className="vp-trips-chips">
-						{tripCountries(draft.stops).map((cc) => (
-							<TripChip key={cc} code={cc} />
-						))}
-					</div>
+					<TripChips codes={tripCountries(draft.stops)} max={12} />
 					<h2
 						className="vp-trips-detail-title"
 						aria-label={`Trip: ${trip.title}`}
