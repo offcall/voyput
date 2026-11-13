@@ -1,14 +1,14 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { LocationRow, Move, Movement } from "@voyput/core";
+import {
+	type LocationRow,
+	type Move,
+	type Movement,
+	moveRoutes,
+} from "@voyput/core";
 import { describe, expect, it } from "vitest";
 import { VoyputDb } from "../src/db/db";
-import {
-	layoutSankey,
-	moveYears,
-	OTHER,
-	routesOf,
-} from "../src/features/visualize/charts/moves";
+import { layoutSankey, OTHER } from "../src/features/visualize/charts/moves";
 import { renderApp } from "./renderApp";
 
 let n = 0;
@@ -42,29 +42,12 @@ const move = (from: string, to: string, day: string): Move => ({
 	to: stay(to, day),
 });
 
-describe("moves helpers", () => {
-	const moves = [
-		move("MD", "RO", "2023-12-31"),
-		move("RO", "MD", "2024-01-02"),
-		move("MD", "RO", "2024-01-03"),
-	];
-
-	it("counts routes per year, most first, latest move kept", () => {
-		expect(moveYears(moves)).toEqual(["2023", "2024"]);
-		expect(routesOf(moves, null)).toMatchObject([
-			{ from: "MD", to: "RO", count: 2, last: "2024-01-03" },
-			{ from: "RO", to: "MD", count: 1 },
-		]);
-		expect(routesOf(moves, "2023")).toMatchObject([
-			{ from: "MD", to: "RO", count: 1 },
-		]);
-	});
-
+describe("moves sankey layout", () => {
 	it("merges countries beyond the top into Other", () => {
 		const many = ["AA", "BB", "CC", "DD"].map((to, i) =>
 			move("MD", to, `2024-01-0${i + 1}`),
 		);
-		const layout = layoutSankey(routesOf(many, null), 600, 3);
+		const layout = layoutSankey(moveRoutes(many, null), 600, 3);
 		expect(layout.nodes.map((node) => `${node.side}:${node.code}`)).toEqual([
 			"from:MD",
 			"to:AA",
@@ -126,5 +109,53 @@ describe("moves tab", () => {
 			expect.stringMatching(/RO.*Romania.*BG.*Bulgaria.*1.*2024-01-04/),
 			expect.stringMatching(/RO.*Romania.*MD.*Moldova.*1.*2024-01-02/),
 		]);
+	});
+
+	it("highlights a country's or a route's moves on hover and focus", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("visualize-moves-highlight");
+		await db.locations.bulkPut([
+			photo("2024-01-01", "MD", "Moldova"),
+			photo("2024-01-02", "RO", "Romania"),
+			photo("2024-01-03", "MD", "Moldova"),
+			photo("2024-01-04", "RO", "Romania"),
+			photo("2024-01-05", "BG", "Bulgaria"),
+		]);
+		renderApp("/visualize/sankey", { db });
+		const flows = await screen.findByRole("group", {
+			name: "Moves between countries",
+		});
+		const band = (name: string) =>
+			within(flows).getByRole("img", { name: new RegExp(`^${name}:`) });
+		const lit = () =>
+			[...flows.querySelectorAll(".vp-moves-band[data-lit]")]
+				.map((el) => el.getAttribute("aria-label")?.split(":")[0])
+				.sort();
+		const bands = [
+			"Moldova → Romania",
+			"Romania → Bulgaria",
+			"Romania → Moldova",
+		];
+		await waitFor(() => expect(lit()).toEqual(bands));
+		expect(flows.hasAttribute("data-active")).toBe(false);
+
+		await user.hover(band("Romania → Bulgaria"));
+		expect(flows.hasAttribute("data-active")).toBe(true);
+		expect(lit()).toEqual(["Romania → Bulgaria"]);
+		await user.unhover(band("Romania → Bulgaria"));
+		expect(flows.hasAttribute("data-active")).toBe(false);
+
+		await user.hover(within(flows).getByRole("img", { name: /^To Moldova:/ }));
+		expect(lit()).toEqual(["Moldova → Romania", "Romania → Moldova"]);
+		expect(screen.getByText(/^Moldova: 2 out, 1 in\./)).toBeTruthy();
+		await user.unhover(
+			within(flows).getByRole("img", { name: /^To Moldova:/ }),
+		);
+
+		const bulgaria = within(flows).getByRole("img", { name: /^To Bulgaria:/ });
+		bulgaria.focus();
+		await waitFor(() => expect(lit()).toEqual(["Romania → Bulgaria"]));
+		bulgaria.blur();
+		await waitFor(() => expect(lit()).toEqual(bands));
 	});
 });
