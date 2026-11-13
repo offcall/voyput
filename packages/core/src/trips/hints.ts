@@ -146,7 +146,14 @@ export function stayHints(
 		);
 		if (covering.some((i) => stays[i]?.countryCode === stamp.countryCode))
 			continue;
-		for (const i of covering)
+		// No stay covers the day (a gap, or before or after the history): the
+		// stay after it carries the error, or the last one.
+		const after = stays.findIndex(
+			(s) => s.arrival.date !== null && s.arrival.date > stamp.date,
+		);
+		const targets =
+			covering.length > 0 ? covering : [after >= 0 ? after : stays.length - 1];
+		for (const i of targets)
 			hints[i]?.push({ kind: "stamp-mismatch", severity: "error", stamp });
 	}
 	return hints;

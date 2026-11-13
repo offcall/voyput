@@ -308,6 +308,24 @@ describe("stayHints", () => {
 		]);
 	});
 
+	it("flags a stamp in a gap no stay covers on the stay after it", () => {
+		const stamps = usableStamps([
+			stamp("g", "2020-01-15", "TR", "entry"),
+			stamp("z", "2020-03-01", "PL", "exit"),
+		]);
+		const stays = [
+			stay("a", "UA", null, "2020-01-10"),
+			stay("b", "PL", "2020-01-20", "2020-02-01"),
+		];
+		const hints = stayHints(stays, { stamps, passports: [], birth: null });
+		expect(hints[0]).toEqual([]);
+		expect(hints[1]?.map((h) => h.kind)).toEqual([
+			"gap",
+			"stamp-mismatch",
+			"stamp-mismatch",
+		]);
+	});
+
 	it("approves clear only exact, error-free stays", () => {
 		const stays = [
 			stay("a", "UA", null, "2020-01-01", {
