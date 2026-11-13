@@ -20,3 +20,17 @@ export function isCountryCode(value: unknown): value is string {
 		(value === "XK" || COUNTRY_CODES.includes(value))
 	);
 }
+
+/** Names some engines lack: XK is user-assigned, so `Intl` may not know it. */
+const FALLBACK_NAMES: Readonly<Record<string, string>> = { XK: "Kosovo" };
+
+/** English name of a country code; the code itself only when nothing knows it. */
+export function countryNameOf(code: string): string {
+	let name: string | undefined;
+	try {
+		name = new Intl.DisplayNames(["en"], { type: "region" }).of(code);
+	} catch {
+		name = undefined;
+	}
+	return name && name !== code ? name : (FALLBACK_NAMES[code] ?? code);
+}

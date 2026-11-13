@@ -1,4 +1,5 @@
 import type { LocationRow } from "../locations/types";
+import { countryNameOf } from "./countries";
 import { type DatedStamp, daysBetween, locationDay } from "./evidence";
 import type { Boundary, Trip, TripStop } from "./types";
 
@@ -128,7 +129,11 @@ export function stopsByDay(
 				id,
 				day,
 				countryCode,
-				country: country || countryCode,
+				// A missing name, or one that is just the code, becomes the English name.
+				country:
+					country && country !== countryCode
+						? country
+						: countryNameOf(countryCode),
 				cities: [],
 				kind: "stay",
 				fromPhotos: false,

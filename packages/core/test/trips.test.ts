@@ -50,6 +50,26 @@ const stamp = (
 });
 
 describe("suggestTrips", () => {
+	it("names a country whose photos and stamps carry only its code", () => {
+		const [trip] = suggestTrips({
+			stamps: usableStamps([
+				stamp("a", "2020-05-01", "XK", "entry"),
+				stamp("b", "2020-05-03", "XK", "exit"),
+			]),
+			locations: [
+				photo("2020-05-02", "XK", ""),
+				photo("2020-04-20", "UA", "Ukraine"),
+			],
+			home: "UA",
+		});
+		expect(trip?.title).toBe("Kosovo");
+		expect(trip?.stops.map((s) => s.country)).toEqual([
+			"Kosovo",
+			"Kosovo",
+			"Kosovo",
+		]);
+	});
+
 	it("keeps a stamps-only stay open across silent weeks until its exit", () => {
 		const stamps = usableStamps([
 			stamp("a", "2017-03-01", "MD", "exit"),
