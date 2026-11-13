@@ -6,7 +6,12 @@ import { markVisualized } from "../features/import/plan/usePlan";
 import { CountryColoursProvider } from "./countryColours";
 import { BrandMark, icons } from "./icons";
 import "./layout.css";
-import { locationCountLabel, type NavCounts, useNavCounts } from "./navCounts";
+import {
+	compactCount,
+	locationCountLabel,
+	type NavCounts,
+	useNavCounts,
+} from "./navCounts";
 import { type ThemeMode, useTheme } from "./theme";
 
 export const SECTIONS = [
@@ -70,13 +75,32 @@ export function Layout() {
 
 	const navLink = (section: Section) => {
 		const count = countFor(section.to, counts);
+		const locations =
+			section.to === "/import" && counts && counts.locations > 0
+				? counts.locations
+				: null;
 		return (
 			<Link
 				key={section.to}
 				to={section.to}
 				activeProps={{ "aria-current": "page" }}
 			>
-				<span className="vp-nav-icon">{ICONS[section.to]}</span>
+				<span className="vp-nav-icon">
+					{ICONS[section.to]}
+					{count !== null || locations !== null ? (
+						<span className="vp-nav-badges" aria-hidden="true">
+							{count !== null ? (
+								<span className="vp-nav-badge">{compactCount(count)}</span>
+							) : null}
+							{locations !== null ? (
+								<span className="vp-nav-badge" data-kind="locations">
+									{icons.pin}
+									{compactCount(locations)}
+								</span>
+							) : null}
+						</span>
+					) : null}
+				</span>
 				<span className="vp-nav-label">{section.label}</span>
 				{count !== null ? (
 					<span
@@ -87,13 +111,13 @@ export function Layout() {
 						{section.to === "/trips" ? `${count} saved` : count}
 					</span>
 				) : null}
-				{section.to === "/import" && counts && counts.locations > 0 ? (
+				{locations !== null ? (
 					<span
 						className="vp-nav-count"
 						aria-hidden="true"
-						title={`${counts.locations.toLocaleString("en")} locations`}
+						title={`${locations.toLocaleString("en")} locations`}
 					>
-						{locationCountLabel(counts.locations)}
+						{locationCountLabel(locations)}
 					</span>
 				) : null}
 			</Link>

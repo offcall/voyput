@@ -32,6 +32,13 @@ async function seedCounts(db: VoyputDb) {
 	});
 }
 
+const badgesOf = (label: string) =>
+	[
+		...screen
+			.getByRole("link", { name: new RegExp(`^${label}`) })
+			.querySelectorAll(".vp-nav-badge"),
+	].map((badge) => badge.textContent);
+
 describe("app shell", () => {
 	it("opens on Import and reaches every section from the nav", async () => {
 		const user = userEvent.setup();
@@ -46,6 +53,14 @@ describe("app shell", () => {
 				await screen.findByRole("heading", { level: 1, name: section.label }),
 			).toBeTruthy();
 		}
+	});
+
+	it("puts the nav counts as badges on the tab icons", async () => {
+		const { db } = renderApp("/settings");
+		await seedCounts(db);
+		await waitFor(() => expect(badgesOf("Import")).toEqual(["1", "2.5k"]));
+		expect(badgesOf("Extract")).toEqual(["1"]);
+		expect(badgesOf("Review")).toEqual([]);
 	});
 
 	it("gives countries distinct palette colours from the stored data", async () => {

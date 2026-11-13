@@ -46,7 +46,12 @@ const compact = new Intl.NumberFormat("en", {
 	maximumFractionDigits: 1,
 });
 
+/** "2.5k": a nav count, short enough for a tab badge. */
+export function compactCount(count: number): string {
+	return compact.format(count).toLowerCase();
+}
+
 /** "2.5k loc": the stored location count, short enough for the nav. */
 export function locationCountLabel(count: number): string {
-	return `${compact.format(count).toLowerCase()} loc`;
+	return `${compactCount(count)} loc`;
 }

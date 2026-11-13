@@ -18,6 +18,15 @@ function Icon({ children }: { children: ReactNode }) {
 }
 
 export const icons = {
+	/** Tiny map pin for the location badge on the phone tab bar. */
+	pin: (
+		<svg aria-hidden="true" viewBox="0 0 8 8" shapeRendering="crispEdges">
+			<path
+				fill="currentColor"
+				d="M2 0h4v1h1v3h-1v1h-1v2h-2v-2h-1v-1h-1v-3h1zM3 2v1h2v-1z"
+			/>
+		</svg>
+	),
 	import: (
 		<Icon>
 			<path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
