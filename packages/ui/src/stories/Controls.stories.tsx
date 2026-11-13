@@ -6,6 +6,7 @@ import { Card } from "../Card";
 import { Dialog } from "../Dialog";
 import { Dropzone } from "../Dropzone";
 import { Progress } from "../Progress";
+import { StepDots } from "../StepDots";
 import { Tabs } from "../Tabs";
 import { TextField } from "../TextField";
 
@@ -17,6 +18,10 @@ export const Buttons: StoryObj = {
 		<div style={{ display: "flex", gap: 8 }}>
 			<Button>Default</Button>
 			<Button variant="primary">Primary</Button>
+			<Button variant="secondary">Secondary</Button>
+			<Button variant="primary" size="sm">
+				Small primary
+			</Button>
 			<Button variant="danger">Delete</Button>
 			<Button variant="ghost">Ghost</Button>
 			<Button size="sm">Small</Button>
@@ -113,4 +118,14 @@ export const DialogExample: StoryObj = {
 			</>
 		);
 	},
+};
+
+export const StepDotsExample: StoryObj = {
+	render: () => (
+		<div style={{ display: "grid", gap: 12 }}>
+			<StepDots count={5} current={0} />
+			<StepDots count={5} current={2} />
+			<StepDots count={5} current={4} />
+		</div>
+	),
 };

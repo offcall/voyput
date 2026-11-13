@@ -6,6 +6,8 @@ export interface DropzoneProps {
 	multiple?: boolean;
 	label: string;
 	hint?: ReactNode;
+	/** Replaces the upload icon, e.g. with a `PixelArt`. */
+	art?: ReactNode;
 	onFiles: (files: File[]) => void;
 }
 
@@ -15,6 +17,7 @@ export function Dropzone({
 	multiple = false,
 	label,
 	hint,
+	art,
 	onFiles,
 }: DropzoneProps) {
 	const inputId = useId();
@@ -39,19 +42,25 @@ export function Dropzone({
 			onDragLeave={() => setDragging(false)}
 			onDrop={onDrop}
 		>
-			<span className="vp-dropzone-icon">
-				<svg
-					aria-hidden="true"
-					viewBox="0 0 24 24"
-					fill="none"
-					stroke="currentColor"
-					strokeWidth="2"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-				>
-					<path d="M12 16V4m0 0-5 5m5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-				</svg>
-			</span>
+			{art ? (
+				<span className="vp-dropzone-art" aria-hidden="true">
+					{art}
+				</span>
+			) : (
+				<span className="vp-dropzone-icon">
+					<svg
+						aria-hidden="true"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="2"
+						strokeLinecap="round"
+						strokeLinejoin="round"
+					>
+						<path d="M12 16V4m0 0-5 5m5-5 5 5M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+					</svg>
+				</span>
+			)}
 			<label htmlFor={inputId}>{label}</label>
 			{hint ? <div>{hint}</div> : null}
 			<input

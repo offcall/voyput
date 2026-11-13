@@ -11,6 +11,7 @@ export { Notice } from "./Notice";
 export { PageHeader } from "./PageHeader";
 export { Progress } from "./Progress";
 export { Stat, StatGroup } from "./Stat";
+export { StepDots } from "./StepDots";
 export { type TabItem, Tabs } from "./Tabs";
 export { TextField, type TextFieldProps } from "./TextField";
 export { Toolbar, ToolbarSpacer } from "./Toolbar";

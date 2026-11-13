@@ -37,6 +37,42 @@ export const PageHeaderExample: StoryObj = {
 	),
 };
 
+export const PageHeaderStep4: StoryObj = {
+	render: () => (
+		<PageHeader
+			eyebrow="Step 4 of 5"
+			title="Trips"
+			description="Trips built from your stamps and photos."
+		/>
+	),
+};
+
+export const CardVariants: StoryObj = {
+	render: () => (
+		<div
+			style={{
+				display: "grid",
+				gap: 16,
+				gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+			}}
+		>
+			<Card title="Default">
+				<p>Plain card.</p>
+			</Card>
+			<Card variant="selected" title="Selected" description="Green border">
+				<p>The chosen one in a list.</p>
+			</Card>
+			<Card
+				variant="highlight"
+				title="Highlight"
+				description="Border, glow and a tint"
+			>
+				<p>Draws the eye to the next step.</p>
+			</Card>
+		</div>
+	),
+};
+
 export const CardWithActions: StoryObj = {
 	render: () => (
 		<Card
@@ -75,6 +111,18 @@ export const EmptyStateExample: StoryObj = {
 			icon="✈"
 			title="No trips yet"
 			action={<Button variant="primary">Build trips</Button>}
+		>
+			Review your stamps first; trips are built from them and your photos.
+		</EmptyState>
+	),
+};
+
+export const EmptyStateSecondary: StoryObj = {
+	render: () => (
+		<EmptyState
+			icon="✈"
+			title="No trips yet"
+			action={<Button variant="secondary">Build trips</Button>}
 		>
 			Review your stamps first; trips are built from them and your photos.
 		</EmptyState>
