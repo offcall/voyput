@@ -89,6 +89,67 @@ describe("pairVisits and findConflicts", () => {
 });
 
 describe("parsePhotoResponse", () => {
+	it("uses a flagged stamp once its problem is hidden", () => {
+		const visits = pairVisits([
+			stamp({ id: "in", countryCode: "UA", date: "2019-06-01" }),
+			stamp({
+				id: "out",
+				countryCode: "UA",
+				direction: "exit",
+				date: "2019-06-09",
+				problem: "misread",
+				dismissed: { problem: true },
+			}),
+		]);
+		expect(visits.map((v) => [v.entryStampId, v.exitStampId])).toEqual([
+			["in", "out"],
+		]);
+	});
+
+	it("fails a non-empty stamps array without one stamp object, so a re-extract keeps old stamps", () => {
+		expect(() =>
+			parsePhotoResponse(JSON.stringify({ stamps: [null, "unreadable"] }), {
+				from: null,
+				to: null,
+			}),
+		).toThrow();
+	});
+
+	it("reads a missing date as unknown and keeps the other stamps", () => {
+		const { stamps } = parsePhotoResponse(
+			JSON.stringify({
+				stamps: [
+					{ direction: "entry", countryCode: "RO", dateText: "" },
+					{
+						direction: "exit",
+						countryCode: "RO",
+						date: "2021-10-25",
+						dateText: "25 10 21",
+					},
+				],
+			}),
+			{ from: null, to: null },
+		);
+		expect(stamps.map((s) => s.date)).toEqual([null, "2021-10-25"]);
+	});
+
+	it("keeps model text from splitting the joined warnings", () => {
+		const { stamps } = parsePhotoResponse(
+			JSON.stringify({
+				stamps: [
+					{
+						direction: "x;y",
+						countryCode: "R; O",
+						date: "2021-10-25",
+						dateText: "MAR; 01",
+					},
+				],
+			}),
+			{ from: null, to: null },
+		);
+		expect(stamps[0]?.problem?.split("; ")).toHaveLength(3);
+	});
+
 	it("flags a date that is outside the passport or does not match the printed text", () => {
 		const raw = `\`\`\`json
 ${JSON.stringify({

@@ -84,6 +84,6 @@ export const dateProblem = (
 	if (!isInRange(date, range))
 		return `date ${date} is outside passport validity`;
 	if (!dateMatchesText(date, dateText))
-		return `date ${date} does not match printed "${dateText}"`;
+		return `date ${date} does not match printed "${dateText.replaceAll(";", ",")}"`;
 	return null;
 };

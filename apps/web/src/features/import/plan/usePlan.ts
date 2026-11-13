@@ -31,7 +31,10 @@ export function usePlan(): Plan | undefined {
 				db.extractions.filter((e) => e.status === "failed").count(),
 				db.stamps.count(),
 				db.stamps.filter((stamp) => !stamp.reviewed).count(),
-				db.stamps.filter((stamp) => !stamp.reviewed && !!stamp.problem).count(),
+				// Same rule as trip evidence: a warning counts until it is fixed or hidden.
+				db.stamps
+					.filter((stamp) => !!stamp.problem && !stamp.dismissed?.problem)
+					.count(),
 				db.trips.toArray(),
 				db.kv.get(HOME_KEY),
 			]);

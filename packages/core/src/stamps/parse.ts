@@ -54,14 +54,16 @@ export const stampProblems = (raw: Record<string, unknown>): string[] =>
 	[
 		DIRECTIONS.includes(raw.direction as string)
 			? ""
-			: `unreadable direction ${JSON.stringify(raw.direction)}`,
-		isValidDate(raw.date ?? null)
-			? ""
-			: `unreadable date ${JSON.stringify(raw.date)}`,
+			: `unreadable direction ${quoted(raw.direction)}`,
+		isValidDate(raw.date ?? null) ? "" : `unreadable date ${quoted(raw.date)}`,
 		raw.countryCode == null || countryCodeOf(raw.countryCode)
 			? ""
-			: `unreadable country code ${JSON.stringify(raw.countryCode)}`,
+			: `unreadable country code ${quoted(raw.countryCode)}`,
 	].filter(Boolean);
+
+/** The model's value as JSON, with `;` swapped for `,` so it cannot split the joined warnings. */
+const quoted = (value: unknown): string =>
+	(JSON.stringify(value) ?? "undefined").replaceAll(";", ",");
 
 /** One raw stamp object, with bad fields read as unknown and named in `problem`. */
 const readStamp = (
@@ -69,7 +71,7 @@ const readStamp = (
 	range: DateRange,
 ): ReadStamp => {
 	const date = isValidDate(raw.date ?? null)
-		? (raw.date as string | null)
+		? ((raw.date ?? null) as string | null)
 		: null;
 	const dateText = typeof raw.dateText === "string" ? raw.dateText : "";
 	const problems = [
@@ -117,6 +119,9 @@ export const parsePhotoResponse = (
 
 		const objects = root.stamps.filter(isObject);
 		const skipped = root.stamps.length - objects.length;
+		// Entries but none readable: fail, so a re-extract keeps the stamps it has.
+		if (root.stamps.length > 0 && objects.length === 0)
+			throw new Error("no stamp in the stamps array is an object");
 		const notes = [
 			typeof root.notes === "string" ? root.notes : "",
 			skipped

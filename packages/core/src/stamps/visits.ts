@@ -68,10 +68,12 @@ export const pairCountry = (stamps: readonly Stamp[]): Visit[] => {
 	return visits;
 };
 
-/** Builds visits from all stamps. Unknown-direction and flagged stamps are not used. */
+/** Builds visits from all stamps. Unknown-direction stamps and stamps with an open (not hidden) problem are not used. */
 export const pairVisits = (stamps: readonly Stamp[]): Visit[] => {
 	const directed = stamps.filter(
-		(stamp) => stamp.direction !== "unknown" && !stamp.problem,
+		(stamp) =>
+			stamp.direction !== "unknown" &&
+			(!stamp.problem || stamp.dismissed?.problem === true),
 	);
 	const pairable = directed.filter((stamp) => stamp.date && stamp.countryCode);
 	const unpairable = directed.filter(
