@@ -60,7 +60,9 @@ describe("review", () => {
 		await waitFor(async () =>
 			expect((await db.stamps.get("demo-stamp-02"))?.country).toBe("Spain"),
 		);
-		expect(await db.stamps.count()).toBe(16);
+		expect(
+			await db.stamps.where("passportId").equals("demo-passport").count(),
+		).toBe(16);
 	});
 
 	it("uses the photo location window from Settings", async () => {

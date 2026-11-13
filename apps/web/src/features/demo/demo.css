@@ -68,3 +68,11 @@
 		translate: 8px -4px;
 	}
 }
+.demo-credits {
+	margin: 0;
+	padding-left: var(--vp-space-4);
+	display: grid;
+	gap: var(--vp-space-1);
+	font-size: var(--vp-text-xs);
+	overflow-wrap: anywhere;
+}

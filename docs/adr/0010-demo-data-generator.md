@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. ADR 0018 adds real Commons stamp pages to the demo.
 
 ## Context
 

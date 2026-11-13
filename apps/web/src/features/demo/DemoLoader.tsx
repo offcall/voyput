@@ -1,4 +1,12 @@
-import { Button, Card, Dialog, Notice, PixelArt, PixelSky } from "@voyput/ui";
+import {
+	Button,
+	Card,
+	Dialog,
+	Disclosure,
+	Notice,
+	PixelArt,
+	PixelSky,
+} from "@voyput/ui";
 import { useState } from "react";
 import { useDb } from "../../db/DbContext";
 import { focusStoredLocations, locationLine } from "../import/csv/locationLine";
@@ -9,6 +17,7 @@ import {
 	loadDemo,
 	removeDemo,
 } from "./loadDemo";
+import { SAMPLE_CREDITS } from "./sampleCredits";
 import "./demo.css";
 
 const fetchDemoFile: FetchFile = async (name) => {
@@ -28,7 +37,10 @@ type LoadState =
 
 type Confirming = "replace" | "remove" | null;
 
-/** One-click demo data: a fictional passport, its stamps and matching locations. */
+/**
+ * One-click demo data: a fictional passport with reviewed stamps and matching
+ * photo locations, plus real Commons stamp pages with unreviewed model output.
+ */
 export function DemoLoader({
 	onLoaded,
 	onRemoved,
@@ -80,11 +92,13 @@ export function DemoLoader({
 			</div>
 			<p className="demo-text">
 				A fictional passport with stamps already read and reviewed, plus
-				matching location history. No API key needed.
+				matching photo locations. Also 10 real stamp pages from Wikimedia
+				Commons, read by Gemini but not reviewed, to try Review on. No API key
+				needed.
 			</p>
 			<p className="demo-note">
-				Demo stamps and locations mix with your own data in Review, Trips and
-				Visualize until you remove them.
+				Demo passports and demo photo locations mix with your own data in
+				Review, Trips and Visualize until you remove them.
 			</p>
 			<div className="demo-actions">
 				<Button
@@ -102,7 +116,22 @@ export function DemoLoader({
 					Remove demo data
 				</Button>
 			</div>
+			<p className="demo-note">
+				Remove demo data deletes the demo passports, their stamps and the demo
+				photo locations; your own data stays.
+			</p>
 			<LoadStatus state={state} />
+			<Disclosure summary="Sample page credits (Wikimedia Commons)">
+				<ul className="demo-credits">
+					{SAMPLE_CREDITS.map((credit) => (
+						<li key={credit.files}>
+							{credit.files}: <a href={credit.url}>{credit.title}</a> by{" "}
+							{credit.author}, <a href={credit.licenseUrl}>{credit.license}</a>;{" "}
+							{credit.changes}.
+						</li>
+					))}
+				</ul>
+			</Disclosure>
 			<Dialog
 				open={confirming !== null}
 				onOpenChange={(open) => {
@@ -125,10 +154,10 @@ export function DemoLoader({
 			>
 				<p>
 					{confirming === "replace"
-						? "Demo pages, stamps and locations are loaded again; review edits on demo stamps are lost. "
-						: "Demo pages, stamps and locations are deleted. "}
+						? "The demo passports, their pages and stamps and the demo photo locations are loaded again; review edits on demo stamps are lost. "
+						: "The demo passports, their pages and stamps and the demo photo locations are deleted. "}
 					Trips built on demo stamps are deleted too. Your own passports, photos
-					and locations stay.
+					and photo locations stay.
 				</p>
 			</Dialog>
 		</Card>
@@ -154,11 +183,12 @@ function LoadStatus({ state }: { state: LoadState }) {
 		case "removed":
 			return <Notice role="status">Demo data removed.</Notice>;
 		case "loaded": {
-			const { photos, stamps, locationSummary } = state.summary;
+			const { photos, stamps, samples, locationSummary } = state.summary;
 			return (
 				<Notice tone="good" role="status">
 					Loaded {photos} demo pages, {stamps} stamps and{" "}
-					{locationLine(locationSummary)}.
+					{locationLine(locationSummary)}. Plus {samples.pages} sample pages
+					with {samples.stamps} stamps to review.
 				</Notice>
 			);
 		}

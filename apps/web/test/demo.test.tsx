@@ -79,7 +79,7 @@ describe("demo data", () => {
 			await screen.findByRole("button", { name: "Load demo data" }),
 		);
 		await screen.findByText(
-			"Loaded 5 demo pages, 16 stamps and 2,467 locations · 6 countries · 2016–2019.",
+			"Loaded 5 demo pages, 16 stamps and 2,467 locations · 6 countries · 2016–2019. Plus 10 sample pages with 38 stamps to review.",
 		);
 		await user.click(
 			screen.getByRole("link", { name: /^Step 2: Photo locations/ }),
@@ -109,11 +109,12 @@ describe("demo data", () => {
 			locations: await db.locations.count(),
 		});
 		const loaded = await counts();
+		// Own data plus the demo passport (5 pages, 16 stamps) and the Commons samples (10 pages, 38 stamps).
 		expect(loaded).toMatchObject({
-			passports: 2,
-			photos: 6,
-			extractions: 5,
-			stamps: 17,
+			passports: 3,
+			photos: 16,
+			extractions: 15,
+			stamps: 55,
 		});
 		expect(loaded.locations).toBeGreaterThan(2000);
 
