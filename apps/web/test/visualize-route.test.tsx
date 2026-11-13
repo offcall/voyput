@@ -112,7 +112,8 @@ const slider = () =>
 		name: "Position on the route",
 	});
 const position = () => Number(slider().value);
-const dotX = () => Number(screen.getByTestId("route-dot").getAttribute("x"));
+const dotX = () =>
+	Number(screen.getByTestId("route-dot").getAttribute("data-x"));
 const stat = (label: string) =>
 	screen.queryByText(label, { selector: ".vp-stat-label" })?.nextElementSibling
 		?.textContent;
@@ -147,7 +148,8 @@ describe("route player", () => {
 		}
 		expect(seen).toEqual(["RO", "MD", "JP", "KR"]);
 		expect(bubbles()).toEqual(["RO", "MD", "JP", "KR"]);
-		expect(stat("Legs")).toBe("3 / 3");
+		// Trips & photos: RO ×2 photo stops, home, JP ×2, KR.
+		expect(stat("Legs")).toBe("5 / 5");
 		expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
 	});
 
@@ -166,7 +168,7 @@ describe("route player", () => {
 
 	it("shows every bubble after scrubbing to the end", async () => {
 		await openRoute("route-scrub");
-		fireEvent.change(slider(), { target: { value: "3" } });
+		fireEvent.change(slider(), { target: { value: slider().max } });
 		expect(bubbles()).toEqual(["RO", "MD", "JP", "KR"]);
 		expect(stat("Countries")).toBe("4 / 4");
 		expect(screen.getByText("South Korea")).toBeTruthy();
@@ -191,6 +193,7 @@ describe("route player", () => {
 
 	it("routes through photo clusters in the exact mode", async () => {
 		await openRoute("route-photos");
+		fireEvent.click(screen.getByRole("button", { name: "By countries" }));
 		expect(stat("Legs")).toBe("0 / 3");
 		fireEvent.click(screen.getByRole("button", { name: "Exact by photos" }));
 		expect(await screen.findByText(/6 stops from 6 photos/)).toBeTruthy();
@@ -208,6 +211,48 @@ describe("route player", () => {
 		await openRoute("route-reduced");
 		expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
 		expect(queue).toHaveLength(0);
+	});
+
+	it("jumps between trips and captions trip, country and date", async () => {
+		await openRoute("route-trips");
+		const caption = () =>
+			document.querySelector(".vp-route-stop")?.textContent ?? "";
+		const date = () => document.querySelector(".vp-route-date")?.textContent;
+		fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+		expect(caption()).toContain("Trip 1/2 · romania");
+		expect(caption()).toContain("Romania");
+		expect(date()).toBe("2 Mar 2024");
+		expect(
+			screen.getByRole<HTMLButtonElement>("button", { name: "Previous trip" })
+				.disabled,
+		).toBe(true);
+
+		fireEvent.click(screen.getByRole("button", { name: "Next trip" }));
+		expect(position()).toBe(3);
+		expect(caption()).toContain("Trip 2/2 · east-asia");
+		expect(caption()).toContain("Japan");
+		expect(date()).toBe("10 Jun 2024");
+		// Jumping keeps the player paused.
+		expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
+
+		fireEvent.change(slider(), { target: { value: "2" } });
+		expect(caption()).toContain("At home");
+		fireEvent.click(screen.getByRole("button", { name: "Previous trip" }));
+		expect(position()).toBe(0);
+	});
+
+	it("keeps playing after a trip jump and pauses when the page is hidden", async () => {
+		await openRoute("route-hidden");
+		fireEvent.click(screen.getByRole("button", { name: "Next trip" }));
+		expect(position()).toBe(3);
+		expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+
+		const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+		act(() => {
+			document.dispatchEvent(new Event("visibilitychange"));
+		});
+		hidden.mockRestore();
+		expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
 	});
 
 	it("points to Trips when there are locations but no stays", async () => {

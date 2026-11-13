@@ -4,14 +4,24 @@ import {
 	defaultExploreFilters,
 	filterRouteRows,
 	filterStays,
+	journeyWaypoints,
 	type LocationRow,
 	type RouteMode,
 	type Stay,
-	stayWaypoints,
 	type Waypoint,
 	yearRange,
 } from "@voyput/core";
 import { useMemo, useRef } from "react";
+
+/**
+ * The player's modes: core's two plus "journey", which flies between trips
+ * and walks through each trip's photo clusters (`journeyWaypoints`).
+ */
+export type PlayerMode = RouteMode | "journey";
+
+/** Core leg timing for a player mode: the journey is timed like the photo route. */
+export const timingMode = (mode: PlayerMode): RouteMode =>
+	mode === "countries" ? "countries" : "photos";
 
 /** The range control: the whole history or one calendar year. */
 export type RouteYear = number | "all";
@@ -20,11 +30,18 @@ export interface RouteWaypoints {
 	waypoints: Waypoint[];
 	/** Stays left out because their country has no anchor on the map. */
 	skipped: number;
-	/** Photos behind the "exact by photos" route; 0 in the other mode. */
+	/** Photos behind the photo or journey route; 0 by countries. */
 	photos: number;
+	/** Trip of each waypoint, null at home; all null in "exact by photos". */
+	tripIds: (string | null)[];
 }
 
-const EMPTY: Waypoint[] = [];
+const EMPTY: RouteWaypoints = {
+	waypoints: [],
+	skipped: 0,
+	photos: 0,
+	tripIds: [],
+};
 
 /** Stays touching the year, cut to it, as the "by countries" route reads them. */
 function staysIn(stays: readonly Stay[], year: RouteYear) {
@@ -41,48 +58,53 @@ function rowsIn(rows: readonly LocationRow[], year: RouteYear) {
 }
 
 /**
- * Waypoints of the chosen mode and year. Photo clusters are computed only when
- * "exact by photos" is chosen, once per year, and kept while the locations stay
- * the same, so switching modes back and forth does not cluster again.
+ * Waypoints of the chosen mode and year. Photo clusters (exact and journey)
+ * are computed only when such a mode is chosen, once per mode and year, and
+ * kept while the stays and locations stay the same, so switching modes back
+ * and forth does not cluster again.
  */
 export function useRouteWaypoints(
 	stays: readonly Stay[],
 	locations: readonly LocationRow[],
-	mode: RouteMode,
+	mode: PlayerMode,
 	year: RouteYear,
 ): RouteWaypoints {
 	const byCountries = useMemo(
-		() => stayWaypoints(staysIn(stays, year), locations),
+		() => journeyWaypoints(staysIn(stays, year), locations, { photos: false }),
 		[stays, locations, year],
 	);
 
 	const cache = useRef<{
+		stays: readonly Stay[];
 		locations: readonly LocationRow[];
-		byYear: Map<RouteYear, { waypoints: Waypoint[]; photos: number }>;
+		byKey: Map<string, RouteWaypoints>;
 	} | null>(null);
-	const byPhotos = useMemo(() => {
-		if (mode !== "photos") return null;
-		if (cache.current?.locations !== locations)
-			cache.current = { locations, byYear: new Map() };
-		let entry = cache.current.byYear.get(year);
+	const clustered = useMemo(() => {
+		if (mode === "countries") return null;
+		if (cache.current?.locations !== locations || cache.current.stays !== stays)
+			cache.current = { stays, locations, byKey: new Map() };
+		const key = `${mode}:${year}`;
+		let entry = cache.current.byKey.get(key);
 		if (!entry) {
-			const rows = rowsIn(locations, year);
-			entry = {
-				waypoints: clusterWaypoints(clusterByProximity(rows)),
-				photos: rows.length,
-			};
-			cache.current.byYear.set(year, entry);
+			if (mode === "journey") {
+				entry = journeyWaypoints(staysIn(stays, year), locations);
+			} else {
+				const rows = rowsIn(locations, year);
+				const waypoints = clusterWaypoints(clusterByProximity(rows));
+				entry = {
+					waypoints,
+					skipped: 0,
+					photos: rows.length,
+					tripIds: waypoints.map(() => null),
+				};
+			}
+			cache.current.byKey.set(key, entry);
 		}
 		return entry;
-	}, [mode, locations, year]);
+	}, [mode, stays, locations, year]);
 
-	if (mode === "photos")
-		return {
-			waypoints: byPhotos?.waypoints ?? EMPTY,
-			skipped: 0,
-			photos: byPhotos?.photos ?? 0,
-		};
-	return { ...byCountries, photos: 0 };
+	if (mode === "countries") return { ...byCountries, photos: 0 };
+	return clustered ?? EMPTY;
 }
 
 /** English country names from the stays, then the photo rows; the code as a last resort. */

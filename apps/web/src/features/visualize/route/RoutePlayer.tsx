@@ -1,21 +1,25 @@
 import {
+	adjacentTripStart,
 	buildTimeline,
 	COUNTRY_CENTROIDS,
 	createFlownPath,
 	currentWaypoint,
+	currentWaypointIndex,
 	DEFAULT_CLUSTER_RADIUS_KM,
 	dayNumber,
+	headingAt,
+	journeyDayAt,
 	type LocationRow,
 	legsDone,
 	legsPathD,
 	legValue,
 	type MapView,
 	projectEquirect,
-	type RouteMode,
 	revealedGroups,
 	routeLegDurations,
 	type Stay,
 	stayYears,
+	tripStarts,
 	type Waypoint,
 	type WorldShapes,
 	ZOOM_PRESETS,
@@ -28,16 +32,19 @@ import { useCountryColour } from "../../../app/countryColours";
 import { fitView } from "../charts/view";
 import { type Bubble, RouteMap } from "./RouteMap";
 import {
+	type PlayerMode,
 	type RouteYear,
+	timingMode,
 	useCountryNames,
 	useRouteWaypoints,
 } from "./routeData";
 import { usePlayback } from "./usePlayback";
 import { useReducedMotion } from "./useReducedMotion";
 
-export const SPEEDS = [1, 2, 4, 8] as const;
+export const SPEEDS = [1, 4, 8, 16] as const;
 
-const MODES: { value: RouteMode; label: string }[] = [
+const MODES: { value: PlayerMode; label: string }[] = [
+	{ value: "journey", label: "Trips & photos" },
 	{ value: "countries", label: "By countries" },
 	{ value: "photos", label: "Exact by photos" },
 ];
@@ -130,14 +137,14 @@ export function RoutePlayer({
 	const reduced = useReducedMotion();
 	const colour = useCountryColour();
 	const nameOf = useCountryNames(stays, locations);
-	const [mode, setMode] = useState<RouteMode>("countries");
+	const [mode, setMode] = useState<PlayerMode>("journey");
 	const [year, setYear] = useState<RouteYear>("all");
 	const years = useMemo(() => stayYears([...stays]), [stays]);
 
 	const route = useRouteWaypoints(stays, locations, mode, year);
-	const { waypoints } = route;
+	const { waypoints, tripIds } = route;
 	const timeline = useMemo(
-		() => buildTimeline(routeLegDurations(waypoints, mode)),
+		() => buildTimeline(routeLegDurations(waypoints, timingMode(mode))),
 		[waypoints, mode],
 	);
 	const playback = usePlayback(timeline, { reduced, autoplay: true });
@@ -181,6 +188,27 @@ export function RoutePlayer({
 			: "";
 
 	const stop = currentWaypoint(waypoints, position);
+	const starts = useMemo(() => tripStarts(tripIds), [tripIds]);
+	const tripTitles = useMemo(() => {
+		const titles = new Map<string, string>();
+		for (const s of stays) if (s.tripId) titles.set(s.tripId, s.tripTitle);
+		return titles;
+	}, [stays]);
+	const tripId = tripIds[currentWaypointIndex(waypoints.length, position)];
+	const tripNumber =
+		tripId == null
+			? 0
+			: starts.filter(
+					(i) => i <= currentWaypointIndex(waypoints.length, position),
+				).length;
+	const at = legValue(position);
+	const previousTrip = adjacentTripStart(starts, at, -1);
+	const nextTrip = adjacentTripStart(starts, at, 1);
+	const today = journeyDayAt(waypoints, position);
+
+	// The traveller keeps its last heading while parked on a stop.
+	const heading = useRef(0);
+	heading.current = headingAt(waypoints, position) ?? heading.current;
 	const first = waypoints[0];
 	const dayOf = (w: Waypoint | undefined) => {
 		const a = first ? dayNumber(first.start) : null;
@@ -193,6 +221,16 @@ export function RoutePlayer({
 		...years.map((y) => ({ value: String(y), label: String(y) })),
 	];
 
+	const tripCaption =
+		mode === "photos" ? null : tripId == null ? (
+			<span className="vp-route-stop-trip">At home</span>
+		) : (
+			<span className="vp-route-stop-trip">
+				Trip {tripNumber}/{starts.length}
+				{tripTitles.get(tripId) ? ` · ${tripTitles.get(tripId)}` : ""}
+			</span>
+		);
+
 	const stopLabel = stop ? (
 		<div className="vp-route-stop" aria-live="polite">
 			<span
@@ -203,6 +241,7 @@ export function RoutePlayer({
 				{stop.countryCode}
 			</span>
 			<span>
+				{tripCaption}
 				<strong className="vp-route-stop-name">
 					{nameOf(stop.countryCode)}
 				</strong>
@@ -295,6 +334,7 @@ export function RoutePlayer({
 						world={world}
 						waypoints={waypoints}
 						position={position}
+						heading={heading.current}
 						flownD={flownD}
 						currentD={currentD}
 						bubbles={bubbles}
@@ -322,6 +362,31 @@ export function RoutePlayer({
 						>
 							Restart
 						</Button>
+						{mode === "photos" ? null : (
+							// biome-ignore lint/a11y/useSemanticElements: a group of buttons, not a form fieldset.
+							<div className="vp-route-pills" role="group" aria-label="Trips">
+								<button
+									type="button"
+									className="vp-route-pill"
+									aria-label="Previous trip"
+									disabled={previousTrip === null}
+									onClick={() =>
+										previousTrip !== null && playback.jump(previousTrip)
+									}
+								>
+									&lt; Trip
+								</button>
+								<button
+									type="button"
+									className="vp-route-pill"
+									aria-label="Next trip"
+									disabled={nextTrip === null}
+									onClick={() => nextTrip !== null && playback.jump(nextTrip)}
+								>
+									Trip &gt;
+								</button>
+							</div>
+						)}
 						<input
 							type="range"
 							className="vp-route-scrub"
@@ -329,10 +394,16 @@ export function RoutePlayer({
 							min={0}
 							max={legCount}
 							step="any"
-							value={legValue(position)}
+							value={at}
+							aria-valuetext={today ? formatDay(today) : undefined}
 							disabled={legCount === 0}
 							onChange={(event) => playback.seek(Number(event.target.value))}
 						/>
+						{today ? (
+							<time className="vp-route-date" dateTime={today}>
+								{formatDay(today)}
+							</time>
+						) : null}
 						<Pills<number>
 							label="Speed"
 							options={SPEEDS.map((s) => ({ value: s, label: `${s}×` }))}
@@ -354,9 +425,11 @@ export function RoutePlayer({
 					</StatGroup>
 
 					<p className="vp-viz-muted">
-						{mode === "photos"
-							? `${waypoints.length.toLocaleString("en-US")} stops from ${route.photos.toLocaleString("en-US")} photos, grouped within ${DEFAULT_CLUSTER_RADIUS_KM * 1000} m.`
-							: "One stop per stay, at the country's centre; lines are the order of stays, not real paths."}{" "}
+						{mode === "journey"
+							? `${waypoints.length.toLocaleString("en-US")} stops: home at the country's centre between trips, and inside trips ${route.photos.toLocaleString("en-US")} photos grouped within ${DEFAULT_CLUSTER_RADIUS_KM * 1000} m.`
+							: mode === "photos"
+								? `${waypoints.length.toLocaleString("en-US")} stops from ${route.photos.toLocaleString("en-US")} photos, grouped within ${DEFAULT_CLUSTER_RADIUS_KM * 1000} m.`
+								: "One stop per stay, at the country's centre; lines are the order of stays, not real paths."}{" "}
 						Long flights take longer than short hops. Drag to pan, scroll to
 						zoom.
 						{route.skipped > 0

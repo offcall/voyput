@@ -26,13 +26,15 @@ export interface Playback {
 	restart(): void;
 	/** Jump to a slider value in leg units and pause. */
 	seek(legValue: number): void;
+	/** Jump to a slider value in leg units and keep playing or paused. */
+	jump(legValue: number): void;
 	setSpeed(speed: number): void;
 }
 
 /**
  * Plays a timeline: elapsed 1× time advances with `requestAnimationFrame`
  * scaled by the speed, and stops at the end. A new timeline (other mode or
- * year) goes back to the start, paused.
+ * year) goes back to the start, paused. Hiding the page pauses it.
  */
 export function usePlayback(
 	timeline: RouteTimeline,
@@ -50,6 +52,15 @@ export function usePlayback(
 
 	const elapsedRef = useRef(elapsed);
 	elapsedRef.current = elapsed;
+
+	useEffect(() => {
+		if (!playing) return;
+		const hide = () => {
+			if (document.hidden) setPlaying(false);
+		};
+		document.addEventListener("visibilitychange", hide);
+		return () => document.removeEventListener("visibilitychange", hide);
+	}, [playing]);
 
 	useEffect(() => {
 		if (!playing) return;
@@ -80,6 +91,8 @@ export function usePlayback(
 		return () => cancelAnimationFrame(raf);
 	}, [playing, reduced, speed, timeline]);
 
+	const elapsedOf = (value: number) =>
+		elapsedAt(timeline, positionFromLegValue(value, timeline.durations.length));
 	const exact = positionAt(timeline, elapsed);
 	return {
 		position: reduced ? stopPosition(exact) : exact,
@@ -98,12 +111,12 @@ export function usePlayback(
 		},
 		seek(value) {
 			setPlaying(false);
-			setElapsed(
-				elapsedAt(
-					timeline,
-					positionFromLegValue(value, timeline.durations.length),
-				),
-			);
+			setElapsed(elapsedOf(value));
+		},
+		jump(value) {
+			const next = elapsedOf(value);
+			elapsedRef.current = next;
+			setElapsed(next);
 		},
 		setSpeed,
 	};

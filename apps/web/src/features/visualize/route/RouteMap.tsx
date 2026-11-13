@@ -13,13 +13,18 @@ import {
 	type WorldShapes,
 	zoomView,
 } from "@voyput/core";
-import { TwinkleStars } from "@voyput/ui";
+import { PixelArt, TwinkleStars } from "@voyput/ui";
 import { memo, type ReactNode, useEffect, useRef } from "react";
 
 /** Narrowest and widest view the wheel zooms to, in map units. */
 const MIN_VIEW_WIDTH = 40;
 const MAX_VIEW_WIDTH = WORLD_WIDTH;
 const WHEEL_STEP = 1.2;
+/** The plane sprite is 18 × 9 art pixels; drawn this many full-map units per art pixel. */
+const PLANE_SCALE = 1.5;
+const PLANE_W = 18;
+const PLANE_H = 9;
+
 /** Bubbles drawn larger than the core's full-map size, so they read on a fitted view. */
 const BUBBLE_SCALE = 1.5;
 
@@ -66,13 +71,14 @@ export interface Bubble extends RevealedGroup {
 
 /**
  * The route on a night-sky world map: everything flown as one path, the
- * current leg, a bubble per country reached and the flying dot with its tail.
+ * current leg, a bubble per country reached and the pixel plane with its tail.
  * Drag pans, the wheel zooms.
  */
 export function RouteMap({
 	world,
 	waypoints,
 	position,
+	heading,
 	flownD,
 	currentD,
 	bubbles,
@@ -86,6 +92,8 @@ export function RouteMap({
 	world: WorldShapes | null;
 	waypoints: readonly Waypoint[];
 	position: RoutePosition;
+	/** Traveller heading in degrees, 0 = east; the sprite flips instead of flying upside down. */
+	heading: number;
 	flownD: string;
 	currentD: string;
 	bubbles: readonly Bubble[];
@@ -233,15 +241,15 @@ export function RouteMap({
 							className="vp-route-pulse"
 							strokeWidth={unit}
 						/>
-						<rect
-							x={dot[0] - 4 * unit}
-							y={dot[1] - 4 * unit}
-							width={8 * unit}
-							height={8 * unit}
-							className="vp-route-head"
-							strokeWidth={1.2 * unit}
+						<g
+							className="vp-route-traveller"
 							data-testid="route-dot"
-						/>
+							data-x={dot[0]}
+							data-y={dot[1]}
+							transform={`translate(${dot[0]} ${dot[1]}) rotate(${heading}) scale(${PLANE_SCALE * unit}${Math.abs(heading) > 90 ? ` ${-PLANE_SCALE * unit}` : ""}) translate(${-PLANE_W / 2} ${-PLANE_H / 2})`}
+						>
+							<PixelArt name="plane" scale={1} />
+						</g>
 					</g>
 				) : null}
 			</svg>
