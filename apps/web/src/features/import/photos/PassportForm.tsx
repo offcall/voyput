@@ -3,7 +3,7 @@ import { Button, Notice, TextField } from "@voyput/ui";
 import { type FormEvent, useState } from "react";
 import { type PassportInput, storageErrorMessage } from "./passportStore";
 
-/** Name and validity dates of a passport; used to create and to edit one. */
+/** Name and, behind a disclosure, validity dates of a passport; used to create and to edit one. */
 export function PassportForm({
 	initial,
 	submitLabel,
@@ -11,7 +11,7 @@ export function PassportForm({
 	onSubmit,
 }: {
 	initial?: PassportInput;
-	/** "row" puts the fields side by side on wide screens; "stacked" for dialogs. */
+	/** "row" puts the name and the button side by side on wide screens; "stacked" for dialogs. */
 	layout?: "row" | "stacked";
 	submitLabel: string;
 	onSubmit: (input: PassportInput) => Promise<void>;
@@ -59,24 +59,34 @@ export function PassportForm({
 			data-layout={layout}
 		>
 			<TextField label="Passport name" value={name} onChange={setName} />
-			<TextField
-				label="Valid from"
-				value={validFrom}
-				onChange={setValidFrom}
-				placeholder="YYYY-MM-DD"
-				description="Optional. Helps flag misread stamp years."
-			/>
-			<TextField
-				label="Valid to"
-				value={validTo}
-				onChange={setValidTo}
-				placeholder="YYYY-MM-DD"
-			/>
 			<div className="import-form-submit">
 				<Button type="submit" variant="primary" disabled={saving}>
 					{submitLabel}
 				</Button>
 			</div>
+			<details
+				className="import-validity"
+				open={Boolean(initial?.validFrom || initial?.validTo) || undefined}
+			>
+				<summary>Validity dates (optional)</summary>
+				<div className="import-validity-body">
+					<TextField
+						label="Valid from"
+						value={validFrom}
+						onChange={setValidFrom}
+						placeholder="YYYY-MM-DD"
+					/>
+					<TextField
+						label="Valid to"
+						value={validTo}
+						onChange={setValidTo}
+						placeholder="YYYY-MM-DD"
+					/>
+					<p className="import-validity-hint">
+						Helps flag misread stamp years.
+					</p>
+				</div>
+			</details>
 			{error ? (
 				<Notice tone="bad" role="alert">
 					{error}

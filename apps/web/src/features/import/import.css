@@ -53,45 +53,84 @@
 	color: var(--vp-muted);
 }
 
-/* New passport form: one row on wide screens. */
+/* Passport form: name and button in one row, validity dates behind a small
+   disclosure below them. */
 .import-passport-form {
 	display: grid;
-	grid-template-columns: minmax(180px, 2fr) minmax(130px, 1fr) minmax(
-			130px,
-			1fr
-		) auto;
-	gap: var(--vp-space-3);
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: var(--vp-space-2) var(--vp-space-3);
 	align-items: start;
 }
 .import-passport-form > .import-form-submit {
 	padding-top: 26px;
 }
+.import-passport-form > .import-validity,
 .import-passport-form > [role="alert"] {
 	grid-column: 1 / -1;
 }
+.import-validity > summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 0;
+	font-size: var(--vp-text-sm);
+	color: var(--vp-muted);
+	cursor: pointer;
+	list-style: none;
+	border-radius: var(--vp-radius-sm);
+}
+.import-validity > summary::-webkit-details-marker {
+	display: none;
+}
+.import-validity > summary::before {
+	content: "+";
+	width: 1ch;
+	font-family: var(--vp-font-pixel);
+	color: var(--vp-accent);
+}
+.import-validity[open] > summary::before {
+	content: "−";
+}
+.import-validity > summary:hover {
+	color: var(--vp-text);
+}
+.import-validity > summary:focus-visible {
+	outline: 2px solid var(--vp-accent);
+	outline-offset: 2px;
+}
+.import-validity-body {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 12rem));
+	gap: var(--vp-space-2) var(--vp-space-3);
+	margin-top: var(--vp-space-2);
+}
+.import-validity-hint {
+	grid-column: 1 / -1;
+	margin: 0;
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted);
+}
+/* Dialogs: everything in one column, the button last. */
 .import-passport-form[data-layout="stacked"] {
 	grid-template-columns: minmax(0, 1fr);
 }
 .import-passport-form[data-layout="stacked"] > .import-form-submit {
+	order: 1;
 	padding-top: 0;
 }
-/* The photos column is narrower than the window: below the room for one row
-   the name takes its own line, the dates share one, the button goes last. */
-@container (max-width: 700px) {
-	.import-passport-form:not([data-layout="stacked"]) {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-	.import-passport-form:not([data-layout="stacked"]) > :first-child {
-		grid-column: 1 / -1;
-	}
-	.import-passport-form > .import-form-submit {
-		grid-column: 1 / -1;
-		padding-top: 0;
-	}
+.import-passport-form[data-layout="stacked"] > [role="alert"] {
+	order: 2;
 }
-@container (max-width: 420px) {
+/* Narrow photos column: the button goes below the name. */
+@container (max-width: 460px) {
 	.import-passport-form:not([data-layout="stacked"]) {
 		grid-template-columns: minmax(0, 1fr);
+	}
+	.import-passport-form > .import-form-submit {
+		padding-top: 0;
+	}
+	.import-validity-body {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 

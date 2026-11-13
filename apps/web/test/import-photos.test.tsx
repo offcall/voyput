@@ -19,6 +19,7 @@ describe("import passport photos", () => {
 		const first = renderApp("/collect/passports");
 
 		await user.type(await screen.findByLabelText("Passport name"), "Moldova 1");
+		await user.click(screen.getByText("Validity dates (optional)"));
 		await user.type(screen.getByLabelText("Valid from"), "2014-03-01");
 		await user.click(screen.getByRole("button", { name: "Add passport" }));
 		const picker = await screen.findByLabelText("Add page photos to Moldova 1");
@@ -88,6 +89,33 @@ describe("import passport photos", () => {
 			expect(router.state.location.pathname).toBe("/collect/review"),
 		);
 		expect(router.state.location.search).toEqual({ photo: photo?.id });
+	});
+
+	it("keeps validity dates behind a disclosure that Edit opens when set", async () => {
+		const user = userEvent.setup();
+		const { db } = renderApp("/collect/passports");
+
+		const name = await screen.findByLabelText("Passport name");
+		expect(
+			screen.getByText("Helps flag misread stamp years.").closest("details")
+				?.open,
+		).toBe(false);
+		await user.type(name, "Dated");
+		await user.click(screen.getByText("Validity dates (optional)"));
+		await user.type(screen.getByLabelText("Valid to"), "2030-01-01");
+		await user.click(screen.getByRole("button", { name: "Add passport" }));
+		await screen.findByText(/valid \? – 2030-01-01/);
+		expect((await db.passports.toArray())[0]?.validTo).toBe("2030-01-01");
+
+		await user.click(screen.getByRole("button", { name: "Edit" }));
+		const dialog = await screen.findByRole("dialog");
+		expect(
+			within(dialog).getByText("Validity dates (optional)").closest("details")
+				?.open,
+		).toBe(true);
+		expect(
+			within(dialog).getByLabelText<HTMLInputElement>("Valid to").value,
+		).toBe("2030-01-01");
 	});
 
 	it("deletes a photo and then the passport with everything read from them", async () => {
