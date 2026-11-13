@@ -123,8 +123,15 @@
 /* ---------- Sections ---------- */
 
 /* Eight KPI tiles: one row on a desktop. */
+/* Wide enough for "1,070" or "517 d" in the pixel font: at most 4 per row on desktop, 2 on phones. */
 .vp-explore .vp-stats {
-	grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+	grid-template-columns: repeat(
+			auto-fit,
+			minmax(max(140px, calc((100% - 3 * var(--vp-space-3)) / 4)), 1fr)
+		);
+}
+.vp-explore .vp-stat-value {
+	white-space: nowrap;
 }
 
 .vp-explore-grid {
@@ -625,11 +632,13 @@ button.vp-explore-bar:hover {
 		width: 100%;
 	}
 	.vp-explore-filter-top input[type="date"] {
+		box-sizing: border-box;
 		width: 100%;
+		min-width: 0;
 	}
 	.vp-explore-dates {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		width: 100%;
 	}
 	.vp-explore-detail {
