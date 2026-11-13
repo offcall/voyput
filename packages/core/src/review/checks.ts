@@ -18,7 +18,8 @@ export interface StampCheck {
 }
 
 const NEAR_DAYS = 2;
-const FAR_DAYS = 10;
+/** Default for `checkStamp`'s `window`: how far a photo in another country still warns. */
+const STAMP_CHECK_WINDOW = 10;
 const SUGGEST_WINDOW = 30;
 const NEARBY_COUNT = 5;
 
@@ -75,18 +76,19 @@ const nearestInCountry = (
 
 /**
  * Compares a stamp with the nearest photo in time. A photo in another country
- * within 10 days is a warning; the suggestion points to the nearest photo in
+ * within `window` days (10 by default) is a warning; the suggestion points to the nearest photo in
  * the stamp's own country within 30 days, which hints at a misread date.
  */
 export const checkStamp = (
 	index: PhotoIndex,
 	stamp: { date: string | null; countryCode: string | null },
+	window = STAMP_CHECK_WINDOW,
 ): StampCheck => {
 	const code = (stamp.countryCode ?? "").toUpperCase();
 	const target = stamp.date ? dayNumber(stamp.date) : null;
 	if (!code || target === null) return NO_CHECK;
 	const [nearest] = nearbyPhotos(index, stamp.date, 1);
-	if (!nearest || nearest.countryCode === code || nearest.gap > FAR_DAYS)
+	if (!nearest || nearest.countryCode === code || nearest.gap > window)
 		return NO_CHECK;
 	const photo = `photo${nearest.filename ? ` "${nearest.filename}"` : ""}`;
 	const stampCountry = countryLabel(index, code);

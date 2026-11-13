@@ -63,6 +63,16 @@ describe("review checks", () => {
 		expect(check.suggestion).toContain("around 2024-03-10");
 	});
 
+	it("warns only within the given window of days", () => {
+		// The nearest photo, in Moldova on 20 March, is 6 days from the 26th.
+		const stamp = { date: "2024-03-26", countryCode: "RO" };
+		expect(checkStamp(index, stamp).icloudCheck).toContain("6 day(s) away");
+		expect(checkStamp(index, stamp, 5)).toEqual({
+			icloudCheck: "",
+			suggestion: "",
+		});
+	});
+
 	it("says when the stamp's country has no photos at all", () => {
 		const check = checkStamp(index, { date: "2024-03-05", countryCode: "JP" });
 		expect(check.suggestion).toContain("No photos in JP within 30 days");
