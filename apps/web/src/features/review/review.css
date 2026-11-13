@@ -1,6 +1,7 @@
 /* Review section. Country colours come from --review-country, set inline per country. */
 
 .review-page {
+	position: relative;
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
@@ -12,11 +13,6 @@
 	--review-glow-warn: 0 0 10px
 		color-mix(in srgb, var(--vp-warn) 70%, transparent);
 	--review-glow-bad: 0 0 12px color-mix(in srgb, var(--vp-bad) 75%, transparent);
-}
-.review-page h1 {
-	margin: 0;
-	font-size: 26px;
-	letter-spacing: -0.01em;
 }
 .review-page h2,
 .review-page h3,
@@ -56,38 +52,74 @@
 	cursor: pointer;
 }
 
-/* Header, progress, loading, empty, toast */
+/* Progress, tabs, loading, empty, toast */
 
-.review-header {
-	display: flex;
-	align-items: flex-end;
-	justify-content: space-between;
-	gap: 16px;
-	flex-wrap: wrap;
-}
-.review-header .review-muted {
-	margin-top: 4px;
-}
+/* "x/y stamps reviewed" sits on the tab row on wide screens. */
 .review-progress {
 	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	min-width: 220px;
-	font-size: 13px;
+	align-items: center;
+	gap: 10px;
+	font-size: var(--vp-text-sm);
 	color: var(--vp-muted);
+	white-space: nowrap;
+}
+.review-progress .vp-progress-track {
+	width: 160px;
 }
 .review-progress strong {
 	font-family: var(--vp-font-pixel);
 	font-weight: 400;
-	font-size: 24px;
-	line-height: 1;
+	font-size: 16px;
 	color: var(--vp-accent-ink);
-	margin-right: 2px;
 }
 .review-progress .vp-progress-indicator {
 	background: var(--vp-accent);
 	box-shadow: var(--vp-glow-sm);
 	transition: width 0.25s ease;
+}
+@media (min-width: 640px) {
+	.review-progress {
+		position: absolute;
+		top: 0;
+		right: 0;
+		height: 40px;
+	}
+}
+@media (max-width: 639px) {
+	.review-progress .vp-progress-track {
+		flex: 1;
+		width: auto;
+	}
+}
+
+/* Photos / Timeline: a segmented pixel pill, like the area switch. */
+.review-page .vp-tabs-list {
+	display: inline-flex;
+	gap: 2px;
+	padding: 3px;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius-full);
+	background: var(--vp-surface-2);
+	margin-bottom: var(--vp-space-4);
+}
+.review-page .vp-tab {
+	padding: 7px 16px;
+	margin: 0;
+	border: none;
+	border-radius: var(--vp-radius-full);
+	font-family: var(--vp-font-pixel);
+	font-size: 11px;
+	font-weight: 400;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+.review-page .vp-tab:hover {
+	background: transparent;
+}
+.review-page .vp-tab[aria-selected="true"] {
+	background: var(--vp-accent);
+	color: var(--vp-accent-text);
+	box-shadow: 0 0 12px -2px var(--vp-accent);
 }
 .review-loading {
 	display: grid;
@@ -281,41 +313,52 @@ fieldset.review-filters {
 	min-width: 0;
 }
 .review-chip {
+	--review-chip-tone: var(--vp-accent);
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
 	font: inherit;
-	font-size: 12px;
-	font-weight: 600;
-	padding: 5px 11px;
-	color: var(--vp-muted);
-	background: var(--vp-surface);
+	font-size: var(--vp-text-sm);
+	line-height: 20px;
+	padding: 3px 11px;
+	color: var(--vp-text);
+	background: var(--vp-surface-2);
 	border: 1px solid var(--vp-border);
-	border-radius: 999px;
+	border-radius: var(--vp-radius-full);
+	white-space: nowrap;
 	cursor: pointer;
+	transition:
+		border-color var(--vp-duration) var(--vp-ease),
+		background var(--vp-duration) var(--vp-ease);
+}
+.review-chip[data-filter="problem"] {
+	--review-chip-tone: var(--vp-bad);
+}
+.review-chip[data-filter="icloud"] {
+	--review-chip-tone: var(--vp-warn);
 }
 .review-chip:hover {
-	color: var(--vp-text);
+	border-color: var(--vp-border-strong);
 }
 .review-chip-count {
+	font-family: var(--vp-font-pixel);
+	font-size: 11px;
 	font-variant-numeric: tabular-nums;
-	opacity: 0.7;
+	color: var(--vp-muted);
 }
 .review-chip[aria-pressed="true"] {
-	color: var(--vp-accent-text);
-	background: var(--vp-accent);
-	border-color: var(--vp-accent);
-	box-shadow: var(--vp-glow-sm);
+	border-color: var(--review-chip-tone);
+	background: color-mix(
+		in srgb,
+		var(--review-chip-tone) 14%,
+		var(--vp-surface)
+	);
+	color: var(--review-chip-tone);
+	box-shadow: 0 0 12px -2px
+		color-mix(in srgb, var(--review-chip-tone) 60%, transparent);
 }
-.review-chip[data-filter="problem"][aria-pressed="true"] {
-	background: var(--vp-bad);
-	border-color: var(--vp-bad);
-	color: var(--vp-surface);
-}
-.review-chip[data-filter="icloud"][aria-pressed="true"] {
-	background: var(--vp-warn);
-	border-color: var(--vp-warn);
-	color: var(--vp-surface);
+.review-chip[aria-pressed="true"] .review-chip-count {
+	color: inherit;
 }
 .review-strip-list {
 	display: flex;
@@ -756,10 +799,14 @@ fieldset.review-filters {
 }
 .review-note-tag {
 	display: block;
+	font-family: var(--vp-font-pixel);
 	font-size: 10px;
-	font-weight: 700;
-	letter-spacing: 0.06em;
+	font-weight: 400;
+	letter-spacing: 0.04em;
 	text-transform: uppercase;
+}
+.review-note-line {
+	display: block;
 }
 .review-note[data-kind="problem"] .review-note-tag {
 	color: var(--vp-bad);
@@ -773,6 +820,7 @@ fieldset.review-filters {
 .review-note-hide {
 	flex: none;
 	font: inherit;
+	white-space: nowrap;
 	font-size: 12px;
 	font-weight: 600;
 	color: inherit;

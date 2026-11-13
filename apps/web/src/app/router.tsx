@@ -31,10 +31,14 @@ const page = <TPath extends string>(
 
 export type ReviewTab = "photos" | "timeline";
 
-/** Review search params: the open tab and the photo in focus. Bad values are dropped. */
+/**
+ * Review search params: the open tab, the photo in focus, and a stamp to open once
+ * (links from Extract). Bad values are dropped.
+ */
 export interface ReviewSearch {
 	tab?: ReviewTab;
 	photo?: string;
+	stamp?: string;
 }
 
 const reviewRoute = createRoute({
@@ -47,6 +51,9 @@ const reviewRoute = createRoute({
 			: {}),
 		...(typeof search.photo === "string" && search.photo
 			? { photo: search.photo }
+			: {}),
+		...(typeof search.stamp === "string" && search.stamp
+			? { stamp: search.stamp }
 			: {}),
 	}),
 });

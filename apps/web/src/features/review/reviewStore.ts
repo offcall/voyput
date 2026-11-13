@@ -23,19 +23,56 @@ export type StampEdit = Partial<
 >;
 
 /**
- * Saves only the edited fields, so two quick saves never undo each other.
- * The user set the date by looking at the photo, so a date edit clears the
- * date check's problem (user-edited stamps are trusted).
+ * Which edited field fixes which part of a stamp's `problem`. The parser joins its
+ * warnings with "; ": date checks start with "date ", unreadable fields with
+ * "unreadable <field>".
  */
+const FIXED_BY: { part: RegExp; fields: (keyof StampEdit)[] }[] = [
+	{ part: /^(date |unreadable date\b)/, fields: ["date"] },
+	{ part: /^unreadable direction\b/, fields: ["direction"] },
+	{ part: /^unreadable country code\b/, fields: ["countryCode", "country"] },
+];
+
+/** Splits a stored `problem` into its warnings. */
+export const problemParts = (problem: string | null): string[] =>
+	(problem ?? "")
+		.split("; ")
+		.map((part) => part.trim())
+		.filter(Boolean);
+
+/**
+ * The problem left after an edit: the user set those fields by looking at the
+ * photo, so warnings about them go: a user-edited field counts as checked.
+ */
+export function problemAfterEdit(
+	problem: string | null,
+	edit: StampEdit,
+): string | null {
+	const left = problemParts(problem).filter(
+		(part) =>
+			!FIXED_BY.some(
+				(rule) =>
+					rule.part.test(part) && rule.fields.some((field) => field in edit),
+			),
+	);
+	return left.length ? left.join("; ") : null;
+}
+
+/** Saves only the edited fields, so two quick saves never undo each other. */
 export async function updateStamp(
 	db: VoyputDb,
 	id: string,
 	edit: StampEdit,
 ): Promise<void> {
-	await db.stamps.update(
-		id,
-		"date" in edit ? { ...edit, problem: null } : edit,
-	);
+	await db.transaction("rw", db.stamps, async () => {
+		const stamp = await db.stamps.get(id);
+		if (!stamp) return;
+		const problem = problemAfterEdit(stamp.problem, edit);
+		await db.stamps.update(
+			id,
+			problem === stamp.problem ? edit : { ...edit, problem },
+		);
+	});
 }
 
 /** Hides or shows one warning, on the stored record. */

@@ -16,7 +16,7 @@ describe("collect and visualize navigation", () => {
 	it("switches between the areas and lists each area's pages", async () => {
 		const user = userEvent.setup();
 		const { router } = renderApp("/review");
-		await screen.findByRole("heading", { level: 1, name: "Review" });
+		await screen.findByRole("tab", { name: "Photos" });
 		// One switch inside the section nav, which is the sidebar on desktop and the
 		// bottom tab bar on phones (CSS only), so both widths expose it.
 		expect(nav().getByRole("group", { name: "Area" })).toBeTruthy();

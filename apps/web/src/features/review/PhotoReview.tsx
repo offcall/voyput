@@ -10,11 +10,12 @@ import {
 	type ReviewFilter,
 	type Stamp,
 } from "@voyput/core";
-import { Button, EmptyState, PixelArt } from "@voyput/ui";
+import { Button, EmptyState, Notice, PixelArt } from "@voyput/ui";
 import { type Dispatch, type SetStateAction, useMemo } from "react";
 import { useAi } from "../../ai/AiContext";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
+import { describeFailure } from "../extract/failure";
 import { errorMessage } from "./format";
 import { PhotoList } from "./PhotoList";
 import { PhotoViewer } from "./PhotoViewer";
@@ -122,6 +123,7 @@ export function PhotoReview({
 	const open = items.filter((item) => !item.stamp.reviewed).length;
 	const aiReady = Boolean(settings.openRouterKey);
 	const isExpanded = (stamp: Stamp) => expanded[stamp.id] ?? !stamp.reviewed;
+	const extraction = records.extractions.get(photo.id);
 
 	const validate = async (item: CheckedStamp) => {
 		const id = item.stamp.id;
@@ -203,6 +205,13 @@ export function PhotoReview({
 							+ Add stamp
 						</Button>
 					</div>
+					{extraction?.status === "failed" ? (
+						<Notice tone="bad" role="status">
+							AI extraction failed on this photo:{" "}
+							{describeFailure(extraction.notes).detail}. Add its stamps by
+							hand, or retry it on Extract.
+						</Notice>
+					) : null}
 					{items.length === 0 ? (
 						<div className="review-empty" data-size="small">
 							<PixelArt name="stamp" scale={3} />

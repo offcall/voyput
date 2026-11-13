@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { CountryTag } from "./CountryTag";
 import { DayStrip } from "./DayStrip";
 import { CROSSINGS, crossingIcon, DIRECTIONS, directionIcon } from "./format";
-import type { StampEdit } from "./reviewStore";
+import { problemParts, type StampEdit } from "./reviewStore";
 
 export type Validation =
 	| { status: "running" }
@@ -76,7 +76,7 @@ const groupNearby = (nearby: readonly NearbyPhoto[]) => {
 };
 
 const NOTE_LABELS: Record<NoteKind, string> = {
-	problem: "Date check",
+	problem: "Check",
 	icloudCheck: "Location history",
 	suggestion: "Suggestion",
 };
@@ -118,11 +118,11 @@ export function StampCard({
 }) {
 	const { stamp, check } = item;
 	const level = severity(item);
-	const notes: { kind: NoteKind; text: string }[] = [
-		{ kind: "problem" as const, text: stamp.problem ?? "" },
-		{ kind: "icloudCheck" as const, text: check.icloudCheck },
-		{ kind: "suggestion" as const, text: check.suggestion },
-	].filter((note) => note.text);
+	const notes: { kind: NoteKind; lines: string[] }[] = [
+		{ kind: "problem" as const, lines: problemParts(stamp.problem) },
+		{ kind: "icloudCheck" as const, lines: [check.icloudCheck] },
+		{ kind: "suggestion" as const, lines: [check.suggestion] },
+	].filter((note) => note.lines.some(Boolean));
 	const label = `Stamp ${number}`;
 	const ref = useRef<HTMLElement>(null);
 	useEffect(() => {
@@ -278,10 +278,10 @@ export function StampCard({
 						</p>
 					) : null}
 					{stamp.notes ? <p className="review-muted">{stamp.notes}</p> : null}
-					{notes.map(({ kind, text }) =>
+					{notes.map(({ kind, lines }) =>
 						stamp.dismissed?.[kind] ? (
 							<p key={kind} className="review-note-hidden">
-								{NOTE_LABELS[kind]} hidden.
+								{NOTE_LABELS[kind]} marked as fine.
 								<button
 									type="button"
 									className="review-link"
@@ -294,15 +294,19 @@ export function StampCard({
 							<div key={kind} className="review-note" data-kind={kind}>
 								<span className="review-note-body">
 									<span className="review-note-tag">{NOTE_LABELS[kind]}</span>
-									{text}
+									{lines.map((line) => (
+										<span key={line} className="review-note-line">
+											{line}
+										</span>
+									))}
 								</span>
 								<button
 									type="button"
 									className="review-note-hide"
-									aria-label={`Hide ${NOTE_LABELS[kind].toLowerCase()}`}
+									aria-label={`${NOTE_LABELS[kind]} looks right`}
 									onClick={() => onDismiss(kind, true)}
 								>
-									Hide
+									Looks right
 								</button>
 							</div>
 						),

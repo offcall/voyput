@@ -52,9 +52,19 @@ describe("app shell", () => {
 			{ to: "/settings", label: "Settings" },
 		]) {
 			await user.click(screen.getByRole("link", { name: section.label }));
-			expect(
-				await screen.findByRole("heading", { level: 1, name: section.label }),
-			).toBeTruthy();
+			// Extract and Review are Collect steps without a page title of their own.
+			if (section.to === "/extract" || section.to === "/review")
+				await waitFor(() =>
+					expect(
+						screen
+							.getByRole("link", { name: section.label })
+							.getAttribute("aria-current"),
+					).toBe("page"),
+				);
+			else
+				expect(
+					await screen.findByRole("heading", { level: 1, name: section.label }),
+				).toBeTruthy();
 		}
 	});
 

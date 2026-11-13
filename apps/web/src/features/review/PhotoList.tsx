@@ -5,8 +5,8 @@ import {
 	REVIEW_FILTERS,
 	type ReviewFilter,
 } from "@voyput/core";
-import { useEffect, useState } from "react";
 import type { PhotoRecord } from "../../db/db";
+import { Thumb } from "./Thumb";
 
 const FILTER_LABELS: Record<ReviewFilter, string> = {
 	all: "All",
@@ -16,28 +16,6 @@ const FILTER_LABELS: Record<ReviewFilter, string> = {
 	unreviewed: "Unreviewed",
 	reviewed: "Reviewed",
 };
-
-/** A small picture of a page; the full photo scaled down by the browser. */
-function Thumb({ photo }: { photo: PhotoRecord }) {
-	const [url, setUrl] = useState<string | null>(null);
-	useEffect(() => {
-		const next = URL.createObjectURL(photo.blob);
-		setUrl(next);
-		return () => URL.revokeObjectURL(next);
-	}, [photo.blob]);
-	return (
-		<span className="review-thumb" data-rotation={photo.rotation}>
-			{url ? (
-				<img
-					src={url}
-					alt=""
-					loading="lazy"
-					style={{ transform: `rotate(${photo.rotation}deg)` }}
-				/>
-			) : null}
-		</span>
-	);
-}
 
 /** Photos with their stamps, filtered, as a strip of thumbnails. */
 export function PhotoList({

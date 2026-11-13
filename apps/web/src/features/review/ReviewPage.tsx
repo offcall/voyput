@@ -65,37 +65,41 @@ export function ReviewPage() {
 		setUi(next);
 		void saveUiState(db, next);
 	};
-	const openStamp = (stamp: Stamp) => {
-		void navigate({ search: { tab: "photos", photo: stamp.photoId } });
+	/** `replace` swaps the URL in place, for a link that already added a history entry. */
+	const openStamp = (stamp: Stamp, replace = false) => {
+		void navigate({
+			search: { tab: "photos", photo: stamp.photoId },
+			replace,
+		});
 		setExpanded((e) => ({ ...e, [stamp.id]: true }));
 		setFocus((f) => ({ stampId: stamp.id, seq: (f?.seq ?? 0) + 1 }));
 	};
+	// A link from Extract names one stamp: open it once, then drop it from the URL.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: runs when the link or the data arrives.
+	useEffect(() => {
+		const stamp = search.stamp
+			? records.data?.stamps.find((s) => s.id === search.stamp)
+			: undefined;
+		if (stamp) openStamp(stamp, true);
+	}, [search.stamp, records.data]);
 	const error = records.error ?? history.error ?? uiError;
 	const stamps = records.data?.stamps ?? [];
 	const reviewed = stamps.filter((s) => s.reviewed).length;
 
 	return (
 		<div className="review-page">
-			<header className="review-header">
-				<div>
-					<h1>Review</h1>
-					<p className="review-muted">
-						Check each stamp against its photo and your location history.
-					</p>
+			{records.data && stamps.length > 0 ? (
+				<div className="review-progress">
+					<span className="review-progress-text">
+						<strong>{reviewed}</strong>/{stamps.length} stamps reviewed
+					</span>
+					<Progress
+						value={reviewed}
+						max={stamps.length}
+						label="Stamps reviewed"
+					/>
 				</div>
-				{records.data && stamps.length > 0 ? (
-					<div className="review-progress">
-						<span>
-							<strong>{reviewed}</strong> of {stamps.length} stamps reviewed.
-						</span>
-						<Progress
-							value={reviewed}
-							max={stamps.length}
-							label="Stamps reviewed"
-						/>
-					</div>
-				) : null}
-			</header>
+			) : null}
 			{error ? (
 				<p role="alert" className="review-error">
 					Could not read the stored data: {error}
@@ -158,7 +162,7 @@ export function ReviewPage() {
 									onWindowDays={(timelineWindowDays) =>
 										updateUi({ timelineWindowDays })
 									}
-									onOpen={openStamp}
+									onOpen={(stamp) => openStamp(stamp)}
 								/>
 							),
 						},
