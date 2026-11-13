@@ -40,5 +40,7 @@ export class VoyputDb extends Dexie {
 			trips: "id, start",
 			kv: "key",
 		});
+		// Country index: the app-wide colour palette counts locations per country.
+		this.version(2).stores({ locations: "uuid, date, countryCode" });
 	}
 }
