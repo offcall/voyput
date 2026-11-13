@@ -8,7 +8,8 @@ import {
 import type { VoyputDb } from "../../db/db";
 
 const DISMISSED_KEY = "trips:dismissed";
-const HOME_KEY = "trips:home";
+/** `db.kv` key of the home country the user picked. */
+export const HOME_KEY = "trips:home";
 
 export interface TripsData {
 	stamps: Stamp[];

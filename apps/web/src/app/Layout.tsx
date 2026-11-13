@@ -2,7 +2,6 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { AppShell } from "@voyput/ui";
 import { type ReactNode, useEffect } from "react";
 import { useDb } from "../db/DbContext";
-import { markVisualized } from "../features/import/plan/usePlan";
 import { CountryColoursProvider } from "./countryColours";
 import { BrandMark, icons } from "./icons";
 import "./layout.css";
@@ -12,6 +11,7 @@ import {
 	type NavCounts,
 	useNavCounts,
 } from "./navCounts";
+import { markVisualized } from "./planStore";
 import { type ThemeMode, useTheme } from "./theme";
 
 export const SECTIONS = [

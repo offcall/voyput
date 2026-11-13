@@ -1,23 +1,10 @@
 import { isCountryCode } from "@voyput/core";
 import { useCallback } from "react";
+import { VISUALIZED_KEY } from "../../../app/planStore";
 import { useDb } from "../../../db/DbContext";
-import type { VoyputDb } from "../../../db/db";
+import { HOME_KEY } from "../../trips/tripStore";
 import { useLiveQuery } from "../photos/useLiveQuery";
 import { buildPlan, type Plan } from "./planProgress";
-
-/** Set once Visualize is opened while saved trips exist; ticks the last plan step. */
-const VISUALIZED_KEY = "plan:visualized";
-/** The home country the Trips page stores (`features/trips/tripStore.ts`). */
-const HOME_KEY = "trips:home";
-
-/** Marks the Visualize step done, if there are saved trips to look at. */
-export async function markVisualized(db: VoyputDb): Promise<void> {
-	await db.transaction("rw", db.trips, db.kv, async () => {
-		if ((await db.kv.get(VISUALIZED_KEY))?.value === true) return;
-		if ((await db.trips.count()) === 0) return;
-		await db.kv.put({ key: VISUALIZED_KEY, value: true });
-	});
-}
 
 /** The plan card's data, kept up to date with the database. */
 export function usePlan(): Plan | undefined {
