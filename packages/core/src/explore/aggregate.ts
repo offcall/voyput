@@ -138,7 +138,7 @@ export interface StayRoute {
 
 /**
  * Country changes between stays that follow each other directly: next in the
- * original order and starting the day after. A filtered-out stay in between
+ * original order with no day between them. A filtered-out stay in between
  * breaks the link. Most frequent first.
  */
 export function buildStayRoutes(rows: readonly Stay[]): StayRoute[] {
@@ -147,7 +147,7 @@ export function buildStayRoutes(rows: readonly Stay[]): StayRoute[] {
 		const a = rows[i - 1] as Stay;
 		const b = rows[i] as Stay;
 		if (b.order !== a.order + 1 || a.countryCode === b.countryCode) continue;
-		if (b.start !== addDays(a.end, 1)) continue;
+		if (b.start > addDays(a.end, 1)) continue;
 		const key = `${a.countryCode}>${b.countryCode}`;
 		const route = routes.get(key) ?? {
 			from: a.countryCode,

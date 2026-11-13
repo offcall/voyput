@@ -179,7 +179,7 @@ describe("buildStays", () => {
 		expect(tr).toMatchObject({ kind: "transit", region: "Asia" });
 	});
 
-	it("lets a border day with stops in two countries end one run and start the next", () => {
+	it("gives a border day with stops in two countries to the next stay only", () => {
 		const border = trip(
 			"border",
 			"2019-07-01",
@@ -193,13 +193,46 @@ describe("buildStays", () => {
 			],
 			edge("2019-07-01", "manual", "plane"),
 			edge("2019-07-10", "manual", "plane"),
+			["it-out", "fr-in"],
 		);
-		expect(
-			buildStays([border], null).map((s) => [s.countryCode, s.start, s.end]),
-		).toEqual([
-			["IT", "2019-07-01", "2019-07-08"],
-			["FR", "2019-07-08", "2019-07-10"],
+		const borderStays = buildStays([border], null, [
+			{ id: "it-out", date: "2019-07-08", countryCode: "IT" },
+			{ id: "fr-in", date: "2019-07-08", countryCode: "FR" },
 		]);
+		expect(
+			borderStays.map((s) => [s.countryCode, s.start, s.end, s.stamps]),
+		).toEqual([
+			["IT", "2019-07-01", "2019-07-07", 1],
+			["FR", "2019-07-08", "2019-07-10", 1],
+		]);
+		// The trip's stay days add up to its calendar span (10 days).
+		expect(borderStays.reduce((sum, s) => sum + s.days, 0)).toBe(10);
+		expect(
+			buildStayRoutes(
+				filterStays(borderStays, defaultExploreFilters(borderStays)),
+			).map((r) => `${r.from}>${r.to}`),
+		).toEqual(["IT>FR"]);
+	});
+
+	it("keeps a day for a run whose only day is the border day", () => {
+		const hop = trip(
+			"hop",
+			"2019-08-01",
+			"2019-08-03",
+			[
+				stop("2019-08-01", "AT"),
+				stop("2019-08-01", "DE"),
+				stop("2019-08-03", "DE"),
+			],
+			edge("2019-08-01", "manual", "car"),
+			edge("2019-08-03", "manual", "car"),
+		);
+		const hopStays = buildStays([hop], null);
+		expect(hopStays.map((s) => [s.countryCode, s.start, s.end])).toEqual([
+			["AT", "2019-08-01", "2019-08-01"],
+			["DE", "2019-08-02", "2019-08-03"],
+		]);
+		expect(hopStays.reduce((sum, s) => sum + s.days, 0)).toBe(3);
 	});
 
 	it("gives no home stays without a home and counts trips without stops", () => {

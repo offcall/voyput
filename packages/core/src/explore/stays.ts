@@ -57,17 +57,20 @@ function countryRuns(stops: readonly TripStop[]): TripStop[][] {
 function tripStays(trip: Trip, stamps: readonly StayStamp[]): Draft[] {
 	const runs = countryRuns(trip.stops);
 	const tripStamps = new Set(trip.stampIds);
+	let previousEnd: string | null = null;
 	return runs.map((run, i) => {
 		const first = run[0] as TripStop;
 		const next = runs[i + 1]?.[0];
-		const start = i === 0 ? trip.start : first.day;
+		// Stays tile the trip: each starts the day after the previous one ends.
+		const start = previousEnd === null ? trip.start : addDays(previousEnd, 1);
 		const last = (run.at(-1) as TripStop).day;
-		// A run that shares its last day with the next run (a border day) ends on that day.
-		const end = next
-			? next.day === last
-				? last
-				: addDays(next.day, -1)
-			: trip.end;
+		// A border day (shared with the next run) belongs to the next stay only,
+		// unless this stay would be left without a day.
+		const until = next ? addDays(next.day, -1) : trip.end;
+		const end = until < start ? start : until;
+		previousEnd = end;
+		// Stamps of the border day still count for this stay.
+		const stampEnd = last > end ? last : end;
 		const entry =
 			i === 0 ? boundaryEdge(trip.arrival, start) : photosEdge(start);
 		const exit = next ? photosEdge(end) : boundaryEdge(trip.departure, end);
@@ -93,7 +96,7 @@ function tripStays(trip: Trip, stamps: readonly StayStamp[]): Draft[] {
 					s.countryCode === cc &&
 					s.date !== null &&
 					s.date >= start &&
-					s.date <= end,
+					s.date <= stampEnd,
 			).length,
 			stopDays: new Set(run.map((s) => s.day)).size,
 			estimated: isEstimated(entry.source, exit.source),
