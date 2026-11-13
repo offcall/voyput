@@ -57,13 +57,24 @@ const addTo = (list: string[], value: string | null) => {
 
 /**
  * A day's stamps in crossing order, which the passport does not record: the
- * current country's exit first, then a country entered and left that day (an
- * airport transit), then entries, then the rest.
+ * current country's exit first, then exits from countries not entered that
+ * day, then a country entered and left that day (an airport transit), then
+ * entries, then the rest.
  */
 function nextStamp(pending: DatedStamp[], current: string | null): DatedStamp {
 	let index = pending.findIndex(
 		(s) => s.direction === "exit" && s.countryCode === current,
 	);
+	// Leaving a country not entered today comes before arriving anywhere:
+	// Schengen stamps the exit in another country than the entry.
+	if (index < 0)
+		index = pending.findIndex(
+			(s) =>
+				s.direction === "exit" &&
+				!pending.some(
+					(o) => o.direction === "entry" && o.countryCode === s.countryCode,
+				),
+		);
 	if (index < 0)
 		index = pending.findIndex(
 			(s) =>
@@ -414,10 +425,15 @@ const ALWAYS = "9999-99-99";
 const fromOf = (s: TravelStay) => s.arrival.date ?? NEVER;
 const toOf = (s: TravelStay) => s.departure.date ?? ALWAYS;
 
+const exact = (e: StayEdge) => e.source === "stamp" || e.source === "manual";
+
 /**
  * Suggested stays around stays the user keeps (approved ones, or migrated
  * trips): a suggestion is cut back to a kept stay's edges or dropped when it
- * lies inside one. Sharing a border day is not an overlap.
+ * lies inside one. Sharing a border day is not an overlap. A cut-off rest in
+ * the kept stay's own country is the same stay seen by estimate, so it goes,
+ * and the stay beyond it moves up to the kept edge, unless a stamp or the
+ * user dated that rest.
  */
 export function mergeKept(
 	suggested: readonly TravelStay[],
@@ -431,16 +447,37 @@ export function mergeKept(
 			const a = fromOf(s);
 			const d = toOf(s);
 			if (!(a < to && d > from)) return [s];
+			const same = s.countryCode === k.countryCode;
 			const before =
-				a < from ? [{ ...s, departure: { ...k.arrival } }] : ([] as const);
+				a < from && !(same && !exact(s.arrival))
+					? [{ ...s, departure: { ...k.arrival } }]
+					: [];
 			const after =
-				d > to
+				d > to && !(same && !exact(s.departure))
 					? [{ ...s, id: `${s.id}-after`, arrival: { ...k.departure } }]
-					: ([] as const);
+					: [];
 			return [...before, ...after];
 		});
 	}
-	return [...list, ...kept].sort(
+	const out = sortStays([...list, ...kept]);
+	// Close what a dropped rest left open: the neighbours meet the kept edges.
+	const keptIds = new Set(kept.map((k) => k.id));
+	return out.map((s, i) => {
+		if (keptIds.has(s.id)) return s;
+		const prev = out[i - 1];
+		const next = out[i + 1];
+		let stay = s;
+		if (prev && keptIds.has(prev.id) && !exact(s.arrival))
+			stay = { ...stay, arrival: { ...prev.departure } };
+		if (next && keptIds.has(next.id) && !exact(s.departure))
+			stay = { ...stay, departure: { ...next.arrival } };
+		return stay;
+	});
+}
+
+/** Stays by arrival ("since birth" first), then by departure ("still there" last). */
+export function sortStays(stays: readonly TravelStay[]): TravelStay[] {
+	return [...stays].sort(
 		(a, b) =>
 			fromOf(a).localeCompare(fromOf(b)) || toOf(a).localeCompare(toOf(b)),
 	);

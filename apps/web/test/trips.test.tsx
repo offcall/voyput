@@ -70,187 +70,170 @@ async function seed(db: VoyputDb) {
 	]);
 }
 
+const stat = (label: string) =>
+	screen.getByText(label, { selector: ".vp-stat-label" }).nextElementSibling
+		?.textContent;
+
+/** A stay's row button, by its number and country. */
+const row = (n: number, country: string) =>
+	screen.findByRole("button", { name: new RegExp(`^${n}\\. ${country},`) });
+
+const trip = (n: number) =>
+	screen.getByRole("region", { name: new RegExp(`^Trip ${n}: `) });
+
+async function storedStays(db: VoyputDb) {
+	const stays = await db.stays.toArray();
+	return stays.sort((a, b) =>
+		(a.arrival.date ?? "").localeCompare(b.arrival.date ?? ""),
+	);
+}
+
 describe("trips", () => {
-	it("suggests two trips, confirms and renames one, and keeps it after reload", async () => {
+	it("lists the suggested stays with their trips and approves the clear ones", async () => {
 		const user = userEvent.setup();
-		const db = new VoyputDb("trips-test");
+		const db = new VoyputDb("trips-list");
 		await seed(db);
-		const first = renderApp("/trips", { db });
+		const first = renderApp("/collect/trips", { db });
 
-		expect(await screen.findByRole("button", { name: "Romania" })).toBeTruthy();
-		expect(screen.getByRole("button", { name: "Japan" })).toBeTruthy();
-		expect(screen.getAllByText("Suggested")).toHaveLength(2);
-
-		await user.click(screen.getByRole("button", { name: "Romania" }));
-		const detail = screen
-			.getByRole("heading", { name: "Trip: Romania" })
-			.closest("section");
-		if (!detail) throw new Error("trip detail not found");
-		const d = within(detail);
-		expect(d.getByText("2024-03-02")).toBeTruthy();
-		expect(d.getByText("Bucharest")).toBeTruthy();
-		expect(d.getAllByRole("listitem")).toHaveLength(4);
-
-		const title = d.getByLabelText("Title");
-		await user.clear(title);
-		await user.type(title, "Spring in Romania");
-		await user.click(d.getByRole("button", { name: "Confirm" }));
-		expect(
-			await screen.findByRole("button", { name: "Spring in Romania" }),
-		).toBeTruthy();
-
-		const stored = await db.trips.toArray();
-		expect(stored).toHaveLength(1);
-		expect(stored[0]).toMatchObject({
-			title: "Spring in Romania",
-			confirmed: true,
-			start: "2024-03-01",
-			end: "2024-03-05",
-			stampIds: ["s1", "s2", "s3", "s4"],
-		});
-		first.unmount();
-
-		renderApp("/trips", { db });
-		expect(
-			await screen.findByRole("button", { name: "Spring in Romania" }),
-		).toBeTruthy();
-		expect(screen.getByText("Confirmed")).toBeTruthy();
-		expect(screen.getByRole("button", { name: "Japan" })).toBeTruthy();
-		expect(screen.queryByRole("button", { name: "Romania" })).toBeNull();
-	});
-
-	it("edits dates, deletes a suggestion and adds a trip, all kept after reload", async () => {
-		const user = userEvent.setup();
-		const db = new VoyputDb("trips-edit-test");
-		await seed(db);
-		const first = renderApp("/trips", { db });
-
-		const openDetail = async (name: string) => {
-			await user.click(await screen.findByRole("button", { name }));
-			const section = screen
-				.getByRole("heading", { name: `Trip: ${name}` })
-				.closest("section");
-			if (!section) throw new Error("trip detail not found");
-			return within(section);
-		};
-
-		let d = await openDetail("Japan");
-		fireEvent.change(d.getByLabelText("Start"), {
-			target: { value: "2024-05-11" },
-		});
-		await user.click(d.getByRole("button", { name: "Save" }));
-		await screen.findAllByText("Draft");
-
-		d = await openDetail("Romania");
-		await user.click(d.getByRole("button", { name: "Delete" }));
-		await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(1));
-
-		await user.click(screen.getByRole("button", { name: "New trip" }));
-		await user.type(screen.getByLabelText("New trip title"), "Weekend in Kyiv");
-		fireEvent.change(screen.getByLabelText("New trip start"), {
-			target: { value: "2024-07-01" },
-		});
-		fireEvent.change(screen.getByLabelText("New trip end"), {
-			target: { value: "2024-07-03" },
-		});
-		await user.click(screen.getByRole("button", { name: "Add trip" }));
-		await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(2));
-		first.unmount();
-
-		renderApp("/trips", { db });
-		await waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(2));
-		expect(screen.queryByRole("button", { name: "Romania" })).toBeNull();
-		expect(
-			screen.getByRole("button", { name: "Weekend in Kyiv" }),
-		).toBeTruthy();
-		const japan = (await db.trips.toArray()).find((t) => t.title === "Japan");
-		expect(japan).toMatchObject({
-			start: "2024-05-11",
-			end: "2024-05-11",
-			confirmed: false,
-			arrival: { source: "manual", date: "2024-05-11" },
-		});
-		expect(japan?.stops.map((s) => s.cities)).toEqual([["Kyoto"]]);
-	});
-
-	it("flags a trip whose stamp disagrees with the photos or was deleted", async () => {
-		const user = userEvent.setup();
-		const db = new VoyputDb("trips-problem-test");
-		await seed(db);
-		await db.stamps.put(
-			stamp("s5", "2024-05-11", "KR", "South Korea", "entry", "Incheon"),
+		expect(await row(1, "Moldova")).toBeTruthy();
+		expect(screen.getByText(/Your first change saves it/)).toBeTruthy();
+		expect((await row(2, "Romania")).textContent).toContain(
+			"1 → 5 March, 2024",
 		);
-		const first = renderApp("/trips", { db });
+		expect((await row(2, "Romania")).textContent).toContain("5 days");
+		expect((await row(4, "Japan")).textContent).toContain("10 → 20 May, 2024");
+		expect((await row(5, "Moldova")).textContent).toContain("now");
+		expect(trip(1).querySelector(".vp-stays-trip-title")?.textContent).toBe(
+			"Romania",
+		);
+		expect(within(trip(2)).getByRole("button", { name: /Japan/ })).toBeTruthy();
+		expect(screen.getByText(/Home:/).textContent).toContain("Moldova");
+		expect(stat("Trips")).toBe("2");
+		expect(stat("Left to approve")).toBe("5");
+		expect(await db.stays.count()).toBe(0);
 
-		const japan = (
-			await screen.findByRole("button", { name: "Japan → South Korea" })
-		).closest("article");
-		if (!japan) throw new Error("trip card not found");
-		expect(within(japan).getByText("1 issue")).toBeTruthy();
+		// Only Romania has stamps on both edges.
 		await user.click(
-			within(japan).getByRole("button", { name: "Japan → South Korea" }),
+			screen.getByRole("button", { name: "✓ Approve clear (1)" }),
 		);
-		const detail = screen
-			.getByRole("heading", { name: "Trip: Japan → South Korea" })
-			.closest("section");
-		if (!detail) throw new Error("trip detail not found");
-		expect(within(detail).getByText("stamp-without-photos")).toBeTruthy();
-		await user.click(within(detail).getByRole("button", { name: "Confirm" }));
-		await screen.findAllByText("Confirmed");
+		expect(stat("Approved")).toBe("1");
+		await waitFor(async () =>
+			expect((await storedStays(db)).map((s) => s.approved)).toEqual([
+				false,
+				true,
+				false,
+				false,
+				false,
+			]),
+		);
 		first.unmount();
 
-		await db.stamps.delete("s5");
-		renderApp("/trips", { db });
-		const card = (
-			await screen.findByRole("button", { name: "Japan → South Korea" })
-		).closest("article");
-		if (!card) throw new Error("trip card not found");
-		expect(within(card).getByText("1 issue")).toBeTruthy();
+		renderApp("/collect/trips", { db });
+		expect(await row(2, "Romania")).toBeTruthy();
+		expect(stat("Approved")).toBe("1");
+		expect(screen.queryByText(/Your first change saves it/)).toBeNull();
 	});
 
-	it("moves trip edges with the arrow keys and keeps the new period", async () => {
+	it("marks a transit, edits methods, deletes and undoes, all saved", async () => {
 		const user = userEvent.setup();
-		const db = new VoyputDb("trips-keys-test");
+		const db = new VoyputDb("trips-edit");
 		await seed(db);
-		const first = renderApp("/trips", { db });
-		await user.click(await screen.findByRole("button", { name: "Romania" }));
+		renderApp("/collect/trips", { db });
 
-		const start = screen.getByRole("slider", { name: "Trip start" });
-		const end = screen.getByRole("slider", { name: "Trip end" });
-		start.focus();
-		await user.keyboard("{ArrowRight}");
-		expect(start.getAttribute("aria-valuetext")).toBe("2024-03-02");
-		await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
-		expect(start.getAttribute("aria-valuetext")).toBe("2024-03-02");
-		end.focus();
-		await user.keyboard("{Shift>}{ArrowLeft}{/Shift}");
-		expect(end.getAttribute("aria-valuetext")).toBe("2024-03-05");
-		await user.keyboard("{ArrowRight}");
-		expect(end.getAttribute("aria-valuetext")).toBe("2024-03-06");
+		const japan = (await row(4, "Japan")).closest(".vp-stay") as HTMLElement;
+		await user.click(within(japan).getByRole("button", { name: "Transit" }));
+		await user.selectOptions(
+			within(japan).getByRole("combobox", { name: "Arrival method" }),
+			"plane",
+		);
+		await waitFor(async () =>
+			expect((await storedStays(db))[3]).toMatchObject({
+				countryCode: "JP",
+				kind: "transit",
+				arrival: { method: "plane" },
+			}),
+		);
+		// A transit is passed through: Japan no longer counts as visited.
+		expect(stat("Countries visited")).toBe("1");
 
-		await user.click(screen.getByRole("button", { name: "Save" }));
-		await screen.findAllByText("Draft");
-		first.unmount();
-
-		renderApp("/trips", { db });
-		await user.click(await screen.findByRole("button", { name: "Romania" }));
-		const stored = await db.trips.toArray();
-		expect(stored).toHaveLength(1);
-		expect(stored[0]).toMatchObject({
-			start: "2024-03-02",
-			end: "2024-03-06",
-			arrival: { source: "manual", date: "2024-03-02" },
-			departure: { source: "manual", date: "2024-03-06" },
-		});
-		expect(stored[0]?.stops.map((s) => s.day)).toEqual([
-			"2024-03-02",
-			"2024-03-03",
-			"2024-03-05",
-		]);
+		await user.click(screen.getByRole("button", { name: "Delete stay 2" }));
 		expect(
-			screen
-				.getByRole("slider", { name: "Trip start" })
-				.getAttribute("aria-valuetext"),
-		).toBe("2024-03-02");
+			screen.queryByRole("button", { name: /^\d+\. Romania,/ }),
+		).toBeNull();
+		await waitFor(async () => expect(await db.stays.count()).toBe(4));
+		await user.click(screen.getByRole("button", { name: "← Undo" }));
+		expect(await row(2, "Romania")).toBeTruthy();
+		await waitFor(async () => expect(await db.stays.count()).toBe(5));
+		await user.click(screen.getByRole("button", { name: "Redo →" }));
+		await waitFor(async () => expect(await db.stays.count()).toBe(4));
+	});
+
+	it("edits a stay's dates in the detail and shows the crossing hints", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-detail");
+		await seed(db);
+		const { router } = renderApp("/collect/trips", { db });
+
+		await user.click(await row(4, "Japan"));
+		await waitFor(() =>
+			expect(router.state.location.pathname).toMatch(
+				/^\/collect\/trips\/stay-/,
+			),
+		);
+		const detail = within(screen.getByRole("region", { name: "Stay: Japan" }));
+		expect(detail.getByDisplayValue("Tokyo, Kyoto")).toBeTruthy();
+
+		const arrival = detail.getByLabelText("Arrival date");
+		fireEvent.change(arrival, { target: { value: "2024-05-12" } });
+		expect(await screen.findByText(/Long travel window/)).toBeTruthy();
+		expect(detail.getByText("Set by hand")).toBeTruthy();
+
+		fireEvent.change(arrival, { target: { value: "2024-05-01" } });
+		expect(await screen.findByText(/Overlap/)).toBeTruthy();
+		expect(stat("With errors")).toBe("1");
+		const japan = (await row(4, "Japan")).closest(".vp-stay") as HTMLElement;
+		expect(
+			within(japan).getByRole<HTMLButtonElement>("button", {
+				name: "✓ Approve",
+			}).disabled,
+		).toBe(true);
+
+		await user.click(
+			detail.getByRole("button", { name: /Use previous departure/ }),
+		);
+		expect(screen.queryByText(/Overlap/)).toBeNull();
+		expect(stat("With errors")).toBe("0");
+		await waitFor(async () =>
+			expect((await storedStays(db))[3]?.arrival).toMatchObject({
+				date: "2024-05-10",
+				source: "manual",
+			}),
+		);
+	});
+
+	it("takes a birth date and a picked home", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-settings");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		expect((await row(1, "Moldova")).textContent).toContain("Since birth");
+		fireEvent.change(screen.getByLabelText("Birth date"), {
+			target: { value: "1990-02-03" },
+		});
+		expect((await row(1, "Moldova")).textContent).toContain(
+			"3 February 1990 → 1 March 2024",
+		);
+		await waitFor(async () =>
+			expect((await db.kv.get("trips:birth"))?.value).toBe("1990-02-03"),
+		);
+
+		await user.click(screen.getByRole("button", { name: "change" }));
+		await user.selectOptions(
+			screen.getByRole("combobox", { name: "Home country" }),
+			"RO",
+		);
+		expect(screen.getByText(/Home:/).textContent).toContain("Romania");
+		expect((await db.kv.get("trips:home"))?.value).toBe("RO");
 	});
 });

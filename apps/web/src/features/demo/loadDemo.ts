@@ -181,9 +181,11 @@ function parseLocations(text: string): LocationRow[] {
 }
 
 /**
- * Deletes demo rows by their ids, every stamp on a demo page (also stamps the
- * user added there by hand or by re-extracting) and trips built on any of
- * those stamps. Call inside a transaction.
+ * Deletes demo rows by their ids and every stamp on a demo page (also stamps
+ * the user added there by hand or by re-extracting). A stored history built on
+ * any of those stamps or on demo photos goes as a whole: it is one sequence,
+ * and the Trips step suggests it again from what is left. Call inside a
+ * transaction.
  */
 async function deleteDemoRows(db: VoyputDb): Promise<void> {
 	const photoIds = await db.photos
@@ -204,9 +206,14 @@ async function deleteDemoRows(db: VoyputDb): Promise<void> {
 	await db.photos.bulkDelete(photoIds);
 	await db.stamps.bulkDelete([...stampIds]);
 	await db.locations.where("uuid").startsWith(DEMO_LOCATION_PREFIX).delete();
-	await db.trips
-		.filter((trip) => trip.stampIds.some((id) => stampIds.has(id)))
-		.delete();
+	const onDemo = await db.stays
+		.filter(
+			(stay) =>
+				stay.stampIds.some((id) => stampIds.has(id)) ||
+				stay.photoIds.some((id) => id.startsWith(DEMO_LOCATION_PREFIX)),
+		)
+		.count();
+	if (onDemo > 0) await db.stays.clear();
 }
 
 function demoTables(db: VoyputDb) {
@@ -216,7 +223,7 @@ function demoTables(db: VoyputDb) {
 		db.extractions,
 		db.stamps,
 		db.locations,
-		db.trips,
+		db.stays,
 	];
 }
 
@@ -301,7 +308,7 @@ export async function loadDemo(
 }
 
 /**
- * Removes the demo rows and trips built on demo stamps. Each demo passport
+ * Removes the demo rows and a history built on them. Each demo passport
  * goes too, unless the user added their own photos to it.
  */
 export async function removeDemo(db: VoyputDb): Promise<void> {

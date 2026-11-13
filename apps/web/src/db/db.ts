@@ -1,12 +1,19 @@
-import type {
-	LocationRow,
-	Passport,
-	PassportPhoto,
-	PhotoExtraction,
-	Stamp,
-	Trip,
+import {
+	guessHomeCountry,
+	isCountryCode,
+	type LegacyTrip,
+	type LocationRow,
+	legacyTripStays,
+	mergeKept,
+	type Passport,
+	type PassportPhoto,
+	type PhotoExtraction,
+	type Stamp,
+	suggestStays,
+	type TravelStay,
+	usableStamps,
 } from "@voyput/core";
-import Dexie, { type Table } from "dexie";
+import Dexie, { type Table, type Transaction } from "dexie";
 
 export interface PhotoRecord extends PassportPhoto {
 	blob: Blob;
@@ -26,7 +33,8 @@ export class VoyputDb extends Dexie {
 	declare stamps: Table<Stamp, string>;
 	/** Keyed by the export's photo uuid, so re-importing a CSV never duplicates rows. */
 	declare locations: Table<LocationRow, string>;
-	declare trips: Table<Trip, string>;
+	/** The travel history, one stay per row; the Trips step orders them by date. */
+	declare stays: Table<TravelStay, string>;
 	declare kv: Table<KvRecord, string>;
 
 	constructor(name = "voyput") {
@@ -42,5 +50,34 @@ export class VoyputDb extends Dexie {
 		});
 		// Country index: the app-wide colour palette counts locations per country.
 		this.version(2).stores({ locations: "uuid, date, countryCode" });
+		// Stays replace trips (ADR 0019); the trips table goes in the next version.
+		this.version(3).stores({ stays: "id" }).upgrade(migrateTrips);
+		this.version(4).stores({ trips: null });
 	}
+}
+
+/**
+ * Stored trips become stays, put into a history suggested from the stamps
+ * and locations, so a user's edits survive. Without trips nothing is stored:
+ * the Trips step suggests the history on its own.
+ */
+export async function migrateTrips(tx: Transaction): Promise<void> {
+	const trips = await tx.table<LegacyTrip, string>("trips").toArray();
+	const kept = trips.flatMap(legacyTripStays);
+	if (kept.length === 0) return;
+	const [stamps, locations, picked] = await Promise.all([
+		tx.table<Stamp, string>("stamps").toArray(),
+		tx.table<LocationRow, string>("locations").toArray(),
+		tx.table<KvRecord, string>("kv").get("trips:home"),
+	]);
+	const usable = usableStamps(stamps);
+	const home = isCountryCode(picked?.value)
+		? picked.value
+		: guessHomeCountry(usable, locations);
+	const suggested = home
+		? suggestStays({ stamps: usable, locations, home })
+		: [];
+	await tx
+		.table<TravelStay, string>("stays")
+		.bulkPut(mergeKept(suggested, kept));
 }

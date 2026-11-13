@@ -1,9 +1,12 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
+	deriveTrips,
 	guessHomeCountry,
+	homeOf,
 	type Stamp,
-	suggestTrips,
+	stayHints,
+	suggestStays,
 	usableStamps,
 } from "@voyput/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -137,7 +140,7 @@ describe("demo data", () => {
 		expect(await db.locations.get("mine-uuid")).toBeTruthy();
 	});
 
-	it("yields the four demo trips with stamp boundaries", async () => {
+	it("suggests a history of stays with the four demo trips", async () => {
 		const db = new VoyputDb("demo-trips");
 		await seedDemo(db);
 		const stamps = usableStamps(await db.stamps.toArray());
@@ -145,28 +148,41 @@ describe("demo data", () => {
 		const home = guessHomeCountry(stamps, locations);
 		expect(home).toBe("UA");
 
-		const trips = suggestTrips({ stamps, locations, home: home ?? "" });
+		const stays = suggestStays({ stamps, locations, home: home ?? "" });
+		expect(homeOf(stays)).toBe("UA");
+		const hints = stayHints(stays, {
+			stamps,
+			passports: await db.passports.toArray(),
+			birth: null,
+		});
+		expect(hints.flat().filter((h) => h.severity === "error")).toEqual([]);
 		expect(
-			trips.map((t) => ({
-				start: t.start,
-				end: t.end,
-				countries: [...new Set(t.stops.map((s) => s.countryCode))],
-				arrival: t.arrival.source,
-				departure: t.departure.source,
-			})),
-		).toEqual(
-			[
-				["2016-08-10", "2016-08-24", ["ES"]],
-				["2017-05-03", "2017-05-12", ["PL"]],
-				["2018-10-12", "2018-10-20", ["GE"]],
-				["2019-07-01", "2019-07-15", ["IT", "FR"]],
-			].map(([start, end, countries]) => ({
-				start,
-				end,
-				countries,
-				arrival: "stamp",
-				departure: "stamp",
-			})),
-		);
+			stays.map((s) => [
+				s.countryCode,
+				s.arrival.date,
+				s.departure.date,
+				`${s.arrival.source}/${s.departure.source}`,
+			]),
+		).toEqual([
+			["UA", null, "2016-08-10", "estimated/stamp"],
+			["ES", "2016-08-10", "2016-08-24", "stamp/stamp"],
+			["UA", "2016-08-24", "2017-05-03", "stamp/stamp"],
+			["PL", "2017-05-03", "2017-05-12", "stamp/stamp"],
+			["UA", "2017-05-12", "2018-10-12", "stamp/stamp"],
+			["GE", "2018-10-12", "2018-10-20", "stamp/stamp"],
+			["UA", "2018-10-20", "2019-07-01", "stamp/stamp"],
+			// A Schengen trip: entry in Italy, photos in France, exit from France.
+			["IT", "2019-07-01", "2019-07-08", "stamp/photos"],
+			["FR", "2019-07-08", "2019-07-15", "photos/stamp"],
+			["UA", "2019-07-15", null, "stamp/estimated"],
+		]);
+		expect(
+			deriveTrips(stays, "UA").map((t) => [t.start, t.end, t.visited]),
+		).toEqual([
+			["2016-08-10", "2016-08-24", ["ES"]],
+			["2017-05-03", "2017-05-12", ["PL"]],
+			["2018-10-12", "2018-10-20", ["GE"]],
+			["2019-07-01", "2019-07-15", ["IT", "FR"]],
+		]);
 	});
 });

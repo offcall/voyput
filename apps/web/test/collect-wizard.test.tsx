@@ -1,11 +1,12 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Stamp, Trip } from "@voyput/core";
+import type { Stamp } from "@voyput/core";
 import { beforeEach, describe, expect, it } from "vitest";
 import { VoyputDb } from "../src/db/db";
 import { COLLECT_STEPS } from "../src/features/collect/steps";
 import { STEP_IDS } from "../src/features/import/plan/planProgress";
 import { stubObjectUrls } from "./fixtures/demo";
+import { seedTrips, type TestTrip } from "./fixtures/stays";
 import { renderApp } from "./renderApp";
 
 let dbCount = 0;
@@ -29,7 +30,12 @@ const stamp = (id: string, reviewed: boolean, problem = false): Stamp => ({
 	reviewed,
 });
 
-const trip = (id: string, start: string, end: string, cc: string): Trip => ({
+const trip = (
+	id: string,
+	start: string,
+	end: string,
+	cc: string,
+): TestTrip => ({
 	id,
 	title: id,
 	start,
@@ -148,7 +154,7 @@ describe("collect wizard", () => {
 
 	it("redirects the old URLs to their steps and keeps the params", async () => {
 		const db = freshDb();
-		await db.trips.put(trip("t1", "2024-03-01", "2024-03-05", "RO"));
+		await seedTrips(db, [trip("t1", "2024-03-01", "2024-03-05", "RO")], "MD");
 		const cases: [string, string, Record<string, string>?][] = [
 			["/import", "/collect/passports"],
 			["/extract", "/collect/extract"],
@@ -281,10 +287,14 @@ describe("collect wizard", () => {
 		const db = freshDb();
 		await seed(db, { photos: 1, ok: 1 });
 		await db.stamps.put(stamp("s1", true));
-		await db.trips.bulkPut([
-			trip("t1", "2024-03-01", "2024-03-05", "RO"),
-			trip("t2", "2024-06-01", "2024-06-02", "BG"),
-		]);
+		await seedTrips(
+			db,
+			[
+				trip("t1", "2024-03-01", "2024-03-05", "RO"),
+				trip("t2", "2024-06-01", "2024-06-02", "BG"),
+			],
+			"MD",
+		);
 		const { router } = renderApp("/", { db });
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/collect/trips"),

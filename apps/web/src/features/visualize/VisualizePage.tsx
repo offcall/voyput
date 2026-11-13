@@ -1,5 +1,10 @@
 import { useParams } from "@tanstack/react-router";
-import { buildVizData, splitRowsByTrips, summarizeStays } from "@voyput/core";
+import {
+	buildVizData,
+	splitRowsByTrips,
+	summarizeStays,
+	withoutTransitRows,
+} from "@voyput/core";
 import { PageHeader, PixelArt, Stack, Stat, StatGroup } from "@voyput/ui";
 import { type ReactNode, useMemo, useState } from "react";
 import { formatInt } from "./charts/format";
@@ -52,7 +57,12 @@ export function VisualizePage() {
 	const data = useMemo(() => {
 		if (source.status !== "ready") return null;
 		const trips = source.trips.filter((trip) => selected.has(trip.id));
-		return buildVizData(splitRowsByTrips(source.rows, trips));
+		// A trip's photos leave out its layovers; all data stays all data.
+		const rows =
+			trips.length > 0
+				? withoutTransitRows(source.rows, source.stays)
+				: source.rows;
+		return buildVizData(splitRowsByTrips(rows, trips));
 	}, [source, selected]);
 
 	// Only tabs that draw trips wait for the stays (or fail with them).

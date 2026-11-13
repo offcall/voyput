@@ -1,4 +1,4 @@
-# ADR 0017: Stays as Source of Truth
+# ADR 0019: Stays as Source of Truth
 
 ## Status
 

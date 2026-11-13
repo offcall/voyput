@@ -1,8 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { LocationRow, Trip } from "@voyput/core";
+import type { LocationRow } from "@voyput/core";
 import { describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
+import { seedTrips, type TestTrip } from "./fixtures/stays";
 import { renderApp } from "./renderApp";
 
 let n = 0;
@@ -25,15 +26,28 @@ const photo = (
 	uuid: `photo-${n}`,
 });
 
-const trip = (id: string, title: string, start: string, end: string): Trip => ({
+/** A trip whose stops are on its first day; its derived title names the countries. */
+const trip = (
+	id: string,
+	countries: string[],
+	start: string,
+	end: string,
+): TestTrip => ({
 	id,
-	title,
+	title: id,
 	start,
 	end,
 	confirmed: true,
 	arrival: { date: start, source: "manual", method: "plane" },
 	departure: { date: end, source: "manual", method: "plane" },
-	stops: [],
+	stops: countries.map((countryCode) => ({
+		id: `${id}-${countryCode}`,
+		day: start,
+		countryCode,
+		country: countryCode,
+		cities: [],
+		kind: "stay",
+	})),
 	stampIds: [],
 });
 
@@ -102,11 +116,15 @@ describe("visualize", () => {
 			photo("2024-06-11", "JP", "Japan", 34.7, 135.5),
 			photo("2024-06-12", "KR", "South Korea", 37.6, 127.0),
 		]);
-		await db.trips.bulkPut([
-			trip("t1", "Romania", "2024-03-01", "2024-03-05"),
-			trip("t2", "East Asia", "2024-06-09", "2024-06-13"),
-			trip("t3", "Lost weekend", "2024-09-01", "2024-09-02"),
-		]);
+		await seedTrips(
+			db,
+			[
+				trip("t1", ["RO"], "2024-03-01", "2024-03-05"),
+				trip("t2", ["JP", "KR"], "2024-06-09", "2024-06-13"),
+				trip("t3", ["BG"], "2024-09-01", "2024-09-02"),
+			],
+			"MD",
+		);
 		renderApp("/visualize/movements", { db });
 		await expectCountries("4");
 		expect(stat("Photos")).toBe("6");
@@ -156,7 +174,9 @@ describe("visualize", () => {
 			expect(content()).toBeTruthy();
 		}
 
-		await user.click(screen.getByRole("checkbox", { name: /East Asia/ }));
+		await user.click(
+			screen.getByRole("checkbox", { name: /Japan → South Korea/ }),
+		);
 		await expectCountries("2");
 		await user.click(screen.getByRole("link", { name: "Moves" }));
 		// A single Japan → Korea move is still a chart.
@@ -168,7 +188,7 @@ describe("visualize", () => {
 		await expectCountries("3");
 
 		await user.click(screen.getByRole("button", { name: "Show all data" }));
-		await user.click(screen.getByRole("checkbox", { name: /Lost weekend/ }));
+		await user.click(screen.getByRole("checkbox", { name: /Bulgaria/ }));
 		expect(
 			await screen.findByText("No photos fall inside the selected trips."),
 		).toBeTruthy();

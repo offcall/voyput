@@ -1,25 +1,23 @@
 import {
 	buildStays,
-	guessHomeCountry,
+	deriveTrips,
 	type LocationRow,
 	type Stay,
 	type StaysSummary,
-	suggestTrips,
 	summarizeStays,
 	type Trip,
-	usableStamps,
-	visibleTrips,
 } from "@voyput/core";
 import { useEffect, useState } from "react";
 import { useDb } from "../../../db/DbContext";
-import { loadTripsData } from "../../trips/tripStore";
+import { localToday } from "../../trips/format";
+import { historyOf, homeFor, loadTripsData } from "../../trips/tripStore";
 
 export interface StaysData {
-	/** Stays in date order: trip stops grouped by country, plus home stays between trips. */
+	/** Stays in date order: the Trips step's history, stored or suggested. */
 	stays: Stay[];
 	/** Every photo location, for the "exact by photos" route. */
 	locations: LocationRow[];
-	/** The trips the stays come from: the Trips page's list, stored trips and suggestions. */
+	/** Trips of those stays: the runs of stays outside home. */
 	trips: Trip[];
 	home: string | null;
 	summary: StaysSummary;
@@ -39,15 +37,16 @@ export function useStays(): StaysSource {
 		loadTripsData(db)
 			.then((data) => {
 				if (!alive) return;
-				const stamps = usableStamps(data.stamps);
-				const home = data.home ?? guessHomeCountry(stamps, data.locations);
-				const suggested = home
-					? suggestTrips({ stamps, locations: data.locations, home })
-					: [];
-				const trips = visibleTrips(data.stored, suggested, data.dismissed).map(
-					(entry) => entry.trip,
-				);
-				const stays = buildStays(trips, home, stamps);
+				const history = historyOf(data);
+				const home = homeFor(data, history);
+				const trips = deriveTrips(history, home);
+				const stays = buildStays(history, {
+					home,
+					birth: data.birth,
+					today: localToday(),
+					trips,
+					locations: data.locations,
+				});
 				setSource({
 					status: "ready",
 					data: {

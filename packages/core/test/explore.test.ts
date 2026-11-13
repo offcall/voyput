@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-	type Boundary,
 	buildCountryScatter,
 	buildStayCalendar,
 	buildStayRoutes,
@@ -9,120 +8,151 @@ import {
 	buildYearRows,
 	COUNTRY_CODES,
 	defaultExploreFilters,
+	deriveTrips,
 	type ExploreFilters,
 	exploreKpis,
 	filterStays,
 	firstVisits,
 	groupByCountry,
+	type LocationRow,
 	pageRecords,
 	recordsCsv,
 	regionOf,
 	type Stay,
+	type StayEdge,
 	sortRecords,
 	summarizeStays,
-	type Trip,
-	type TripStop,
+	type TravelStay,
 	yearRange,
 } from "../src/index";
 
 const edge = (
-	date: string,
-	source: Boundary["source"],
-	method: string,
+	date: string | null,
+	source: StayEdge["source"],
+	method: StayEdge["method"] = "unknown",
 	stampId?: string,
-): Boundary => ({ date, source, method, ...(stampId ? { stampId } : {}) });
+): StayEdge => ({ date, source, method, ...(stampId ? { stampId } : {}) });
 
-const stop = (
-	day: string,
-	countryCode: string,
-	cities: string[] = [],
-	kind: TripStop["kind"] = "stay",
-): TripStop => ({
-	id: `${day}|${countryCode}`,
-	day,
-	countryCode,
-	country: countryCode,
-	cities,
-	kind,
-});
-
-const trip = (
+const stay = (
 	id: string,
-	start: string,
-	end: string,
-	stops: TripStop[],
-	arrival: Boundary,
-	departure: Boundary,
-	stampIds: string[] = [],
-): Trip => ({
+	countryCode: string,
+	arrival: StayEdge,
+	departure: StayEdge,
+	extra: Partial<TravelStay> = {},
+): TravelStay => ({
 	id,
-	title: id,
-	start,
-	end,
-	confirmed: true,
+	countryCode,
+	place: "",
+	kind: "stay",
 	arrival,
 	departure,
-	stops,
-	stampIds,
+	stampIds: [],
+	photoIds: [],
+	approved: false,
+	...extra,
 });
 
-const trips: Trip[] = [
-	// Listed out of order on purpose: stays come out chronological.
-	trip(
-		"austria",
-		"2017-01-01",
-		"2017-01-03",
-		[stop("2017-01-02", "AT", ["Vienna"])],
-		edge("2017-01-01", "unknown", "unknown"),
-		edge("2017-01-03", "unknown", "unknown"),
+const photo = (
+	uuid: string,
+	date: string,
+	countryCode: string,
+): LocationRow => ({
+	date: `${date}T12:00:00+02:00`,
+	lat: 0,
+	lon: 0,
+	countryCode,
+	country: countryCode,
+	city: "",
+	source: "apple",
+	isVideo: false,
+	filename: `${uuid}.jpg`,
+	uuid,
+});
+
+const locations = [
+	photo("ua1", "2016-05-13", "UA"),
+	photo("ua2", "2016-05-14", "UA"),
+	photo("ua3", "2016-05-14", "UA"),
+	photo("ro1", "2016-05-16", "RO"),
+	photo("ro2", "2016-05-20", "RO"),
+];
+
+/** A history with a "since birth" start, a trip of two countries, a transit and a gap. */
+const history: TravelStay[] = [
+	stay(
+		"birth",
+		"MD",
+		edge(null, "estimated"),
+		edge("2016-05-13", "stamp", "walk"),
 	),
-	trip(
-		"ukraine-romania",
-		"2016-05-13",
-		"2016-05-20",
-		[
-			stop("2016-05-14", "UA", ["Odesa"]),
-			stop("2016-05-13", "UA", ["Odesa", "Izmail"]),
-			stop("2016-05-16", "RO", ["Bucharest"]),
-			stop("2016-05-20", "RO"),
-		],
-		edge("2016-05-13", "stamp", "foot", "s1"),
+	stay(
+		"ukraine-romania:0",
+		"UA",
+		edge("2016-05-13", "stamp", "walk", "s1"),
+		edge("2016-05-16", "photos"),
+		{
+			place: "Odesa, Izmail",
+			stampIds: ["s1"],
+			photoIds: ["ua1", "ua2", "ua3"],
+		},
+	),
+	stay(
+		"ukraine-romania:1",
+		"RO",
+		edge("2016-05-16", "photos"),
 		edge("2016-05-20", "stamp", "plane", "s3"),
-		["s1", "s2", "s3"],
+		{ place: "Bucharest", stampIds: ["s2", "s3"], photoIds: ["ro1", "ro2"] },
 	),
-	trip(
-		"istanbul",
-		"2016-06-01",
-		"2016-06-01",
-		[stop("2016-06-01", "TR", ["Istanbul"], "transit")],
+	stay(
+		"home:2016-05-21",
+		"MD",
+		edge("2016-05-21", "stamp", "plane"),
 		edge("2016-06-01", "manual", "car"),
-		edge("2016-06-01", "unknown", "unknown"),
 	),
-	trip(
-		"empty",
-		"2016-07-01",
-		"2016-07-10",
-		[],
-		edge("2016-07-01", "unknown", "unknown"),
-		edge("2016-07-10", "unknown", "unknown"),
+	stay(
+		"istanbul:0",
+		"TR",
+		edge("2016-06-01", "manual", "car"),
+		edge("2016-06-01", "estimated"),
+		{ place: "Istanbul", kind: "transit" },
+	),
+	stay(
+		"home:2016-06-02",
+		"MD",
+		edge("2016-06-02", "estimated"),
+		edge("2016-06-30", "estimated"),
+	),
+	stay(
+		"home:2016-07-11",
+		"MD",
+		edge("2016-07-11", "estimated"),
+		edge("2017-01-01", "estimated"),
+	),
+	stay(
+		"austria:0",
+		"AT",
+		edge("2017-01-01", "estimated"),
+		edge("2017-01-03", "estimated"),
+		{ place: "Vienna" },
 	),
 ];
 
-const stamps = [
-	{ id: "s1", date: "2016-05-13", countryCode: "UA" },
-	{ id: "s2", date: "2016-05-16", countryCode: "RO" },
-	{ id: "s3", date: "2016-05-20", countryCode: "RO" },
-	{ id: "other", date: "2016-05-17", countryCode: "RO" },
-];
-
-const stays = buildStays(trips, "MD", stamps);
+const trips = deriveTrips(history, "MD");
+const options = {
+	home: "MD",
+	birth: null,
+	today: "2030-01-01",
+	trips,
+	locations,
+};
+const stays = buildStays(history, options);
 const all = defaultExploreFilters(stays);
 const ids = (rows: readonly Stay[]) => rows.map((r) => r.id);
 const run = (patch: Partial<ExploreFilters>) =>
 	filterStays(stays, { ...all, ...patch });
 
 describe("buildStays", () => {
-	it("splits trips into country runs and fills home gaps between trips", () => {
+	it("gives a border day to the next stay and leaves out an undated birth stay", () => {
 		expect(
 			stays.map((s) => [s.id, s.countryCode, s.start, s.end, s.days]),
 		).toEqual([
@@ -135,18 +165,24 @@ describe("buildStays", () => {
 			["austria:0", "AT", "2017-01-01", "2017-01-03", 3],
 		]);
 		expect(stays.map((s) => s.order)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+		const born = buildStays(history, { ...options, birth: "1990-02-03" });
+		expect(born[0]).toMatchObject({
+			id: "birth",
+			start: "1990-02-03",
+			end: "2016-05-12",
+		});
 	});
 
-	it("takes outer edges from the trip boundaries and inner edges from photos", () => {
+	it("keeps the history's edges and marks estimated ones", () => {
 		const [ua, ro, home] = stays;
 		expect(ua?.entry).toEqual({
 			date: "2016-05-13",
 			source: "stamp",
-			method: "foot",
+			method: "walk",
 			stampId: "s1",
 		});
 		expect(ua?.exit).toEqual({
-			date: "2016-05-15",
+			date: "2016-05-16",
 			source: "photos",
 			method: "unknown",
 		});
@@ -157,16 +193,16 @@ describe("buildStays", () => {
 			kind: "stay",
 			tripId: null,
 			entry: { source: "stamp", method: "plane", date: "2016-05-21" },
-			exit: { source: "manual", method: "car", date: "2016-05-31" },
+			exit: { source: "manual", method: "car", date: "2016-06-01" },
 			estimated: false,
 		});
 	});
 
-	it("carries trip, cities, stamps, stop days and kind", () => {
+	it("carries trip, place, stamps, photo days and kind", () => {
 		const [ua, ro, , tr] = stays;
 		expect(ua).toMatchObject({
-			tripId: "ukraine-romania",
-			tripTitle: "ukraine-romania",
+			tripId: "trip-ukraine-romania:0",
+			tripTitle: "Ukraine → Romania",
 			country: "Ukraine",
 			region: "Europe",
 			place: "Odesa, Izmail",
@@ -174,77 +210,44 @@ describe("buildStays", () => {
 			stopDays: 2,
 			estimated: true,
 		});
-		// "other" is not one of the trip's stamps.
 		expect(ro).toMatchObject({ place: "Bucharest", stamps: 2, stopDays: 2 });
 		expect(tr).toMatchObject({ kind: "transit", region: "Asia" });
 	});
 
-	it("gives a border day with stops in two countries to the next stay only", () => {
-		const border = trip(
-			"border",
-			"2019-07-01",
-			"2019-07-10",
-			// France sorts before Italy, but Italy is the run already open on the 8th.
+	it("starts the next stay after a one-day stay that kept the border day", () => {
+		const hop = buildStays(
 			[
-				stop("2019-07-02", "IT"),
-				stop("2019-07-08", "FR"),
-				stop("2019-07-08", "IT"),
-				stop("2019-07-09", "FR"),
+				stay(
+					"at",
+					"AT",
+					edge("2019-08-01", "manual"),
+					edge("2019-08-01", "photos"),
+				),
+				stay(
+					"de",
+					"DE",
+					edge("2019-08-01", "photos"),
+					edge("2019-08-03", "manual"),
+				),
 			],
-			edge("2019-07-01", "manual", "plane"),
-			edge("2019-07-10", "manual", "plane"),
-			["it-out", "fr-in"],
+			{ ...options, home: null, trips: [] },
 		);
-		const borderStays = buildStays([border], null, [
-			{ id: "it-out", date: "2019-07-08", countryCode: "IT" },
-			{ id: "fr-in", date: "2019-07-08", countryCode: "FR" },
-		]);
-		expect(
-			borderStays.map((s) => [s.countryCode, s.start, s.end, s.stamps]),
-		).toEqual([
-			["IT", "2019-07-01", "2019-07-07", 1],
-			["FR", "2019-07-08", "2019-07-10", 1],
-		]);
-		// The trip's stay days add up to its calendar span (10 days).
-		expect(borderStays.reduce((sum, s) => sum + s.days, 0)).toBe(10);
-		expect(
-			buildStayRoutes(
-				filterStays(borderStays, defaultExploreFilters(borderStays)),
-			).map((r) => `${r.from}>${r.to}`),
-		).toEqual(["IT>FR"]);
-	});
-
-	it("keeps a day for a run whose only day is the border day", () => {
-		const hop = trip(
-			"hop",
-			"2019-08-01",
-			"2019-08-03",
-			[
-				stop("2019-08-01", "AT"),
-				stop("2019-08-01", "DE"),
-				stop("2019-08-03", "DE"),
-			],
-			edge("2019-08-01", "manual", "car"),
-			edge("2019-08-03", "manual", "car"),
-		);
-		const hopStays = buildStays([hop], null);
-		expect(hopStays.map((s) => [s.countryCode, s.start, s.end])).toEqual([
+		expect(hop.map((s) => [s.countryCode, s.start, s.end])).toEqual([
 			["AT", "2019-08-01", "2019-08-01"],
 			["DE", "2019-08-02", "2019-08-03"],
 		]);
-		expect(hopStays.reduce((sum, s) => sum + s.days, 0)).toBe(3);
 	});
 
-	it("gives no home stays without a home and counts trips without stops", () => {
-		const away = buildStays(trips, null);
-		expect(away.some((s) => s.home)).toBe(false);
-		expect(away).toHaveLength(4);
-		expect(away[1]?.stamps).toBe(0);
-		expect(summarizeStays(trips, away)).toEqual({
-			trips: 4,
-			tripsWithoutStops: 1,
-			stays: 4,
-			countries: 4,
+	it("ends a stay still going on today and marks no home without one", () => {
+		const open = buildStays(
+			[stay("x", "PL", edge("2029-12-30", "stamp"), edge(null, "estimated"))],
+			{ ...options, home: null },
+		);
+		expect(open[0]).toMatchObject({ end: "2030-01-01", days: 3, home: false });
+		expect(summarizeStays(trips, stays)).toEqual({
+			trips: 3,
+			stays: 7,
+			countries: 5,
 			firstDate: "2016-05-13",
 			lastDate: "2017-01-03",
 		});
@@ -343,13 +346,6 @@ describe("aggregates", () => {
 				r.to,
 			]),
 		).toEqual([["UA", "RO"]]);
-		// Without home stays, trips are next in order but days apart.
-		const away = buildStays(trips, null);
-		expect(
-			buildStayRoutes(filterStays(away, defaultExploreFilters(away))).map(
-				(r) => r.from,
-			),
-		).toEqual(["UA"]);
 	});
 
 	it("groups clipped days per country", () => {

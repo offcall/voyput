@@ -190,6 +190,20 @@ describe("suggestStays", () => {
 		expect(stays[2]?.stampIds).toEqual(["b"]);
 	});
 
+	it("leaves the Schengen exit before the home entry of the same day", () => {
+		const stays = suggest([
+			stamp("a", "2019-07-01", "IT", "entry"),
+			stamp("b", "2019-07-15", "UA", "entry"),
+			stamp("c", "2019-07-15", "FR", "exit"),
+		]);
+		expect(brief(stays).map((s) => s.slice(0, 3))).toEqual([
+			["UA", null, "2019-07-01"],
+			["IT", "2019-07-01", "2019-07-15"],
+			["FR", "2019-07-15", "2019-07-15"],
+			["UA", "2019-07-15", null],
+		]);
+	});
+
 	it("fills an unknown method from the other side of the same crossing", () => {
 		const stays = suggest([
 			stamp("a", "2020-01-01", "UA", "exit", "unknown"),
@@ -295,6 +309,25 @@ describe("mergeKept", () => {
 				["UA", "2016-08-24", null],
 			],
 		);
+		const estimate = (date: string) =>
+			({ date, source: "estimated", method: "unknown" }) as const;
+		const longer = [
+			stay("home", "UA", null, "2016-08-09", {
+				departure: estimate("2016-08-09"),
+			}),
+			stay("es-guess", "ES", "2016-08-09", "2016-08-30", {
+				arrival: estimate("2016-08-09"),
+				departure: estimate("2016-08-30"),
+			}),
+			stay("back", "UA", "2016-08-30", null, {
+				arrival: estimate("2016-08-30"),
+			}),
+		];
+		expect(brief(mergeKept(longer, kept)).map((s) => s.slice(0, 3))).toEqual([
+			["UA", null, "2016-08-10"],
+			["ES", "2016-08-10", "2016-08-24"],
+			["UA", "2016-08-24", null],
+		]);
 		const inside = [stay("pl", "ES", "2016-08-12", "2016-08-14")];
 		expect(mergeKept(inside, kept).map((s) => s.id)).toEqual(["es"]);
 	});

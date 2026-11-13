@@ -1,6 +1,6 @@
 # voyput
 
-Reconstructs a travel history from passport stamp photos, cross-checked against Apple Photos location data. Everything runs in the browser: the user brings photos and a CSV, reads stamps with their own OpenRouter key, reviews them, builds trips and sees them on charts.
+Reconstructs a travel history from passport stamp photos, cross-checked against Apple Photos location data. Everything runs in the browser: the user brings photos and a CSV, reads stamps with their own OpenRouter key, reviews them, builds a history of one-country stays (trips are the stays between home stays) and sees it on charts.
 
 ## Commands
 
@@ -15,7 +15,7 @@ npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/d
 
 ## Deploy
 
-`apps/web/dist` is a static site with path routes (`/collect/trips/<id>`, see [ADR 0013](docs/adr/0013-browser-history-routes.md)). The server (Coolify, nginx, any static host) must serve `index.html` for unknown paths, and the app must live at the domain root. Files that exist (`/assets/...`, `/demo/...`) are served as they are.
+`apps/web/dist` is a static site with path routes (`/collect/trips/<stay id>`, see [ADR 0013](docs/adr/0013-browser-history-routes.md)). The server (Coolify, nginx, any static host) must serve `index.html` for unknown paths, and the app must live at the domain root. Files that exist (`/assets/...`, `/demo/...`) are served as they are.
 
 ## Navigation
 

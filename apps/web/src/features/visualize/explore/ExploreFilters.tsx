@@ -41,7 +41,7 @@ export function ExploreFilters({
 	const colourOf = useCountryColour();
 	const options = useMemo(() => {
 		const regions = new Set(stays.map((s) => s.region));
-		const methods = new Set(stays.map((s) => s.entry.method));
+		const methods = new Set<string>(stays.map((s) => s.entry.method));
 		return {
 			years: stayYears(stays),
 			countries: stayCountries(stays),

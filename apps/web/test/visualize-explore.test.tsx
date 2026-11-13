@@ -1,9 +1,14 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Boundary, LocationRow, Trip, TripStop } from "@voyput/core";
+import type { LocationRow } from "@voyput/core";
 import { describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
-import { HOME_KEY } from "../src/features/trips/tripStore";
+import {
+	seedTrips,
+	type TestBoundary,
+	type TestStop,
+	type TestTrip,
+} from "./fixtures/stays";
 import { renderApp } from "./renderApp";
 
 const download = vi.hoisted(() =>
@@ -26,7 +31,7 @@ const homePhoto: LocationRow = {
 	uuid: "photo-1",
 };
 
-const edge = (date: string, source: Boundary["source"]): Boundary => ({
+const edge = (date: string, source: TestBoundary["source"]): TestBoundary => ({
 	date,
 	source,
 	method: "plane",
@@ -37,8 +42,8 @@ const stops = (
 	from: number,
 	to: number,
 	month: string,
-	kind: TripStop["kind"] = "stay",
-): TripStop[] =>
+	kind: TestStop["kind"] = "stay",
+): TestStop[] =>
 	Array.from({ length: to - from + 1 }, (_, i) => {
 		const day = `${month}-${String(from + i).padStart(2, "0")}`;
 		return {
@@ -55,9 +60,9 @@ const trip = (
 	id: string,
 	start: string,
 	end: string,
-	tripStops: TripStop[],
-	departure: Boundary["source"] = "manual",
-): Trip => ({
+	tripStops: TestStop[],
+	departure: TestBoundary["source"] = "manual",
+): TestTrip => ({
 	id,
 	title: id,
 	start,
@@ -76,20 +81,28 @@ const trip = (
 async function seed(): Promise<VoyputDb> {
 	const db = new VoyputDb(`explore-${Math.random()}`);
 	await db.locations.put(homePhoto);
-	await db.kv.put({ key: HOME_KEY, value: "MD" });
-	await db.trips.bulkPut([
-		trip("Bucharest", "2023-03-01", "2023-03-05", stops("RO", 1, 5, "2023-03")),
-		trip("East Asia", "2024-06-09", "2024-06-20", [
-			...stops("JP", 9, 14, "2024-06"),
-			...stops("KR", 15, 20, "2024-06"),
-		]),
-		trip(
-			"Vienna",
-			"2024-09-01",
-			"2024-09-01",
-			stops("AT", 1, 1, "2024-09", "transit"),
-		),
-	]);
+	await seedTrips(
+		db,
+		[
+			trip(
+				"Bucharest",
+				"2023-03-01",
+				"2023-03-05",
+				stops("RO", 1, 5, "2023-03"),
+			),
+			trip("East Asia", "2024-06-09", "2024-06-20", [
+				...stops("JP", 9, 14, "2024-06"),
+				...stops("KR", 15, 20, "2024-06"),
+			]),
+			trip(
+				"Vienna",
+				"2024-09-01",
+				"2024-09-01",
+				stops("AT", 1, 1, "2024-09", "transit"),
+			),
+		],
+		"MD",
+	);
 	return db;
 }
 
@@ -126,12 +139,13 @@ describe("visualize explore", () => {
 			user.click(filters.getByRole("button", { name: "Reset filters" }));
 
 		await user.click(chip("Countries", /Romania/));
-		expect(kpis()).toEqual({ stays: "1", countries: "1", days: "5" });
+		// The return day belongs to the home stay that follows.
+		expect(kpis()).toEqual({ stays: "1", countries: "1", days: "4" });
 		await reset();
 		expect(kpis()).toEqual(ALL);
 
 		await user.click(chip("Region", "Asia"));
-		expect(kpis()).toEqual({ stays: "2", countries: "2", days: "12" });
+		expect(kpis()).toEqual({ stays: "2", countries: "2", days: "11" });
 		await reset();
 
 		await user.click(chip("Kind", "Transit"));
@@ -139,7 +153,7 @@ describe("visualize explore", () => {
 		await reset();
 
 		await user.click(chip("Evidence", "Estimated dates"));
-		expect(kpis()).toEqual({ stays: "2", countries: "2", days: "12" });
+		expect(kpis()).toEqual({ stays: "2", countries: "2", days: "11" });
 		await reset();
 
 		await user.click(chip("Years", "2023"));
@@ -204,7 +218,7 @@ describe("visualize explore", () => {
 			"﻿" +
 				[
 					'"country","code","start","end","clip_start","clip_end","days","days_in_range","kind","entry_method","entry_source","exit_method","exit_source","stamps","stop_days","place","trip"',
-					'"Romania","RO","2023-03-01","2023-03-05","2023-03-01","2023-03-05","5","5","stay","Plane","Set by hand","Plane","Set by hand","0","5","","Bucharest"',
+					'"Romania","RO","2023-03-01","2023-03-04","2023-03-01","2023-03-04","4","4","stay","Plane","Set by hand","Plane","Set by hand","0","0","","Romania"',
 				].join("\r\n"),
 		);
 	});

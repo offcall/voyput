@@ -11,7 +11,7 @@ const directionMark = (s: DatedStamp) =>
 
 /**
  * Days around a trip as a strip: photo countries per day, stamps under them,
- * and the trip period with two handles to drag (or move with arrow keys).
+ * and the stay with two handles to drag (or move with arrow keys).
  */
 export function DaysTimeline({
 	from,
@@ -28,7 +28,7 @@ export function DaysTimeline({
 	/** First and last day shown. */
 	from: string;
 	to: string;
-	/** Trip period being edited. */
+	/** The stay being edited. */
 	start: string;
 	end: string;
 	home: string;
@@ -174,7 +174,7 @@ export function DaysTimeline({
 								data-edge={edge}
 								role="slider"
 								tabIndex={0}
-								aria-label={edge === "start" ? "Trip start" : "Trip end"}
+								aria-label={edge === "start" ? "Arrival" : "Departure"}
 								aria-valuemin={0}
 								aria-valuemax={n - 1}
 								aria-valuenow={edge === "start" ? startIdx : endIdx}
@@ -194,11 +194,11 @@ export function DaysTimeline({
 				</span>
 				<span>▲ entry · ▼ exit</span>
 				<span>
-					<span className="vp-trips-tl-stamp">▲</span> Stamp outside the trip
+					<span className="vp-trips-tl-stamp">▲</span> Stamp of another stay
 				</span>
 				<span className="vp-trips-muted">
-					Drag the handles or use ← → (Shift: a week) to move the start and end;
-					type a date to go further.
+					Drag the handles or use ← → (Shift: a week) to move the arrival and
+					departure; type a date to go further.
 				</span>
 			</div>
 		</div>

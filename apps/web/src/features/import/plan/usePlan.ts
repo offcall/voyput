@@ -1,7 +1,7 @@
-import { isCountryCode } from "@voyput/core";
+import { deriveTrips, isCountryCode, sortStays } from "@voyput/core";
 import { useCallback } from "react";
 import { useDb } from "../../../db/DbContext";
-import { HOME_KEY } from "../../trips/tripStore";
+import { HOME_KEY, homeFor } from "../../trips/tripStore";
 import { useLiveQuery } from "../photos/useLiveQuery";
 import { buildPlan, type Plan } from "./planProgress";
 
@@ -21,8 +21,8 @@ export function usePlan(): Plan | undefined {
 				stamps,
 				toReview,
 				problems,
-				trips,
-				home,
+				stays,
+				picked,
 			] = await Promise.all([
 				db.passports.count(),
 				db.photos.count(),
@@ -40,9 +40,14 @@ export function usePlan(): Plan | undefined {
 				db.stamps
 					.filter((stamp) => !!stamp.problem && !stamp.dismissed?.problem)
 					.count(),
-				db.trips.toArray(),
+				db.stays.toArray(),
 				db.kv.get(HOME_KEY),
 			]);
+			const history = sortStays(stays);
+			const home = homeFor(
+				{ pickedHome: isCountryCode(picked?.value) ? picked.value : null },
+				history,
+			);
 			// A failed photo whose stamps the user added and reviewed by hand is handled.
 			const recovered = failedIds.filter((id) => recoveredIds.has(id)).length;
 			return buildPlan({
@@ -55,8 +60,8 @@ export function usePlan(): Plan | undefined {
 				stamps,
 				toReview,
 				problems,
-				trips,
-				home: isCountryCode(home?.value) ? home.value : null,
+				trips: deriveTrips(history, home),
+				home,
 			});
 		}, [db]),
 	).data;

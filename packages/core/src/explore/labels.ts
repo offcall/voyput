@@ -1,17 +1,14 @@
-import type {
-	DurationFilter,
-	EdgeSource,
-	EvidenceFilter,
-	KindFilter,
-} from "./types";
+import type { EdgeSource } from "../trips/types";
+import type { DurationFilter, EvidenceFilter, KindFilter } from "./types";
 
-/** Entry methods, `BorderCrossing` values first, for the method filter. */
+/** Entry methods (`TravelMethod`), for the method filter. */
 export const METHOD_LABELS: Readonly<Record<string, string>> = {
 	plane: "Plane",
 	car: "Car",
+	bus: "Bus",
 	train: "Train",
 	ship: "Ship",
-	foot: "On foot",
+	walk: "On foot",
 	unknown: "Unknown",
 };
 
@@ -19,7 +16,7 @@ export const SOURCE_LABELS: Readonly<Record<EdgeSource, string>> = {
 	stamp: "Stamp",
 	manual: "Set by hand",
 	photos: "From photos",
-	unknown: "Estimated",
+	estimated: "Estimated",
 };
 
 export const KIND_LABELS: Readonly<Record<KindFilter, string>> = {

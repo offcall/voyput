@@ -1,19 +1,12 @@
+import type { StayEdge as HistoryEdge } from "../trips/types";
 import type { Region } from "./regions";
 
-/** Where a stay's edge date comes from. `photos`: a country change seen in photo days inside a trip. */
-export type EdgeSource = "stamp" | "manual" | "photos" | "unknown";
-
-export interface StayEdge {
-	date: string;
-	source: EdgeSource;
-	/** A `BorderCrossing` value, or `unknown`. */
-	method: string;
-	stampId?: string;
-}
+/** A stay's edge with its day known. */
+export type ExploreEdge = HistoryEdge & { date: string };
 
 /**
  * A run of consecutive days in one country. `start` and `end` are inclusive
- * YYYY-MM-DD days, so stays of one history never share a day (unless trips overlap).
+ * YYYY-MM-DD days, so stays of one history never share a day (unless they overlap).
  */
 export interface Stay {
 	id: string;
@@ -34,13 +27,13 @@ export interface Stay {
 	tripTitle: string;
 	/** Cities of the stops, comma separated. */
 	place: string;
-	entry: StayEdge;
-	exit: StayEdge;
-	/** Stamps of the trip in this country within the stay's days. */
+	entry: ExploreEdge;
+	exit: ExploreEdge;
+	/** Stamps behind the stay. */
 	stamps: number;
-	/** Days with a stop: photos or a stamp in this country that day. */
+	/** Days with a photo behind the stay. */
 	stopDays: number;
-	/** At least one edge is `unknown` or `photos`. */
+	/** At least one edge is `estimated` or `photos`. */
 	estimated: boolean;
 }
 
@@ -64,7 +57,7 @@ export interface ExploreFilters {
 	countries: string[];
 	region: Region | "all";
 	kind: KindFilter;
-	/** Entry method (`BorderCrossing`) or `all`. */
+	/** Entry method (`TravelMethod`) or `all`. */
 	method: string;
 	evidence: EvidenceFilter;
 	duration: DurationFilter;

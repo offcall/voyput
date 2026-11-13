@@ -1,7 +1,8 @@
 import { screen, within } from "@testing-library/react";
-import type { LocationRow, Trip, TripStop } from "@voyput/core";
+import type { LocationRow } from "@voyput/core";
 import { describe, expect, it } from "vitest";
 import { VoyputDb } from "../src/db/db";
+import { seedTrips, type TestStop, type TestTrip } from "./fixtures/stays";
 import { renderApp } from "./renderApp";
 
 let n = 0;
@@ -22,7 +23,7 @@ const photo = (
 	uuid: `photo-${n}`,
 });
 
-const stop = (day: string): TripStop => ({
+const stop = (day: string): TestStop => ({
 	id: `${day}-RO`,
 	day,
 	countryCode: "RO",
@@ -31,7 +32,7 @@ const stop = (day: string): TripStop => ({
 	kind: "stay",
 });
 
-const romania: Trip = {
+const romania: TestTrip = {
 	id: "romania",
 	title: "Romania",
 	start: "2024-03-01",
@@ -54,8 +55,8 @@ async function seed(
 			photo("2024-01-05", "MD", "Moldova"),
 			photo("2024-01-06", "MD", "Moldova"),
 		]);
-	if (trips) await db.trips.put(romania);
-	await db.kv.put({ key: "trips:home", value: "MD" });
+	if (trips) await seedTrips(db, [romania], "MD");
+	else await db.kv.put({ key: "trips:home", value: "MD" });
 	return db;
 }
 

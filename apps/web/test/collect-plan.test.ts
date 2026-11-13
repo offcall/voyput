@@ -10,24 +10,16 @@ const trip = (
 	id: string,
 	start: string,
 	end: string,
-	countries: string[],
+	visited: string[],
 ): Trip => ({
 	id,
 	title: id,
 	start,
 	end,
-	confirmed: true,
-	arrival: { date: start, method: "plane", source: "stamp" },
-	departure: { date: end, method: "plane", source: "stamp" },
-	stops: countries.map((countryCode, index) => ({
-		id: `${id}-${index}`,
-		day: start,
-		countryCode,
-		country: countryCode,
-		cities: [],
-		kind: "stay",
-	})),
-	stampIds: [],
+	stayIds: [],
+	countries: visited,
+	visited,
+	approved: true,
 });
 
 const EMPTY: PlanInput = {

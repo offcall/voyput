@@ -61,7 +61,7 @@ const DEFINITIONS: Record<StepId, Omit<CollectStep, "id">> = {
 		label: "Trips",
 		title: "Trips",
 		description:
-			"Trips built from your stamps and photo locations. Save the ones that are right.",
+			"Your history as one-country stays, from your stamps and photo locations. Trips are the stays between home stays. Approve the ones that are right.",
 		sprite: "suitcase",
 		render: () => <TripsPage />,
 	},

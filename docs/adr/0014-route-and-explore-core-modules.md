@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; the trip-derived `Stay` superseded by ADR 0017
+Accepted; the trip-derived `Stay` superseded by ADR 0019
 
 ## Context
 

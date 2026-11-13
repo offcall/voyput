@@ -12,7 +12,7 @@ export * from "./records";
 export { REGIONS, type Region, regionOf } from "./regions";
 export {
 	buildStays,
-	type StayStamp,
+	type StaysOptions,
 	type StaysSummary,
 	summarizeStays,
 } from "./stays";

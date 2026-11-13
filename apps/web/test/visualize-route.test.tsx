@@ -1,7 +1,8 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import type { LocationRow, Trip, TripStop } from "@voyput/core";
+import type { LocationRow } from "@voyput/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
+import { seedTrips, type TestStop, type TestTrip } from "./fixtures/stays";
 import { renderApp } from "./renderApp";
 
 let n = 0;
@@ -24,7 +25,7 @@ const photo = (
 	uuid: `photo-${n}`,
 });
 
-const stop = (day: string, countryCode: string, country: string): TripStop => ({
+const stop = (day: string, countryCode: string, country: string): TestStop => ({
 	id: `${day}-${countryCode}`,
 	day,
 	countryCode,
@@ -37,8 +38,8 @@ const trip = (
 	id: string,
 	start: string,
 	end: string,
-	stops: TripStop[],
-): Trip => ({
+	stops: TestStop[],
+): TestTrip => ({
 	id,
 	title: id,
 	start,
@@ -61,18 +62,21 @@ async function seed(name: string): Promise<VoyputDb> {
 		photo("2024-06-11", "JP", "Japan", 34.7, 135.5),
 		photo("2024-06-12", "KR", "South Korea", 37.6, 127.0),
 	]);
-	await db.trips.bulkPut([
-		trip("romania", "2024-03-01", "2024-03-05", [
-			stop("2024-03-02", "RO", "Romania"),
-			stop("2024-03-03", "RO", "Romania"),
-		]),
-		trip("east-asia", "2024-06-09", "2024-06-13", [
-			stop("2024-06-10", "JP", "Japan"),
-			stop("2024-06-11", "JP", "Japan"),
-			stop("2024-06-12", "KR", "South Korea"),
-		]),
-	]);
-	await db.kv.put({ key: "trips:home", value: "MD" });
+	await seedTrips(
+		db,
+		[
+			trip("romania", "2024-03-01", "2024-03-05", [
+				stop("2024-03-02", "RO", "Romania"),
+				stop("2024-03-03", "RO", "Romania"),
+			]),
+			trip("east-asia", "2024-06-09", "2024-06-13", [
+				stop("2024-06-10", "JP", "Japan"),
+				stop("2024-06-11", "JP", "Japan"),
+				stop("2024-06-12", "KR", "South Korea"),
+			]),
+		],
+		"MD",
+	);
 	return db;
 }
 
@@ -219,7 +223,7 @@ describe("route player", () => {
 			document.querySelector(".vp-route-stop")?.textContent ?? "";
 		const date = () => document.querySelector(".vp-route-date")?.textContent;
 		fireEvent.click(screen.getByRole("button", { name: "Pause" }));
-		expect(caption()).toContain("Trip 1/2 · romania");
+		expect(caption()).toContain("Trip 1/2 · Romania");
 		expect(caption()).toContain("Romania");
 		expect(date()).toBe("2 Mar 2024");
 		expect(
@@ -229,7 +233,7 @@ describe("route player", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Next trip" }));
 		expect(position()).toBe(3);
-		expect(caption()).toContain("Trip 2/2 · east-asia");
+		expect(caption()).toContain("Trip 2/2 · Japan → South Korea");
 		expect(caption()).toContain("Japan");
 		expect(date()).toBe("10 Jun 2024");
 		// Jumping keeps the player paused.

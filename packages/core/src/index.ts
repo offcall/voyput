@@ -89,6 +89,7 @@ export {
 	mergeKept,
 	methodOf,
 	type StayEvidence,
+	sortStays,
 	suggestStays,
 } from "./trips/build";
 export { COUNTRY_CODES, isCountryCode } from "./trips/countries";
@@ -115,25 +116,13 @@ export {
 	staySpan,
 	withoutTransitRows,
 } from "./trips/history";
-export type {
-	LegacyBoundary as Boundary,
-	LegacyStop as TripStop,
-	LegacyTrip as Trip,
-} from "./trips/legacy";
-export { legacyTripStays } from "./trips/legacy";
+export { type LegacyTrip, legacyTripStays } from "./trips/legacy";
 export {
-	buildTrip,
-	changePeriod,
-	type Period,
-	stopsByDay,
-	suggestTrips,
-	type TripEvidence,
-	tripTitle,
-	visibleTrips,
-} from "./trips/suggest";
-export {
+	type EdgeSource,
+	type StayEdge,
 	TRAVEL_METHODS,
 	type TravelMethod,
 	type TravelStay,
+	type Trip,
 } from "./trips/types";
 export * from "./viz";

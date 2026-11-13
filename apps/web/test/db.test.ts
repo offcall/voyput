@@ -1,4 +1,5 @@
-import type { LocationRow, Passport } from "@voyput/core";
+import type { LegacyTrip, LocationRow, Passport } from "@voyput/core";
+import Dexie from "dexie";
 import { describe, expect, it } from "vitest";
 import { VoyputDb } from "../src/db/db";
 
@@ -47,5 +48,68 @@ describe("database", () => {
 		);
 		expect(await second.locations.count()).toBe(1);
 		second.close();
+	});
+
+	it("turns stored trips into stays inside a suggested history", async () => {
+		const old = new Dexie("db-migrate");
+		old.version(2).stores({
+			passports: "id",
+			photos: "id, passportId",
+			extractions: "photoId",
+			stamps: "id, passportId, photoId, date",
+			locations: "uuid, date, countryCode",
+			trips: "id, start",
+			kv: "key",
+		});
+		const trip: LegacyTrip = {
+			id: "t1",
+			title: "Barcelona",
+			start: "2024-04-30",
+			end: "2024-05-03",
+			confirmed: true,
+			arrival: { date: "2024-04-30", source: "manual", method: "plane" },
+			departure: { date: "2024-05-03", source: "manual", method: "plane" },
+			stops: [
+				{
+					id: "s",
+					day: "2024-05-01",
+					countryCode: "ES",
+					country: "Spain",
+					cities: ["Barcelona"],
+					kind: "stay",
+				},
+			],
+			stampIds: [],
+		};
+		await old.table("trips").put(trip);
+		await old
+			.table("locations")
+			.bulkPut([
+				row,
+				{ ...row, uuid: "u2", date: "2024-05-10T10:00:00", countryCode: "UA" },
+			]);
+		await old.table("kv").put({ key: "trips:home", value: "UA" });
+		old.close();
+
+		const db = new VoyputDb("db-migrate");
+		const stays = await db.stays.toArray();
+		expect(
+			stays
+				.sort((a, b) =>
+					(a.arrival.date ?? "").localeCompare(b.arrival.date ?? ""),
+				)
+				.map((s) => [
+					s.countryCode,
+					s.arrival.date,
+					s.departure.date,
+					s.approved,
+				]),
+		).toEqual([
+			["UA", null, "2024-04-30", false],
+			["ES", "2024-04-30", "2024-05-03", true],
+			["UA", "2024-05-03", null, false],
+		]);
+		expect(db.tables.map((t) => t.name)).not.toContain("trips");
+		db.close();
 	});
 });

@@ -32,8 +32,8 @@ export interface PlanInput {
 	toReview: number;
 	/** Unreviewed stamps with a problem the extraction flagged. */
 	problems: number;
-	/** Saved trips. */
-	trips: readonly Pick<Trip, "start" | "end" | "stops">[];
+	/** Trips of the saved stays. */
+	trips: readonly Pick<Trip, "start" | "end" | "visited">[];
 	/** Home country chosen on Trips, or null. */
 	home: string | null;
 }
@@ -118,9 +118,8 @@ export function buildPlan(input: PlanInput): Plan {
 		done: done[id],
 		state: done[id] ? "done" : attention[id] ? "attention" : "todo",
 	}));
-	const fromTrips = new Set(
-		input.trips.flatMap((trip) => trip.stops.map((stop) => stop.countryCode)),
-	);
+	// Transits are passed through, not visited.
+	const fromTrips = new Set(input.trips.flatMap((trip) => trip.visited));
 	const countries =
 		tripCount > 0 ? fromTrips : new Set(input.locationCountries);
 	if (input.home) countries.delete(input.home);
