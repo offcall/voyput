@@ -1,0 +1,17 @@
+/* Globe colours read by the canvas (see GlobeChart). */
+.vp-globe {
+	--vp-globe-air: light-dark(rgb(255 255 255 / 0.85), rgb(91 147 234 / 0.4));
+	--vp-globe-grid: light-dark(#4f8fc4, #3d5a8a);
+	--vp-globe-edge: light-dark(#ffffff, #0f141c);
+	--vp-globe-shade: light-dark(rgb(30 80 140 / 0.22), rgb(0 0 0 / 0.5));
+}
+.vp-globe .vp-viz-canvas:focus-visible {
+	outline: none;
+}
+.vp-globe .vp-viz-sky:has(.vp-viz-canvas:focus-visible) {
+	outline: 2px solid var(--vp-accent);
+	outline-offset: 2px;
+}
+.vp-globe .vp-viz-canvas:active {
+	cursor: grabbing;
+}
