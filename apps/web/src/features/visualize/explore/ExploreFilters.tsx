@@ -48,7 +48,6 @@ export function ExploreFilters({
 			names: new Map(stays.map((s) => [s.countryCode, s.country])),
 			regions: REGIONS.filter((r) => regions.has(r)),
 			methods: Object.keys(METHOD_LABELS).filter((m) => methods.has(m)),
-			hasHome: stays.some((s) => s.home),
 		};
 	}, [stays]);
 
@@ -89,7 +88,7 @@ export function ExploreFilters({
 					<input
 						className="vp-input"
 						type="search"
-						placeholder="Country, city or trip"
+						placeholder="Country or city"
 						value={filters.search}
 						onChange={(e) => onChange({ search: e.target.value })}
 					/>
@@ -145,14 +144,6 @@ export function ExploreFilters({
 						{KIND_LABELS[kind]}
 					</Chip>
 				))}
-				{options.hasHome ? (
-					<Chip
-						selected={filters.home}
-						onClick={() => onChange({ home: !filters.home })}
-					>
-						Include home
-					</Chip>
-				) : null}
 			</ChipGroup>
 
 			<details className="vp-explore-more">

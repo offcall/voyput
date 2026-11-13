@@ -4,6 +4,7 @@ import type { TravelStay } from "@voyput/core";
 export interface Snapshot {
 	stays: TravelStay[];
 	birth: string | null;
+	birthCountry: string | null;
 }
 
 export interface EditState extends Snapshot {
@@ -25,13 +26,18 @@ const LIMIT = 50;
 export const EMPTY_EDITS: EditState = {
 	stays: [],
 	birth: null,
+	birthCountry: null,
 	past: [],
 	future: [],
 	version: 0,
 };
 
 export function editReducer(state: EditState, action: EditAction): EditState {
-	const current: Snapshot = { stays: state.stays, birth: state.birth };
+	const current: Snapshot = {
+		stays: state.stays,
+		birth: state.birth,
+		birthCountry: state.birthCountry,
+	};
 	switch (action.type) {
 		case "load":
 			return {

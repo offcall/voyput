@@ -53,7 +53,7 @@ const CSV_COLUMNS: readonly [string, (r: FilteredStay) => string | number][] = [
 	["clip_end", (r) => r.clipEnd],
 	["days", (r) => r.days],
 	["days_in_range", (r) => r.clippedDays],
-	["kind", (r) => (r.home ? "home" : r.kind)],
+	["kind", (r) => r.kind],
 	["entry_method", (r) => methodLabel(r.entry.method)],
 	["entry_source", (r) => SOURCE_LABELS[r.entry.source]],
 	["exit_method", (r) => methodLabel(r.exit.method)],
@@ -61,7 +61,6 @@ const CSV_COLUMNS: readonly [string, (r: FilteredStay) => string | number][] = [
 	["stamps", (r) => r.stamps],
 	["stop_days", (r) => r.stopDays],
 	["place", (r) => r.place],
-	["trip", (r) => r.tripTitle],
 ];
 
 const csvCell = (v: string | number) => `"${String(v).replaceAll('"', '""')}"`;

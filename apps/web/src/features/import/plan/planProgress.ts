@@ -1,5 +1,3 @@
-import type { Trip } from "@voyput/core";
-
 /** The Collect steps in wizard order; `/collect/<id>` opens one. */
 export const STEP_IDS = [
 	"passports",
@@ -32,10 +30,18 @@ export interface PlanInput {
 	toReview: number;
 	/** Unreviewed stamps with a problem the extraction flagged. */
 	problems: number;
-	/** Trips of the saved stays. */
-	trips: readonly Pick<Trip, "start" | "end" | "visited">[];
-	/** Home country chosen on Trips, or null. */
-	home: string | null;
+	/** The saved stays. */
+	stays: readonly PlanStay[];
+	/** Birth country set on the Trips step, or null. */
+	birthCountry: string | null;
+}
+
+/** A saved stay as the plan counts it: first and last day, YYYY-MM-DD, null while unknown. */
+export interface PlanStay {
+	countryCode: string;
+	kind: "stay" | "transit";
+	start: string | null;
+	end: string | null;
 }
 
 /**
@@ -59,11 +65,12 @@ export interface Plan {
 	input: PlanInput;
 	/** Photos without a successful extraction. */
 	toExtract: number;
-	/** Countries outside home: from saved trips, or from the locations before any trip is saved. */
+	/** Countries stayed in: from saved stays, or from the locations before any stay is saved. */
 	countries: number;
-	countriesFrom: "trips" | "locations";
+	countriesFrom: "stays" | "locations";
+	/** Days in saved stays outside the birth country (all of them while none is set). */
 	daysAbroad: number;
-	trips: number;
+	stays: number;
 	/** Open items: photos to extract, stamps to review, plus one per empty step. */
 	toDo: number;
 }
@@ -73,21 +80,21 @@ const DAY_MS = 86_400_000;
 const dayNumber = (iso: string) =>
 	Math.round(Date.parse(`${iso}T00:00:00Z`) / DAY_MS);
 
-/** Days covered by at least one trip, start and end included; overlaps count once. */
-export function daysAbroad(
-	trips: readonly Pick<Trip, "start" | "end">[],
+/** Days covered by at least one span, start and end included; overlaps count once. */
+export function daysCovered(
+	spans: readonly { start: string; end: string }[],
 ): number {
-	const spans = trips
-		.map((trip): [number, number] => {
-			const from = dayNumber(trip.start);
-			const to = dayNumber(trip.end);
+	const days = spans
+		.map((span): [number, number] => {
+			const from = dayNumber(span.start);
+			const to = dayNumber(span.end);
 			return from <= to ? [from, to] : [to, from];
 		})
 		.filter(([from, to]) => Number.isFinite(from) && Number.isFinite(to))
 		.sort((a, b) => a[0] - b[0]);
 	let total = 0;
 	let reached = Number.NEGATIVE_INFINITY;
-	for (const [from, to] of spans) {
+	for (const [from, to] of days) {
 		const start = Math.max(from, reached + 1);
 		if (to >= start) total += to - start + 1;
 		reached = Math.max(reached, to);
@@ -97,14 +104,14 @@ export function daysAbroad(
 
 /** The five Collect steps, each done or not, and the counters for the success header. */
 export function buildPlan(input: PlanInput): Plan {
-	const tripCount = input.trips.length;
+	const stayCount = input.stays.length;
 	const toExtract = Math.max(0, input.photos - input.extracted);
 	const done: Record<StepId, boolean> = {
 		passports: input.photos > 0,
 		locations: input.locations > 0,
 		extract: input.photos > 0 && toExtract === 0,
 		review: input.stamps > 0 && input.toReview === 0,
-		trips: tripCount > 0,
+		trips: stayCount > 0,
 	};
 	const attention: Record<StepId, boolean> = {
 		passports: false,
@@ -119,10 +126,11 @@ export function buildPlan(input: PlanInput): Plan {
 		state: done[id] ? "done" : attention[id] ? "attention" : "todo",
 	}));
 	// Transits are passed through, not visited.
-	const fromTrips = new Set(input.trips.flatMap((trip) => trip.visited));
+	const fromStays = new Set(
+		input.stays.filter((s) => s.kind === "stay").map((s) => s.countryCode),
+	);
 	const countries =
-		tripCount > 0 ? fromTrips : new Set(input.locationCountries);
-	if (input.home) countries.delete(input.home);
+		stayCount > 0 ? fromStays : new Set(input.locationCountries);
 	const emptySteps = (["passports", "locations", "trips"] as const).filter(
 		(id) => !done[id],
 	).length;
@@ -133,9 +141,15 @@ export function buildPlan(input: PlanInput): Plan {
 		input,
 		toExtract,
 		countries: countries.size,
-		countriesFrom: tripCount > 0 ? "trips" : "locations",
-		daysAbroad: daysAbroad(input.trips),
-		trips: tripCount,
+		countriesFrom: stayCount > 0 ? "stays" : "locations",
+		daysAbroad: daysCovered(
+			input.stays.flatMap(({ countryCode, start, end }) =>
+				countryCode !== input.birthCountry && start && end
+					? [{ start, end }]
+					: [],
+			),
+		),
+		stays: stayCount,
 		toDo: toExtract + input.toReview + emptySteps,
 	};
 }

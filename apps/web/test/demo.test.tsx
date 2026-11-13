@@ -1,9 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
-	deriveTrips,
-	guessHomeCountry,
-	homeOf,
+	gapBetween,
 	mergeKept,
 	type Stamp,
 	stayHints,
@@ -143,16 +141,13 @@ describe("demo data", () => {
 		expect(await db.locations.get("mine-uuid")).toBeTruthy();
 	});
 
-	it("suggests a history of stays with the four demo trips", async () => {
+	it("suggests a history of stays from the demo stamps and photos", async () => {
 		const db = new VoyputDb("demo-trips");
 		await seedDemo(db);
 		const stamps = usableStamps(await db.stamps.toArray());
 		const locations = await db.locations.toArray();
-		const home = guessHomeCountry(stamps, locations);
-		expect(home).toBe("UA");
+		const stays = suggestStays({ stamps, locations });
 
-		const stays = suggestStays({ stamps, locations, home: home ?? "" });
-		expect(homeOf(stays)).toBe("UA");
 		const hints = stayHints(stays, {
 			stamps,
 			passports: await db.passports.toArray(),
@@ -167,7 +162,8 @@ describe("demo data", () => {
 				`${s.arrival.source}/${s.departure.source}`,
 			]),
 		).toEqual([
-			["UA", null, "2016-08-10", "estimated/stamp"],
+			// From the first photo on: no stay since birth without a birth country.
+			["UA", "2016-01-01", "2016-08-10", "photos/stamp"],
 			["ES", "2016-08-10", "2016-08-24", "stamp/stamp"],
 			["UA", "2016-08-24", "2017-05-03", "stamp/stamp"],
 			["PL", "2017-05-03", "2017-05-12", "stamp/stamp"],
@@ -179,14 +175,13 @@ describe("demo data", () => {
 			["FR", "2019-07-08", "2019-07-15", "photos/stamp"],
 			["UA", "2019-07-15", null, "stamp/estimated"],
 		]);
+		// Stamps and photos cover every day: no gap between stays.
 		expect(
-			deriveTrips(stays, "UA").map((t) => [t.start, t.end, t.visited]),
-		).toEqual([
-			["2016-08-10", "2016-08-24", ["ES"]],
-			["2017-05-03", "2017-05-12", ["PL"]],
-			["2018-10-12", "2018-10-20", ["GE"]],
-			["2019-07-01", "2019-07-15", ["IT", "FR"]],
-		]);
+			stays.slice(1).flatMap((s, i) => {
+				const gap = gapBetween(stays[i] as TravelStay, s);
+				return gap ? [gap] : [];
+			}),
+		).toEqual([]);
 	});
 
 	it("removes only the stays built on demo data, not the user's own", async () => {
@@ -212,12 +207,12 @@ describe("demo data", () => {
 			approved: true,
 		};
 		const history = mergeKept(
-			suggestStays({ stamps, locations, home: "UA" }).filter(
+			suggestStays({ stamps, locations }).filter(
 				(s) => s.countryCode !== "ES" || s.arrival.date !== "2020-02-01",
 			),
 			[own],
 		);
-		// A demo home stay that also holds one of the user's photos keeps it.
+		// A demo stay that also holds one of the user's photos keeps it.
 		const mixed = history.findIndex((s) => s.arrival.date === "2019-07-15");
 		history[mixed] = {
 			...(history[mixed] as TravelStay),

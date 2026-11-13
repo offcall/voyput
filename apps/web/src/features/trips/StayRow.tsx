@@ -8,6 +8,7 @@ import {
 	type TravelStay,
 } from "@voyput/core";
 import { Button } from "@voyput/ui";
+import type { ReactNode } from "react";
 import {
 	countryName,
 	flagOf,
@@ -82,6 +83,9 @@ export function StayRow({
 	onSelect,
 	onChange,
 	onDelete,
+	onSplit,
+	onAddAfter,
+	below,
 }: {
 	stay: TravelStay;
 	/** Position in the history, from 1. */
@@ -93,6 +97,12 @@ export function StayRow({
 	onSelect: () => void;
 	onChange: (stay: TravelStay) => void;
 	onDelete: () => void;
+	/** Opens the form that asks for the day to split at. */
+	onSplit: () => void;
+	/** Opens the form for a new stay right after this one. */
+	onAddAfter: () => void;
+	/** A form opened from this row (split, add after). */
+	below?: ReactNode;
 }) {
 	const span = staySpan(stay, birth, today);
 	const days = spanLength(span);
@@ -194,6 +204,25 @@ export function StayRow({
 					<Button
 						size="sm"
 						variant="ghost"
+						aria-label={`Split stay ${number}`}
+						title="Split this stay in two at a day you pick"
+						onClick={onSplit}
+					>
+						✂ Split
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						square
+						aria-label={`Add a stay after stay ${number}`}
+						title="Add a stay after this one"
+						onClick={onAddAfter}
+					>
+						+
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
 						square
 						aria-label={`Delete stay ${number}`}
 						title="Delete this stay; Undo brings it back"
@@ -204,6 +233,7 @@ export function StayRow({
 				</div>
 			</div>
 			<HintLines hints={own} />
+			{below}
 		</div>
 	);
 }

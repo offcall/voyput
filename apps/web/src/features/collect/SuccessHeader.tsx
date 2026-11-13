@@ -35,7 +35,7 @@ export function SuccessHeader({
 				<p className="collect-hero-lead">
 					{complete
 						? "Your travel history is ready."
-						: "From passport photos to trips, in five steps. Everything stays in this browser."}
+						: "From passport photos to stays, in five steps. Everything stays in this browser."}
 				</p>
 				<div className="collect-hero-progress">
 					<span className="collect-hero-score">
@@ -70,22 +70,22 @@ export function SuccessHeader({
 }
 
 function Stats({ plan }: { plan: Plan }) {
-	const noTrips = plan.trips === 0;
+	const noStays = plan.stays === 0;
 	const stats = [
 		{
 			label: "Countries",
 			value: number.format(plan.countries),
 			hint:
-				plan.countriesFrom === "trips" ? "in saved trips" : "in your photos",
+				plan.countriesFrom === "stays" ? "in saved stays" : "in your photos",
 		},
 		{
 			label: "Days abroad",
-			value: noTrips ? "–" : number.format(plan.daysAbroad),
-			hint: noTrips ? "after trips" : "in saved trips",
+			value: noStays ? "–" : number.format(plan.daysAbroad),
+			hint: noStays ? "after stays" : "in saved stays",
 		},
 		{
-			label: "Trips",
-			value: number.format(plan.trips),
+			label: "Stays",
+			value: number.format(plan.stays),
 			hint: "saved",
 		},
 		{

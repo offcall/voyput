@@ -124,8 +124,8 @@ export function StayRecords({
 									) : null}
 								</td>
 								<td>
-									{r.home ? "Home" : r.kind === "transit" ? "Transit" : "Stay"}{" "}
-									· {methodLabel(r.entry.method)}
+									{r.kind === "transit" ? "Transit" : "Stay"} ·{" "}
+									{methodLabel(r.entry.method)}
 								</td>
 								<td>
 									{SOURCE_LABELS[r.entry.source]} /{" "}

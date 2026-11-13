@@ -1,18 +1,22 @@
 import { useNavigate, useParams } from "@tanstack/react-router";
 import {
-	COUNTRY_CODES,
+	addStay,
+	canSplitAt,
 	clearStayIds,
-	deriveTrips,
+	gapBetween,
 	isIsoDate,
 	type LegacyTrip,
 	legacyTripStays,
 	mergeKept,
-	spanLength,
+	type NewStay,
+	type StayGap,
+	splitStay,
 	stayCounts,
 	stayHints,
+	staySpan,
 	type TravelStay,
-	type Trip,
 	usableStamps,
+	withBirthStay,
 } from "@voyput/core";
 import {
 	Button,
@@ -23,98 +27,208 @@ import {
 	Toolbar,
 	ToolbarSpacer,
 } from "@voyput/ui";
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useReducer,
+	useState,
+} from "react";
 import { useDb } from "../../db/DbContext";
 import { DateField } from "./DateField";
 import { EMPTY_EDITS, editReducer, type Snapshot } from "./editHistory";
-import { countryName, localToday, plural, stayRange } from "./format";
+import {
+	addDays,
+	countryName,
+	dayCount,
+	flagOf,
+	localToday,
+	longDay,
+	plural,
+	stayRange,
+} from "./format";
 import { LegacyTrips } from "./LegacyTrips";
 import { buildPhotoDays } from "./photoDays";
 import { StayDetail } from "./StayDetail";
+import { AddStayForm, CountrySelect, SplitForm } from "./StayForms";
 import { StayRow } from "./StayRow";
 import "./trips.css";
 import {
 	historyOf,
-	homeFor,
 	loadTripsData,
+	type StayOrder,
 	saveBirth,
-	saveHome,
 	saveLegacyTrips,
+	saveOrder,
 	saveStays,
 	suggestHistory,
 	type TripsData,
 } from "./tripStore";
 
-/** The list in order: home stays alone, the stays of a trip together. */
-type Part =
-	| { kind: "stay"; index: number }
-	| { kind: "trip"; trip: Trip; number: number; indexes: number[] };
-
-function parts(stays: readonly TravelStay[], trips: readonly Trip[]): Part[] {
-	const tripOf = new Map<string, Trip>();
-	for (const trip of trips) for (const id of trip.stayIds) tripOf.set(id, trip);
-	const out: Part[] = [];
-	stays.forEach((stay, index) => {
-		const trip = tripOf.get(stay.id);
-		const last = out.at(-1);
-		if (!trip) out.push({ kind: "stay", index });
-		else if (last?.kind === "trip" && last.trip === trip)
-			last.indexes.push(index);
-		else
-			out.push({
-				kind: "trip",
-				trip,
-				number: trips.indexOf(trip) + 1,
-				indexes: [index],
-			});
-	});
-	return out;
+interface Birth {
+	birth: string | null;
+	birthCountry: string | null;
 }
 
-function HomeSetting({
-	home,
-	picked,
-	onPick,
+/** "Born in 🇲🇩 Moldova · 21 May 1997": with both set, the first stay is there since birth. */
+function BirthSetting({
+	value,
+	onChange,
 }: {
-	home: string | null;
-	picked: boolean;
-	onPick: (cc: string) => void;
+	value: Birth;
+	onChange: (birth: Birth) => void;
 }) {
 	const [open, setOpen] = useState(false);
-	if (!open && home)
+	const { birth, birthCountry } = value;
+	if (!open)
 		return (
-			<p className="vp-stays-home">
-				Home: <strong>{countryName(home)}</strong>
-				{picked ? null : <span className="vp-trips-muted"> (most stays)</span>}{" "}
-				·{" "}
+			<p className="vp-stays-born">
+				<span>Born in </span>
+				{birthCountry ? (
+					<strong>
+						<span aria-hidden="true">{flagOf(birthCountry)}</span>{" "}
+						{countryName(birthCountry)}
+					</strong>
+				) : (
+					<span className="vp-trips-muted">no country set</span>
+				)}
+				<span aria-hidden="true"> · </span>
+				{birth ? (
+					<strong>{longDay(birth)}</strong>
+				) : (
+					<span className="vp-trips-muted">no date set</span>
+				)}
+				<span aria-hidden="true"> · </span>
 				<button
 					type="button"
 					className="vp-stays-link"
 					onClick={() => setOpen(true)}
 				>
-					change
+					{birth || birthCountry ? "change" : "set"}
 				</button>
 			</p>
 		);
 	return (
-		<label className="vp-field vp-stays-home-pick">
-			<span className="vp-field-label">Home country</span>
-			<select
-				className="vp-input"
-				value={home ?? ""}
-				onChange={(e) => {
-					onPick(e.target.value);
-					setOpen(false);
+		<div className="vp-stays-born-pick">
+			<CountrySelect
+				label="Birth country"
+				value={birthCountry ?? ""}
+				placeholder="Not set"
+				onChange={(cc) => onChange({ birth, birthCountry: cc || null })}
+			/>
+			<DateField
+				label="Birth date"
+				value={birth ?? ""}
+				onChange={(d) => {
+					if (d === "" || isIsoDate(d))
+						onChange({ birthCountry, birth: d === "" ? null : d });
 				}}
-			>
-				{home ? null : <option value="">Choose your home country</option>}
-				{COUNTRY_CODES.map((cc) => (
-					<option key={cc} value={cc}>
-						{countryName(cc)} ({cc})
-					</option>
-				))}
-			</select>
-		</label>
+			/>
+			<Button size="sm" onClick={() => setOpen(false)}>
+				Done
+			</Button>
+			<span className="vp-trips-muted">
+				With both set, your history starts with a stay there since birth.
+			</span>
+		</div>
+	);
+}
+
+/** "Newest first" / "Oldest first". */
+function OrderToggle({
+	order,
+	onChange,
+}: {
+	order: StayOrder;
+	onChange: (order: StayOrder) => void;
+}) {
+	const option = (value: StayOrder, label: string) => (
+		<Button
+			size="sm"
+			variant={order === value ? "secondary" : "ghost"}
+			aria-pressed={order === value}
+			onClick={() => onChange(value)}
+		>
+			{label}
+		</Button>
+	);
+	return (
+		<fieldset className="vp-stays-order" aria-label="Order">
+			{option("newest", "Newest first")}
+			{option("oldest", "Oldest first")}
+		</fieldset>
+	);
+}
+
+/** Days no stay covers between two stays: just a gap, with a button to fill it. */
+function GapRow({
+	gap,
+	onAdd,
+	below,
+}: {
+	gap: StayGap;
+	onAdd: () => void;
+	below?: ReactNode;
+}) {
+	return (
+		<div className="vp-stay-block">
+			<div className="vp-stay-gap">
+				<span className="vp-stay-gap-label">
+					gap · {plural(gap.days, "day")}
+				</span>
+				<span className="vp-trips-muted">
+					{stayRange(addDays(gap.from, 1), addDays(gap.to, -1))}
+				</span>
+				<Button
+					size="sm"
+					variant="ghost"
+					aria-label={`Add a stay in the gap of ${plural(gap.days, "day")}`}
+					onClick={onAdd}
+				>
+					+ Add stay
+				</Button>
+			</div>
+			{below}
+		</div>
+	);
+}
+
+/** A form open in the list: a split of one stay, or a new stay at one place. */
+type OpenForm =
+	| { kind: "split"; id: string }
+	| {
+			kind: "add";
+			/** Where it opened: `top`, `after-<stay id>` or `gap-<stay id>`. */
+			at: string;
+			initial: { countryCode: string; arrival: string; departure: string };
+	  }
+	| null;
+
+/** The list in chronological order: stays, and gaps between them. */
+type Item =
+	| { kind: "stay"; index: number }
+	| { kind: "gap"; after: number; gap: StayGap };
+
+function itemsOf(stays: readonly TravelStay[]): Item[] {
+	const items: Item[] = [];
+	stays.forEach((stay, index) => {
+		const prev = stays[index - 1];
+		const gap = prev ? gapBetween(prev, stay) : null;
+		if (gap) items.push({ kind: "gap", after: index - 1, gap });
+		items.push({ kind: "stay", index });
+	});
+	return items;
+}
+
+/** A day in the middle of a stay, to start the split form at. */
+function middleDay(stay: TravelStay, birth: string | null, today: string) {
+	const { start, end } = staySpan(stay, birth, today);
+	if (end === null) return today;
+	if (start === null || start >= end) return addDays(end, -1);
+	return addDays(
+		start,
+		Math.max(1, Math.floor((dayCount(start, end) - 1) / 2)),
 	);
 }
 
@@ -124,7 +238,9 @@ export function TripsPage() {
 	const [stored, setStored] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [edits, dispatch] = useReducer(editReducer, EMPTY_EDITS);
-	const { stays, birth } = edits;
+	const { stays, birth, birthCountry } = edits;
+	const [form, setForm] = useState<OpenForm>(null);
+	const [order, setOrder] = useState<StayOrder>("newest");
 	/** The selected stay lives in the URL (`/collect/trips/<id>`); an unknown id selects nothing. */
 	const selectedId = useParams({ strict: false }).tripId ?? null;
 	const navigate = useNavigate();
@@ -146,9 +262,14 @@ export function TripsPage() {
 				if (!alive) return;
 				setData(loaded);
 				setStored(loaded.stored.length > 0);
+				setOrder(loaded.order);
 				dispatch({
 					type: "load",
-					snapshot: { stays: historyOf(loaded), birth: loaded.birth },
+					snapshot: {
+						stays: historyOf(loaded),
+						birth: loaded.birth,
+						birthCountry: loaded.birthCountry,
+					},
 				});
 			})
 			.catch(fail);
@@ -161,18 +282,25 @@ export function TripsPage() {
 	const { version } = edits;
 	useEffect(() => {
 		if (version === 0) return;
-		Promise.all([saveStays(db, stays), saveBirth(db, birth)])
+		Promise.all([saveStays(db, stays), saveBirth(db, { birth, birthCountry })])
 			.then(() => setStored(true))
 			.catch(fail);
-	}, [db, version, stays, birth, fail]);
+	}, [db, version, stays, birth, birthCountry, fail]);
 
 	const edit = (snapshot: Partial<Snapshot>) =>
-		dispatch({ type: "edit", snapshot: { stays, birth, ...snapshot } });
+		dispatch({
+			type: "edit",
+			snapshot: { stays, birth, birthCountry, ...snapshot },
+		});
+	/** A stay the user changed: a rebuild keeps it. */
 	const change = (stay: TravelStay) =>
-		edit({ stays: stays.map((s) => (s.id === stay.id ? stay : s)) });
+		edit({
+			stays: stays.map((s) =>
+				s.id === stay.id ? { ...stay, edited: true } : s,
+			),
+		});
 
 	const today = localToday();
-	const home = data ? homeFor(data, stays) : null;
 	const usable = useMemo(() => usableStamps(data?.stamps ?? []), [data]);
 	const hints = useMemo(
 		() =>
@@ -185,37 +313,71 @@ export function TripsPage() {
 	);
 	const counts = stayCounts(stays, hints);
 	const clear = clearStayIds(stays, hints, birth);
-	const trips = useMemo(() => deriveTrips(stays, home), [stays, home]);
 	const photoDays = useMemo(
 		() => buildPhotoDays(data?.locations ?? []),
 		[data],
 	);
-	const visited = new Set(trips.flatMap((t) => t.visited));
+	const evidenceDays = useMemo(
+		() => ({
+			stamps: new Map(usable.map((s) => [s.id, s.date])),
+			photos: new Map(
+				(data?.locations ?? []).map((r) => [r.uuid, r.date.slice(0, 10)]),
+			),
+		}),
+		[usable, data],
+	);
+	const countries = new Set(
+		stays.filter((s) => s.kind === "stay").map((s) => s.countryCode),
+	);
 
-	const pickHome = (cc: string) => {
-		if (!data) return;
-		const next = { ...data, pickedHome: cc };
-		setData(next);
-		saveHome(db, cc).catch(fail);
-		// Nothing edited yet: suggest the history again for the new home.
-		if (!stored)
-			dispatch({
-				type: "load",
-				snapshot: { stays: suggestHistory(next), birth },
-			});
+	const setBirth = (next: Birth) =>
+		edit({ ...next, stays: withBirthStay(stays, next) });
+	const changeOrder = (next: StayOrder) => {
+		setOrder(next);
+		saveOrder(db, next).catch(fail);
 	};
+	// Approved and edited stays stay as they are; the rest is suggested again.
 	const rebuild = () =>
 		loadTripsData(db)
 			.then((fresh) => {
 				setData(fresh);
 				edit({
 					stays: suggestHistory(
-						{ ...fresh, pickedHome: data?.pickedHome ?? fresh.pickedHome },
-						stays.filter((s) => s.approved),
+						{ ...fresh, birth, birthCountry },
+						stays.filter((s) => s.approved || s.edited),
 					),
 				});
 			})
 			.catch(fail);
+	const add = (stay: NewStay) => {
+		const next = addStay(stays, stay);
+		edit({ stays: next.stays });
+		setForm(null);
+		select(next.id);
+	};
+	const openAdd = (
+		at: string,
+		arrival: string | null,
+		departure: string | null,
+	) =>
+		setForm({
+			kind: "add",
+			at,
+			initial: {
+				countryCode: "",
+				arrival: arrival ?? "",
+				departure: departure ?? "",
+			},
+		});
+	const addForm = (at: string) =>
+		form?.kind === "add" && form.at === at ? (
+			<AddStayForm
+				initial={form.initial}
+				onAdd={add}
+				onCancel={() => setForm(null)}
+			/>
+		) : null;
+	const latest = stays.at(-1);
 
 	const dropLegacy = (trip: LegacyTrip) => {
 		if (!data) return;
@@ -247,9 +409,34 @@ export function TripsPage() {
 					if (stay.id === selectedId) select(null);
 					edit({ stays: stays.filter((s) => s.id !== stay.id) });
 				}}
+				onSplit={() => setForm({ kind: "split", id: stay.id })}
+				onAddAfter={() =>
+					openAdd(
+						`after-${stay.id}`,
+						stay.departure.date ?? today,
+						stays[i + 1]?.arrival.date ?? null,
+					)
+				}
+				below={
+					form?.kind === "split" && form.id === stay.id ? (
+						<SplitForm
+							initial={middleDay(stay, birth, today)}
+							valid={(date) => canSplitAt(stay, date)}
+							onSplit={(date) => {
+								edit({ stays: splitStay(stays, stay.id, date, evidenceDays) });
+								setForm(null);
+							}}
+							onCancel={() => setForm(null)}
+						/>
+					) : (
+						addForm(`after-${stay.id}`)
+					)
+				}
 			/>
 		);
 	};
+	const items = itemsOf(stays);
+	if (order === "newest") items.reverse();
 
 	if (!data) return error ? <p role="alert">{error}</p> : <p>Loading…</p>;
 
@@ -287,10 +474,13 @@ export function TripsPage() {
 						✓ Approve clear ({clear.length})
 					</Button>
 					<ToolbarSpacer />
+					<span className="vp-trips-muted vp-stays-rebuild-note">
+						Keeps approved and edited stays
+					</span>
 					<Button
 						size="sm"
 						variant="ghost"
-						title="Suggest the history again from stamps and photos; approved stays stay"
+						title="Suggest the history again from stamps and photos; approved and edited stays stay as they are"
 						onClick={() => void rebuild()}
 					>
 						Rebuild suggestions
@@ -299,26 +489,7 @@ export function TripsPage() {
 			</div>
 			{error ? <p role="alert">{error}</p> : null}
 
-			<div className="vp-stays-settings">
-				<HomeSetting
-					home={home}
-					picked={data.pickedHome !== null}
-					onPick={pickHome}
-				/>
-				<div className="vp-stays-birth">
-					<DateField
-						label="Birth date"
-						value={birth ?? ""}
-						onChange={(value) => {
-							if (value === "" || isIsoDate(value))
-								edit({ birth: value === "" ? null : value });
-						}}
-					/>
-					<span className="vp-trips-muted">
-						Leave it empty to keep the first stay “since birth”.
-					</span>
-				</div>
-			</div>
+			<BirthSetting value={{ birth, birthCountry }} onChange={setBirth} />
 
 			<LegacyTrips
 				trips={data.legacy}
@@ -327,8 +498,8 @@ export function TripsPage() {
 			/>
 
 			<StatGroup>
-				<Stat label="Trips" value={trips.length} />
-				<Stat label="Countries visited" value={visited.size} />
+				<Stat label="Stays" value={stays.length} />
+				<Stat label="Countries" value={countries.size} />
 				<Stat label="Left to approve" value={counts.left} />
 				<Stat label="With errors" value={counts.withErrors} />
 				<Stat label="Approved" value={counts.approved} />
@@ -342,39 +513,47 @@ export function TripsPage() {
 			) : (
 				<Notice>
 					No reviewed stamps or photo locations yet, so there is nothing to
-					suggest. Review stamps, import your iPhone photo locations or choose
-					your home country.
+					suggest. Review stamps, import your iPhone photo locations or add a
+					stay by hand.
 				</Notice>
 			)}
 
 			<div className="vp-trips-layout" data-open={selected ? true : undefined}>
 				<div className="vp-stays">
-					{parts(stays, trips).map((part) =>
-						part.kind === "stay" ? (
-							row(part.index)
+					<div className="vp-stays-listbar">
+						<Button
+							size="sm"
+							variant="secondary"
+							onClick={() =>
+								openAdd(
+									"top",
+									latest ? (latest.departure.date ?? today) : today,
+									null,
+								)
+							}
+						>
+							+ Add stay
+						</Button>
+						<ToolbarSpacer />
+						<OrderToggle order={order} onChange={changeOrder} />
+					</div>
+					{addForm("top")}
+					{items.map((item) =>
+						item.kind === "stay" ? (
+							row(item.index)
 						) : (
-							<section
-								key={part.trip.id}
-								className="vp-stays-trip"
-								data-approved={part.trip.approved || undefined}
-								aria-label={`Trip ${part.number}: ${part.trip.title}`}
-							>
-								<h3 className="vp-stays-trip-head">
-									<span>Trip {part.number}</span>
-									<span className="vp-stays-trip-title">{part.trip.title}</span>
-									<span className="vp-trips-muted">
-										{stayRange(part.trip.start, part.trip.end)} ·{" "}
-										{plural(
-											spanLength({
-												start: part.trip.start,
-												end: part.trip.end,
-											}) ?? 0,
-											"day",
-										)}
-									</span>
-								</h3>
-								{part.indexes.map(row)}
-							</section>
+							<GapRow
+								key={`gap-${item.after}`}
+								gap={item.gap}
+								onAdd={() =>
+									openAdd(
+										`gap-${stays[item.after]?.id}`,
+										item.gap.from,
+										item.gap.to,
+									)
+								}
+								below={addForm(`gap-${stays[item.after]?.id}`)}
+							/>
 						),
 					)}
 				</div>
@@ -387,7 +566,6 @@ export function TripsPage() {
 							next={stays[index + 1]}
 							birth={birth}
 							today={today}
-							home={home}
 							photoDays={photoDays}
 							usable={usable}
 							stamps={data.stamps}

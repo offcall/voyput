@@ -5,11 +5,10 @@ import type { BorderCrossing } from "../stamps/types";
 import { type DatedStamp, locationDay } from "./evidence";
 import type { EdgeSource, StayEdge, TravelMethod, TravelStay } from "./types";
 
-/** What stays are suggested from. `home` fills the time between trips. */
+/** What stays are suggested from. */
 export interface StayEvidence {
 	stamps: readonly DatedStamp[];
 	locations: readonly LocationRow[];
-	home: string;
 }
 
 export const methodOf = (crossing: BorderCrossing): TravelMethod =>
@@ -38,8 +37,6 @@ interface Draft {
 	cities: string[];
 	/** Border posts of the stamps; the place when no photo names a city. */
 	posts: string[];
-	/** Home assumed after an exit from abroad, without evidence of its own. */
-	assumed?: boolean;
 }
 
 const draft = (countryCode: string, arrival: StayEdge): Draft => ({
@@ -89,32 +86,14 @@ function nextStamp(pending: DatedStamp[], current: string | null): DatedStamp {
 }
 
 /**
- * The passport backbone: home since birth, then a stay per crossing. After an
- * exit from abroad the traveller is assumed home again; after an exit from
- * home the place is unknown until the next arrival (`null` in the list).
+ * The passport backbone: a stay per crossing. Before the first stamp and
+ * after each exit the place is unknown until the next arrival (`null` in the
+ * list): photos may fill it, else it stays a gap.
  */
-function backbone(
-	stamps: readonly DatedStamp[],
-	home: string,
-): (Draft | null)[] {
-	const list: (Draft | null)[] = [];
-	let current: Draft | null = draft(home, edge(null, "estimated"));
-	list.push(current);
+function backbone(stamps: readonly DatedStamp[]): (Draft | null)[] {
+	const list: (Draft | null)[] = [null];
+	let current = null as Draft | null;
 	const enter = (countryCode: string, arrival: StayEdge): Draft => {
-		const assumed: Draft | null = current;
-		// Entering another country within a day of leaving one is the same
-		// journey, not a stop at home: the time between is left to the photos.
-		if (
-			assumed?.assumed &&
-			assumed.stampIds.length === 0 &&
-			countryCode !== home &&
-			arrival.date !== null &&
-			assumed.arrival.date !== null &&
-			day(arrival.date) - day(assumed.arrival.date) <= 1
-		) {
-			list[list.length - 1] = null;
-			current = null;
-		}
 		if (current && !current.departure)
 			current.departure = edge(arrival.date, "estimated");
 		const next = draft(countryCode, arrival);
@@ -142,9 +121,8 @@ function backbone(
 					stay = enter(s.countryCode, stampEdge(s));
 				else {
 					stay = here;
-					// Since birth stays since birth; an estimate gives way to the stamp.
-					if (stay.arrival.date !== null) stay.arrival = stampEdge(s);
-					stay.assumed = false;
+					// An estimate gives way to the stamp.
+					stay.arrival = stampEdge(s);
 				}
 			} else if (s.direction === "exit") {
 				stay =
@@ -161,13 +139,8 @@ function backbone(
 			stay.stampIds.push(s.id);
 			addTo(stay.posts, s.location);
 			if (s.direction === "exit") {
-				if (s.countryCode === home) {
-					current = null;
-					list.push(null);
-				} else {
-					current = { ...draft(home, edge(date, "estimated")), assumed: true };
-					list.push(current);
-				}
+				current = null;
+				list.push(null);
 			}
 		}
 	}
@@ -199,7 +172,7 @@ function photosOf(locations: readonly LocationRow[]): Photo[] {
 	return photos.sort((a, b) => a.day.localeCompare(b.day) || a.time - b.time);
 }
 
-/** A backbone stay, or the unknown time between leaving home and the next arrival. */
+/** A backbone stay, or the unknown time before the next arrival. */
 interface Slot {
 	stay: Draft | null;
 	from: string | null;
@@ -260,13 +233,17 @@ function assign(all: readonly Slot[], photos: readonly Photo[]): Photo[][] {
 	return buckets;
 }
 
-/** Days after an exit from abroad in which photos elsewhere mean onward travel, not home. */
-const ONWARD_DAYS = 2;
+/** Days between an edge of the unknown time and a photo that still count as the same crossing. */
+const NEAR_DAYS = 1;
+
+const near = (a: string, b: string) => Math.abs(day(a) - day(b)) <= NEAR_DAYS;
 
 /**
  * Photos split a slot into stays wherever their country changes; a change is
  * dated by the first photo in the next country. A day's photos are taken
  * country by country, the current one first, so a border day switches once.
+ * In the unknown time between stamps, photo stays begin at the first photo
+ * and end at the last one (or at the slot's edge a day away): the rest is a gap.
  */
 function split(
 	slot: Slot,
@@ -276,21 +253,15 @@ function split(
 	const original = slot.stay;
 	if (photos.length === 0) return original ? [original] : [];
 	const first = photos[0] as Photo;
-	// Home was only assumed after leaving abroad: photos elsewhere right
-	// after that exit mean the journey went on (home only before photos).
-	const onward =
-		original?.assumed === true &&
-		original.stampIds.length === 0 &&
-		original.arrival.date !== null &&
-		first.countryCode !== original.countryCode &&
-		day(first.day) - day(original.arrival.date) <= ONWARD_DAYS;
-	let segment: Draft =
-		original && !onward
-			? { ...draft(original.countryCode, original.arrival), posts: [] }
-			: draft(
-					first.countryCode,
-					original?.arrival ?? edge(slot.from, "estimated"),
-				);
+	const last = photos.at(-1) as Photo;
+	let segment: Draft = original
+		? { ...draft(original.countryCode, original.arrival), posts: [] }
+		: draft(
+				first.countryCode,
+				slot.from !== null && near(slot.from, first.day)
+					? edge(slot.from, "estimated")
+					: edge(first.day, "photos"),
+			);
 	const parts = [segment];
 	const byDay = new Map<string, Photo[]>();
 	for (const p of photos) byDay.set(p.day, [...(byDay.get(p.day) ?? []), p]);
@@ -340,7 +311,12 @@ function split(
 			if (target) addTo(target.posts, s.location);
 		}
 	} else {
-		segment.departure = slot.to === null ? null : edge(slot.to, "estimated");
+		segment.departure =
+			slot.to === null
+				? null
+				: near(slot.to, last.day)
+					? edge(slot.to, "estimated")
+					: edge(last.day, "photos");
 	}
 	return parts;
 }
@@ -399,16 +375,15 @@ function withIds(list: readonly Omit<TravelStay, "id">[]): TravelStay[] {
 }
 
 /**
- * The whole history as one-country stays, from reviewed stamps and photo
- * locations: the passport gives the backbone, photos subdivide it and fill
- * the time after leaving home, home fills the time between trips. The first
- * stay is home since birth; the last one stays open while nothing ends it.
- * A same-day stay entered and left by plane is suggested as a transit.
+ * The history as one-country stays, only where there is evidence: the
+ * passport gives the backbone, photos subdivide it and fill the time between
+ * stamps. Days without evidence are left as gaps; nothing is assumed about
+ * them. The last stay stays open while nothing ends it. A same-day stay
+ * entered and left by plane is suggested as a transit.
  */
 export function suggestStays(evidence: StayEvidence): TravelStay[] {
-	const { home } = evidence;
 	const stamps = new Map(evidence.stamps.map((s) => [s.id, s]));
-	const all = slots(backbone(evidence.stamps, home));
+	const all = slots(backbone(evidence.stamps));
 	const buckets = assign(all, photosOf(evidence.locations));
 	const drafts = all
 		.flatMap((slot, i) => split(slot, buckets[i] ?? [], stamps))
@@ -417,7 +392,6 @@ export function suggestStays(evidence: StayEvidence): TravelStay[] {
 		mergeSameCountry(drafts).map((s) => {
 			const departure = s.departure ?? edge(null, "estimated");
 			const transit =
-				s.countryCode !== home &&
 				sameDay(s) &&
 				s.arrival.method === "plane" &&
 				departure.method === "plane";
@@ -530,99 +504,41 @@ const joinInto = (into: TravelStay, next: TravelStay) => {
 };
 
 /**
- * Periods where the user deleted a trip (before stays): home there, nothing
- * abroad. A stay abroad inside such a period goes, one across its edge is cut
- * back to it when a stamp or the user dates its other edge, and home fills
- * what is left; home stays that meet join.
+ * Periods where the user deleted a trip (before stays): nothing was there.
+ * A stay that begins inside such a period goes, unless a stamp or the user
+ * dated that arrival and it lasts beyond the period; a one-day stay on the
+ * period's first or last day is the border day the trip shared with the
+ * time around it and stays. Stays of one country a dropped one separated join.
  */
 export function applyDismissed(
 	stays: readonly TravelStay[],
 	periods: readonly Period[],
-	home: string,
 ): TravelStay[] {
 	if (periods.length === 0) return [...stays];
-	let list = [...stays];
-	for (const p of periods) {
-		list = list.flatMap((s): TravelStay[] => {
-			const a = fromOf(s);
-			const d = toOf(s);
-			if (s.countryCode === home || a > p.end || d < p.start) return [s];
-			// A rest outside the period stays only when a stamp or the user dates
-			// its far edge; an estimate around evidence inside the period goes too.
-			const before =
-				a < p.start && exact(s.arrival)
-					? [{ ...s, departure: edge(p.start, "estimated") }]
-					: [];
-			const after =
-				d > p.end && exact(s.departure)
-					? [{ ...s, id: `${s.id}-after`, arrival: edge(p.end, "estimated") }]
-					: [];
-			return [...before, ...after];
-		});
-	}
-	const touches = (from: string, to: string) =>
-		periods.some((p) => p.start <= to && from <= p.end);
+	const inside = (s: TravelStay) => {
+		const from = fromOf(s);
+		const to = toOf(s);
+		return periods.some(
+			(p) =>
+				p.start <= from &&
+				from <= p.end &&
+				(to <= p.end || !exact(s.arrival)) &&
+				!(from === to && (from === p.start || from === p.end)),
+		);
+	};
 	const out: TravelStay[] = [];
-	for (const stay of list) {
-		const s = { ...stay };
-		const last = out.at(-1);
-		if (last && last.countryCode === home && s.countryCode === home) {
-			joinInto(last, s);
+	let dropped = false;
+	for (const stay of stays) {
+		if (inside(stay)) {
+			dropped = true;
 			continue;
 		}
-		const from = last?.departure.date;
-		const to = s.arrival.date;
-		if (last && from && to && from < to && touches(from, to)) {
-			if (last.countryCode === home) last.departure = edge(to, "estimated");
-			else if (s.countryCode === home) s.arrival = edge(from, "estimated");
-			else
-				out.push({
-					id: `stay-${from}-${home.toLowerCase()}-home`,
-					countryCode: home,
-					place: "",
-					kind: "stay",
-					arrival: edge(from, "estimated"),
-					departure: edge(to, "estimated"),
-					stampIds: [],
-					photoIds: [],
-					approved: false,
-				});
-		}
-		out.push(s);
+		const last = out.at(-1);
+		if (dropped && last && last.countryCode === stay.countryCode)
+			joinInto(last, stay);
+		else out.push({ ...stay });
+		dropped = false;
 	}
-	return out;
-}
-
-/**
- * A saved trip ended at home: after each stay in `trips` (stays of migrated
- * trips) that no stay follows directly, home fills the days up to the next
- * stay, or stays open after the last one.
- */
-export function homeAfterTrips(
-	stays: readonly TravelStay[],
-	trips: ReadonlySet<string>,
-	home: string,
-): TravelStay[] {
-	const out: TravelStay[] = [];
-	stays.forEach((s, i) => {
-		out.push(s);
-		const from = s.departure.date;
-		if (!trips.has(s.id) || s.countryCode === home || from === null) return;
-		const next = stays[i + 1];
-		const to = next?.arrival.date;
-		if (next && (to === null || to === undefined || to <= from)) return;
-		out.push({
-			id: `stay-${from}-${home.toLowerCase()}-home`,
-			countryCode: home,
-			place: "",
-			kind: "stay",
-			arrival: { ...s.departure },
-			departure: next ? edge(to ?? null, "estimated") : edge(null, "estimated"),
-			stampIds: [],
-			photoIds: [],
-			approved: false,
-		});
-	});
 	return out;
 }
 

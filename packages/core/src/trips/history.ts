@@ -2,9 +2,9 @@ import { spanDays } from "../explore/dates";
 import type { LocationRow } from "../locations/types";
 import type { Stamp } from "../stamps/types";
 import { applyDismissed, mergeKept, type Period, suggestStays } from "./build";
-import { countryNameOf } from "./countries";
-import { guessHomeCountry, locationDay, usableStamps } from "./evidence";
-import type { TravelStay, Trip } from "./types";
+import { withBirthStay } from "./edit";
+import { locationDay, usableStamps } from "./evidence";
+import type { TravelStay } from "./types";
 
 /** First and last day of a stay; null where it is unknown. */
 export interface StaySpan {
@@ -31,71 +31,6 @@ export function staySpan(
 export function spanLength({ start, end }: StaySpan): number | null {
 	if (start === null || end === null || start > end) return null;
 	return spanDays(start, end);
-}
-
-/**
- * The country of most stays (transits left out): the one the traveller keeps
- * returning to. Ties go to the one with more known days, then by code.
- */
-export function homeOf(stays: readonly TravelStay[]): string | null {
-	const counts = new Map<string, { stays: number; days: number }>();
-	for (const s of stays) {
-		if (s.kind === "transit") continue;
-		const c = counts.get(s.countryCode) ?? { stays: 0, days: 0 };
-		c.stays++;
-		c.days += spanLength({ start: s.arrival.date, end: s.departure.date }) ?? 0;
-		counts.set(s.countryCode, c);
-	}
-	let best: string | null = null;
-	let top = { stays: 0, days: -1 };
-	for (const [cc, c] of [...counts].sort((a, b) => a[0].localeCompare(b[0]))) {
-		if (c.stays > top.stays || (c.stays === top.stays && c.days > top.days)) {
-			best = cc;
-			top = c;
-		}
-	}
-	return best;
-}
-
-const unique = (codes: readonly string[]) => [...new Set(codes)];
-
-/** Trips: each run of stays outside `home`, from its first arrival to its last departure. */
-export function deriveTrips(
-	stays: readonly TravelStay[],
-	home: string | null,
-): Trip[] {
-	if (!home) return [];
-	const runs: TravelStay[][] = [];
-	let run: TravelStay[] | null = null;
-	for (const s of stays) {
-		if (s.countryCode === home) run = null;
-		else if (run) run.push(s);
-		else {
-			run = [s];
-			runs.push(run);
-		}
-	}
-	return runs.map((list) => {
-		const first = list[0] as TravelStay;
-		const last = list.at(-1) as TravelStay;
-		const countries = unique(list.map((s) => s.countryCode));
-		const visited = unique(
-			list.filter((s) => s.kind === "stay").map((s) => s.countryCode),
-		);
-		const start = first.arrival.date ?? first.departure.date ?? "";
-		return {
-			id: `trip-${first.id}`,
-			title: (visited.length > 0 ? visited : countries)
-				.map(countryNameOf)
-				.join(" → "),
-			start,
-			end: last.departure.date ?? last.arrival.date ?? start,
-			stayIds: list.map((s) => s.id),
-			countries,
-			visited,
-			approved: list.every((s) => s.approved),
-		};
-	});
 }
 
 /**
@@ -127,28 +62,26 @@ export interface HistorySource {
 	/** All stamps; only usable ones count. */
 	stamps: readonly Stamp[];
 	locations: readonly LocationRow[];
-	/** The user's home, or null to guess it from the evidence. */
-	pickedHome: string | null;
-	/** Periods of trips the user deleted before stays: home there. */
+	/** Where the traveller was born; with `birth` the first stay is there since birth. */
+	birthCountry: string | null;
+	/** The birth date, YYYY-MM-DD, or null. */
+	birth: string | null;
+	/** Periods of trips the user deleted before stays: nothing there. */
 	dismissed: readonly Period[];
 }
 
 /**
- * The history suggested from the evidence, built around the stays in `kept`.
- * Without stamps, locations or a picked home there is nothing to suggest.
+ * The history suggested from the evidence, built around the stays in `kept`,
+ * with a stay since birth first when both the birth country and date are set.
  */
 export function suggestHistory(
 	source: HistorySource,
 	kept: readonly TravelStay[] = [],
 ): TravelStay[] {
 	const stamps = usableStamps(source.stamps);
-	const home = source.pickedHome ?? guessHomeCountry(stamps, source.locations);
-	const suggested = home
-		? applyDismissed(
-				suggestStays({ stamps, locations: source.locations, home }),
-				source.dismissed,
-				home,
-			)
-		: [];
-	return mergeKept(suggested, kept);
+	const suggested = applyDismissed(
+		suggestStays({ stamps, locations: source.locations }),
+		source.dismissed,
+	);
+	return withBirthStay(mergeKept(suggested, kept), source);
 }

@@ -14,8 +14,8 @@ import {
 import { useMemo, useRef } from "react";
 
 /**
- * The player's modes: core's two plus "journey", which flies between trips
- * and walks through each trip's photo clusters (`journeyWaypoints`).
+ * The player's modes: core's two plus "journey", which flies between stays
+ * and walks through each stay's photo clusters (`journeyWaypoints`).
  */
 export type PlayerMode = RouteMode | "journey";
 
@@ -32,15 +32,15 @@ export interface RouteWaypoints {
 	skipped: number;
 	/** Photos behind the photo or journey route; 0 by countries. */
 	photos: number;
-	/** Trip of each waypoint, null at home; all null in "exact by photos". */
-	tripIds: (string | null)[];
+	/** Stay of each waypoint; all null in "exact by photos". */
+	stayIds: (string | null)[];
 }
 
 const EMPTY: RouteWaypoints = {
 	waypoints: [],
 	skipped: 0,
 	photos: 0,
-	tripIds: [],
+	stayIds: [],
 };
 
 /** Stays touching the year, cut to it, as the "by countries" route reads them. */
@@ -95,7 +95,7 @@ export function useRouteWaypoints(
 					waypoints,
 					skipped: 0,
 					photos: rows.length,
-					tripIds: waypoints.map(() => null),
+					stayIds: waypoints.map(() => null),
 				};
 			}
 			cache.current.byKey.set(key, entry);

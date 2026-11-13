@@ -1,6 +1,5 @@
 import {
 	type HistorySource,
-	homeOf,
 	isCountryCode,
 	isIsoDate,
 	isLegacyTrip,
@@ -16,10 +15,15 @@ import {
 } from "@voyput/core";
 import { LEGACY_TRIPS_KEY, type VoyputDb } from "../../db/db";
 
-/** `db.kv` key of the home country the user picked. */
-export const HOME_KEY = "trips:home";
 /** `db.kv` key of the birth date, the start of the first stay. */
 export const BIRTH_KEY = "trips:birth";
+/** `db.kv` key of the birth country: with the date, the first stay is there since birth. */
+export const BIRTH_COUNTRY_KEY = "trips:birthCountry";
+/** `db.kv` key of the list order on the Trips step. */
+export const ORDER_KEY = "trips:order";
+
+/** How the Trips step lists stays. */
+export type StayOrder = "newest" | "oldest";
 /** `db.kv` key of the periods of trips the user deleted before stays (Dexie version 2). */
 export const DISMISSED_KEY = "trips:dismissed";
 
@@ -32,36 +36,50 @@ export interface TripsData extends HistorySource {
 	dismissed: Period[];
 	/** The stored history, in date order; empty until the user edits a suggestion. */
 	stored: TravelStay[];
-	/** Home country chosen by the user, or null (also when invalid). */
-	pickedHome: string | null;
+	/** Birth country set by the user, or null (also when invalid). */
+	birthCountry: string | null;
 	birth: string | null;
+	order: StayOrder;
 	/** Trips the migration could not place in a country. */
 	legacy: LegacyTrip[];
 }
 
 export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
-	const [stamps, locations, passports, stored, home, birth, dismissed, legacy] =
-		await Promise.all([
-			db.stamps.toArray(),
-			db.locations.toArray(),
-			db.passports.toArray(),
-			db.stays.toArray(),
-			db.kv.get(HOME_KEY),
-			db.kv.get(BIRTH_KEY),
-			db.kv.get(DISMISSED_KEY),
-			db.kv.get(LEGACY_TRIPS_KEY),
-		]);
+	const [
+		stamps,
+		locations,
+		passports,
+		stored,
+		birthCountry,
+		birth,
+		order,
+		dismissed,
+		legacy,
+	] = await Promise.all([
+		db.stamps.toArray(),
+		db.locations.toArray(),
+		db.passports.toArray(),
+		db.stays.toArray(),
+		db.kv.get(BIRTH_COUNTRY_KEY),
+		db.kv.get(BIRTH_KEY),
+		db.kv.get(ORDER_KEY),
+		db.kv.get(DISMISSED_KEY),
+		db.kv.get(LEGACY_TRIPS_KEY),
+	]);
 	return {
 		stamps,
 		locations,
 		passports,
 		dismissed: periodsOf(dismissed?.value),
 		stored: sortStays(stored),
-		pickedHome: isCountryCode(home?.value) ? home.value : null,
+		birthCountry: isCountryCode(birthCountry?.value)
+			? birthCountry.value
+			: null,
 		birth:
 			typeof birth?.value === "string" && isIsoDate(birth.value)
 				? birth.value
 				: null,
+		order: order?.value === "oldest" ? "oldest" : "newest",
 		legacy: Array.isArray(legacy?.value)
 			? legacy.value.filter(isLegacyTrip)
 			: [],
@@ -71,12 +89,6 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 /** The stored history, or a suggestion while nothing is stored. */
 export const historyOf = (data: TripsData): TravelStay[] =>
 	data.stored.length > 0 ? data.stored : suggestHistory(data);
-
-/** Home: the user's pick, else the country of most stays. */
-export const homeFor = (
-	data: Pick<TripsData, "pickedHome">,
-	stays: readonly TravelStay[],
-): string | null => data.pickedHome ?? homeOf(stays);
 
 /** Replaces the stored history. */
 export async function saveStays(
@@ -89,17 +101,25 @@ export async function saveStays(
 	});
 }
 
-export async function saveHome(db: VoyputDb, home: string): Promise<void> {
-	await db.kv.put({ key: HOME_KEY, value: home });
+export async function saveOrder(db: VoyputDb, order: StayOrder): Promise<void> {
+	await db.kv.put({ key: ORDER_KEY, value: order });
 }
 
-/** An empty birth date forgets it: the first stay is "since birth" again. */
+/** Birth country and date; an empty one is forgotten. */
 export async function saveBirth(
 	db: VoyputDb,
-	birth: string | null,
+	birth: { birth: string | null; birthCountry: string | null },
 ): Promise<void> {
-	if (birth) await db.kv.put({ key: BIRTH_KEY, value: birth });
-	else await db.kv.delete(BIRTH_KEY);
+	await Promise.all(
+		(
+			[
+				[BIRTH_KEY, birth.birth],
+				[BIRTH_COUNTRY_KEY, birth.birthCountry],
+			] as const
+		).map(([key, value]) =>
+			value ? db.kv.put({ key, value }) : db.kv.delete(key),
+		),
+	);
 }
 
 /** Keeps the trips still waiting for a country; none left removes the key. */

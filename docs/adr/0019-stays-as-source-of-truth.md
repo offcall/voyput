@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the trip part of ADR 0014 (Explore stays derived from stored `Trip`s).
+Accepted. Supersedes the trip part of ADR 0014 (Explore stays derived from stored `Trip`s). Home stays, derived trips and home-filled suggestions superseded by ADR 0022.
 
 ## Context
 

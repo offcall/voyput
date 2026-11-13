@@ -4,18 +4,18 @@ import { EmptyState, Notice, PixelArt, type SpriteName } from "@voyput/ui";
 /**
  * Data a Visualize tab cannot draw without:
  * - `locations`: photo locations from the imported location history;
- * - `trips`: trips to replay, stored or suggested (Route, Explore and other stay views).
+ * - `stays`: stays to replay, stored or suggested (Route, Explore and other stay views).
  */
-export type VizNeed = "locations" | "trips";
+export type VizNeed = "locations" | "stays";
 
 /** What the user has, counted once by the Visualize layout. */
 export interface VizHave {
 	/** Imported photo locations. */
 	locations: number;
-	/** Trips the stay views draw from: stored trips plus suggestions. */
-	trips: number;
-	/** Trips the user saved; only these appear in the chart filter. */
-	storedTrips: number;
+	/** Stays the stay views draw from: stored or suggested. */
+	stays: number;
+	/** Stays the user saved; only these appear in the chart filter. */
+	storedStays: number;
 }
 
 /** The first need the data does not meet, or `null` when the tab can draw. */
@@ -42,8 +42,8 @@ function placeholderFor(need: VizNeed, have: VizHave): Placeholder {
 			sprite: "plane",
 			title: "No photo location history yet",
 			why:
-				have.trips > 0
-					? `You have ${plural(have.trips, "trip")}, but this view is drawn from photo locations. Import your photo locations to see where you went.`
+				have.stays > 0
+					? `You have ${plural(have.stays, "stay")}, but this view is drawn from photo locations. Import your photo locations to see where you went.`
 					: "Import your photo locations to see where you went: this view is drawn from them.",
 			action: { step: "locations", label: "Import photo locations" },
 		};
@@ -51,16 +51,16 @@ function placeholderFor(need: VizNeed, have: VizHave): Placeholder {
 	if (have.locations === 0) {
 		return {
 			sprite: "suitcase",
-			title: "No trips yet",
-			why: "Trips are built from your passport stamps and photo locations. Import your photo locations first, then build trips to see your journeys.",
+			title: "No stays yet",
+			why: "Stays are built from your passport stamps and photo locations. Import your photo locations first, then check your stays to see your journeys.",
 			action: { step: "locations", label: "Import photo locations" },
 		};
 	}
 	return {
 		sprite: "suitcase",
-		title: "No trips yet",
-		why: "Build trips to see your journeys: this view replays them stop by stop.",
-		action: { step: "trips", label: "Build trips" },
+		title: "No stays yet",
+		why: "Add or check your stays to see your journeys: this view replays them stop by stop.",
+		action: { step: "trips", label: "Check stays" },
 	};
 }
 

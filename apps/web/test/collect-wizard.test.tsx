@@ -195,7 +195,7 @@ describe("collect wizard", () => {
 		expect(stepLink(4).getAttribute("aria-label")).toBe(
 			"Step 4: Review, needs attention, 1 to check",
 		);
-		expect(stepLink(5).getAttribute("aria-label")).toBe("Step 5: Trips, to do");
+		expect(stepLink(5).getAttribute("aria-label")).toBe("Step 5: Stays, to do");
 		expect(stepLink(4).getAttribute("aria-current")).toBe("page");
 		expect(stepLink(3).getAttribute("aria-current")).toBeNull();
 	});
@@ -277,7 +277,7 @@ describe("collect wizard", () => {
 		const stat = (label: string) =>
 			[...header.querySelectorAll("dt")].find((dt) => dt.textContent === label)
 				?.nextElementSibling?.textContent;
-		// No saved trip yet: countries come from the locations, days wait for trips.
+		// No saved stay yet: countries come from the locations, days wait for stays.
 		expect(stat("Countries")).toBe("1");
 		expect(stat("Days abroad")).toBe("–");
 		expect(stat("To do")).toBe("3");
@@ -304,6 +304,15 @@ describe("collect wizard", () => {
 		);
 		if (!(done instanceof HTMLElement)) throw new Error("no done status");
 		expect(done.textContent).toContain("All five steps done");
+		const tile = [...document.querySelectorAll("dt")].find(
+			(dt) => dt.textContent === "Stays",
+		);
+		expect(tile?.nextElementSibling?.textContent).toBe("4");
+		expect(
+			[...document.querySelectorAll("dt")].some(
+				(dt) => dt.textContent === "Trips",
+			),
+		).toBe(false);
 		expect(
 			within(done)
 				.getByRole("link", { name: "Open Visualize" })

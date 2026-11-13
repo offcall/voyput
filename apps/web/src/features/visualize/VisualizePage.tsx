@@ -1,28 +1,29 @@
 import { useParams } from "@tanstack/react-router";
 import {
 	buildVizData,
-	splitRowsByTrips,
+	splitRowsByRanges,
+	staySpan,
 	summarizeStays,
 	withoutTransitRows,
 } from "@voyput/core";
 import { PageHeader, PixelArt, Stack, Stat, StatGroup } from "@voyput/ui";
 import { type ReactNode, useMemo, useState } from "react";
+import { localToday } from "../trips/format";
 import { formatInt } from "./charts/format";
 import { type StaysData, useStays } from "./data/useStays";
 import { missingNeed, VizEmpty, type VizHave, VizHint } from "./needs";
-import { TripFilter } from "./TripFilter";
+import { type FilterStay, StayFilter } from "./StayFilter";
 import { findVizTab, firstVizTab, type VizTab } from "./tabs";
 import { useVizSource } from "./useVizSource";
 import { useWorld } from "./useWorld";
 import "./visualize.css";
 
-/** Stays for tabs that do not draw trips, while the real ones load or after they failed. */
+/** Stays for tabs that do not draw stays, while the real ones load or after they failed. */
 const NO_STAYS: StaysData = {
 	stays: [],
 	locations: [],
-	trips: [],
-	home: null,
-	summary: summarizeStays([], []),
+	birthCountry: null,
+	summary: summarizeStays([]),
 };
 
 const Loading = () => <p>Loading…</p>;
@@ -41,7 +42,7 @@ function Layout({ children }: { children: ReactNode }) {
 }
 
 /**
- * The `/visualize` layout: loads the data once and keeps the trip filter while the
+ * The `/visualize` layout: loads the data once and keeps the stay filter while the
  * `/visualize/$tab` child changes; the shell nav lists the tabs.
  */
 export function VisualizePage() {
@@ -53,21 +54,33 @@ export function VisualizePage() {
 	const world = useWorld();
 	const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
 
+	// Stored stays with known days, numbered in history order, for the filter.
+	const filterStays = useMemo((): FilterStay[] => {
+		if (source.status !== "ready") return [];
+		const today = localToday();
+		return source.stays.flatMap((s, i) => {
+			const { start, end } = staySpan(s, source.birth, today);
+			return start && end && start <= end
+				? [{ id: s.id, number: i + 1, countryCode: s.countryCode, start, end }]
+				: [];
+		});
+	}, [source]);
+
 	// Aggregating 30k rows is the expensive part: once per data or filter change.
 	const data = useMemo(() => {
 		if (source.status !== "ready") return null;
-		const trips = source.trips.filter((trip) => selected.has(trip.id));
-		// A trip's photos leave out its layovers; all data stays all data.
+		const picked = filterStays.filter((s) => selected.has(s.id));
+		// A stay's photos leave out layovers; all data stays all data.
 		const rows =
-			trips.length > 0
+			picked.length > 0
 				? withoutTransitRows(source.rows, source.stays)
 				: source.rows;
-		return buildVizData(splitRowsByTrips(rows, trips));
-	}, [source, selected]);
+		return buildVizData(splitRowsByRanges(rows, picked));
+	}, [source, filterStays, selected]);
 
-	// Only tabs that draw trips wait for the stays (or fail with them).
+	// Only tabs that draw stays wait for them (or fail with them).
 	const needs = tab.needs ?? ["locations"];
-	const needsStays = needs.includes("trips");
+	const needsStays = needs.includes("stays");
 	if (source.status === "error" || (needsStays && stays.status === "error")) {
 		const message =
 			source.status === "error"
@@ -97,12 +110,12 @@ export function VisualizePage() {
 	const staysData = stays.status === "ready" ? stays.data : NO_STAYS;
 	const have: VizHave = {
 		locations: source.rows.length,
-		trips: staysData.stays.length > 0 ? staysData.trips.length : 0,
-		storedTrips: source.trips.length,
+		stays: staysData.stays.length,
+		storedStays: source.stays.length,
 	};
 	const missing = missingNeed(needs, have);
 	if (missing) {
-		// The placeholder names the trips there are, so it waits for them.
+		// The placeholder names the stays there are, so it waits for them.
 		if (stays.status === "loading")
 			return (
 				<Layout>
@@ -118,16 +131,15 @@ export function VisualizePage() {
 
 	const ctx = {
 		rows: source.rows,
-		trips: source.trips,
 		data,
 		world,
 		stays: staysData,
 		have,
 	};
-	if (!tab.usesTripFilter) {
+	if (!tab.usesStayFilter) {
 		return (
 			<Layout>
-				<SuggestedTripsHint tab={tab} have={have} />
+				<SuggestedStaysHint tab={tab} have={have} />
 				{tab.render(ctx)}
 			</Layout>
 		);
@@ -135,13 +147,13 @@ export function VisualizePage() {
 
 	return (
 		<Layout>
-			{have.storedTrips === 0 ? (
-				<VizHint step="trips" label="Build trips">
-					Save trips to filter these charts by journey.
+			{have.storedStays === 0 ? (
+				<VizHint step="trips" label="Check stays">
+					Save your stays to filter these charts by country or stay.
 				</VizHint>
 			) : (
-				<TripFilter
-					trips={source.trips}
+				<StayFilter
+					stays={filterStays}
 					selected={selected}
 					onChange={setSelected}
 				/>
@@ -160,7 +172,7 @@ export function VisualizePage() {
 			</StatGroup>
 			{data.photoCount === 0 ? (
 				<p className="vp-viz-muted">
-					No photos fall inside the selected trips.
+					No photos fall inside the selected stays.
 				</p>
 			) : null}
 			{tab.render(ctx)}
@@ -168,12 +180,12 @@ export function VisualizePage() {
 	);
 }
 
-/** Stay views drawn only from suggested trips say so, since nothing there is confirmed yet. */
-function SuggestedTripsHint({ tab, have }: { tab: VizTab; have: VizHave }) {
-	if (!tab.needs?.includes("trips") || have.storedTrips > 0) return null;
+/** Stay views drawn only from suggested stays say so, since nothing there is confirmed yet. */
+function SuggestedStaysHint({ tab, have }: { tab: VizTab; have: VizHave }) {
+	if (!tab.needs?.includes("stays") || have.storedStays > 0) return null;
 	return (
-		<VizHint step="trips" label="Check trips">
-			These trips are suggestions from your stamps and photos.
+		<VizHint step="trips" label="Check stays">
+			These stays are suggestions from your stamps and photos.
 		</VizHint>
 	);
 }

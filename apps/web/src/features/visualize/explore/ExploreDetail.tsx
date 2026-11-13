@@ -84,11 +84,7 @@ export function StayDetail({
 	onCountry: (countryCode: string) => void;
 	onClose: () => void;
 }) {
-	const kind = stay.home
-		? "Home"
-		: stay.kind === "transit"
-			? "Transit"
-			: "Stay";
+	const kind = stay.kind === "transit" ? "Transit" : "Stay";
 	return (
 		<Panel
 			label="Stay details"
@@ -112,7 +108,6 @@ export function StayDetail({
 					],
 					["Entry", edgeText(stay.entry)],
 					["Exit", edgeText(stay.exit)],
-					["Trip", stay.tripTitle || "—"],
 					["Places", stay.place || "—"],
 					["Evidence", `${stay.stamps} stamps · ${stay.stopDays} days seen`],
 				]}

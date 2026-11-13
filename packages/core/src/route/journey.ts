@@ -9,15 +9,15 @@ import {
 	type Waypoint,
 } from "./waypoints";
 
-/** A stay as the journey reads it: `tripId` is null for a home stay between trips. */
+/** A stay as the journey reads it. */
 export interface JourneyStay extends RouteStay {
-	tripId: string | null;
+	id: string;
 }
 
 export interface Journey {
 	waypoints: Waypoint[];
-	/** Trip of each waypoint, index for index; null at home. */
-	tripIds: (string | null)[];
+	/** Stay of each waypoint, index for index. */
+	stayIds: (string | null)[];
 	/** Stays left out because they have no photo and no anchor on the map. */
 	skipped: number;
 	/** Photos behind the photo-cluster waypoints. */
@@ -37,10 +37,9 @@ function firstRowOn(rows: readonly LocationRow[], day: string): number {
 }
 
 /**
- * The journey: one waypoint per home stay (at the country's anchor) and,
- * inside trips, one per photo cluster of the stay's country and days, so the
- * traveller flies between trips and walks through the photos within them. A
- * trip stay without photos falls back to its country anchor. With
+ * The journey: one waypoint per photo cluster of each stay's country and
+ * days, so the traveller flies between stays and walks through the photos
+ * within them. A stay without photos falls back to its country anchor. With
  * `photos: false` every stay is one anchored waypoint, as `stayWaypoints`.
  *
  * Rows are sorted once and each stay reads only its own days, so 30k rows
@@ -63,13 +62,13 @@ export function journeyWaypoints(
 		: [];
 	const journey: Journey = {
 		waypoints: [],
-		tripIds: [],
+		stayIds: [],
 		skipped: 0,
 		photos: 0,
 	};
 	stays.forEach((stay, index) => {
 		let stops: Waypoint[] = [];
-		if (photos && stay.tripId !== null) {
+		if (photos) {
 			const own: LocationRow[] = [];
 			for (let i = firstRowOn(sorted, stay.start); i < sorted.length; i++) {
 				const row = sorted[i] as LocationRow;
@@ -92,17 +91,17 @@ export function journeyWaypoints(
 		}
 		for (const stop of stops) {
 			journey.waypoints.push(stop);
-			journey.tripIds.push(stay.tripId);
+			journey.stayIds.push(stay.id);
 		}
 	});
 	return journey;
 }
 
-/** Waypoint indexes where a trip begins: a trip id that differs from the waypoint before. */
-export function tripStarts(tripIds: readonly (string | null)[]): number[] {
+/** Waypoint indexes where a stay begins: a stay id that differs from the waypoint before. */
+export function stayStarts(stayIds: readonly (string | null)[]): number[] {
 	const starts: number[] = [];
-	tripIds.forEach((id, i) => {
-		if (id !== null && id !== tripIds[i - 1]) starts.push(i);
+	stayIds.forEach((id, i) => {
+		if (id !== null && id !== stayIds[i - 1]) starts.push(i);
 	});
 	return starts;
 }
@@ -111,11 +110,11 @@ export function tripStarts(tripIds: readonly (string | null)[]): number[] {
 const SAME_SPOT = 1e-6;
 
 /**
- * The trip start to jump to from slider value `value`: the next one after it,
- * or the last one before it (a value just past a start goes to the trip
+ * The stay start to jump to from slider value `value`: the next one after it,
+ * or the last one before it (a value just past a start goes to the stay
  * before, as a media player's "previous"). Null when there is none.
  */
-export function adjacentTripStart(
+export function adjacentStayStart(
 	starts: readonly number[],
 	value: number,
 	direction: 1 | -1,

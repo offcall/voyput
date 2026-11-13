@@ -1,9 +1,10 @@
-import { deriveTrips, isCountryCode, sortStays } from "@voyput/core";
+import { isCountryCode, isIsoDate, staySpan } from "@voyput/core";
 import { useCallback } from "react";
 import { useDb } from "../../../db/DbContext";
-import { HOME_KEY, homeFor } from "../../trips/tripStore";
+import { localToday } from "../../trips/format";
+import { BIRTH_COUNTRY_KEY, BIRTH_KEY } from "../../trips/tripStore";
 import { useLiveQuery } from "../photos/useLiveQuery";
-import { buildPlan, type Plan } from "./planProgress";
+import { buildPlan, type Plan, type PlanStay } from "./planProgress";
 
 /** The Collect plan, kept up to date with the database. */
 export function usePlan(): Plan | undefined {
@@ -21,8 +22,9 @@ export function usePlan(): Plan | undefined {
 				stamps,
 				toReview,
 				problems,
-				stays,
-				picked,
+				stored,
+				birthCountry,
+				birth,
 			] = await Promise.all([
 				db.passports.count(),
 				db.photos.count(),
@@ -41,12 +43,20 @@ export function usePlan(): Plan | undefined {
 					.filter((stamp) => !!stamp.problem && !stamp.dismissed?.problem)
 					.count(),
 				db.stays.toArray(),
-				db.kv.get(HOME_KEY),
+				db.kv.get(BIRTH_COUNTRY_KEY),
+				db.kv.get(BIRTH_KEY),
 			]);
-			const history = sortStays(stays);
-			const home = homeFor(
-				{ pickedHome: isCountryCode(picked?.value) ? picked.value : null },
-				history,
+			const born =
+				typeof birth?.value === "string" && isIsoDate(birth.value)
+					? birth.value
+					: null;
+			const today = localToday();
+			const stays = stored.map(
+				(s): PlanStay => ({
+					countryCode: s.countryCode,
+					kind: s.kind,
+					...staySpan(s, born, today),
+				}),
 			);
 			// A failed photo whose stamps the user added and reviewed by hand is handled.
 			const recovered = failedIds.filter((id) => recoveredIds.has(id)).length;
@@ -60,8 +70,10 @@ export function usePlan(): Plan | undefined {
 				stamps,
 				toReview,
 				problems,
-				trips: deriveTrips(history, home),
-				home,
+				stays,
+				birthCountry: isCountryCode(birthCountry?.value)
+					? birthCountry.value
+					: null,
 			});
 		}, [db]),
 	).data;

@@ -1,35 +1,34 @@
 import type { LocationRow } from "../locations/types";
-import type { Trip } from "../trips/types";
 
 /**
- * Splits rows into the date ranges of the trips (inclusive, by `YYYY-MM-DD`),
- * one group per range in date order. Overlapping or touching trips merge into
- * one range, so no row is counted twice. No trips means one group with all rows.
+ * Splits rows into date ranges (inclusive, by `YYYY-MM-DD`, e.g. the selected
+ * stays), one group per range in date order. Overlapping or touching ranges
+ * merge into one, so no row is counted twice. No ranges means one group with all rows.
  */
-export function splitRowsByTrips(
+export function splitRowsByRanges(
 	rows: readonly LocationRow[],
-	trips: readonly Pick<Trip, "start" | "end">[],
+	ranges: readonly { start: string; end: string }[],
 ): LocationRow[][] {
-	if (trips.length === 0) return [[...rows]];
-	const sorted = trips
-		.map((trip) => ({
-			start: trip.start.slice(0, 10),
-			end: trip.end.slice(0, 10),
+	if (ranges.length === 0) return [[...rows]];
+	const sorted = ranges
+		.map((range) => ({
+			start: range.start.slice(0, 10),
+			end: range.end.slice(0, 10),
 		}))
 		.sort((a, b) => a.start.localeCompare(b.start));
-	const ranges: { start: string; end: string }[] = [];
+	const merged: { start: string; end: string }[] = [];
 	for (const range of sorted) {
-		const last = ranges.at(-1);
+		const last = merged.at(-1);
 		if (last && range.start <= last.end) {
 			if (range.end > last.end) last.end = range.end;
 		} else {
-			ranges.push({ ...range });
+			merged.push({ ...range });
 		}
 	}
-	const groups: LocationRow[][] = ranges.map(() => []);
+	const groups: LocationRow[][] = merged.map(() => []);
 	for (const row of rows) {
 		const day = row.date.slice(0, 10);
-		const index = ranges.findIndex((r) => day >= r.start && day <= r.end);
+		const index = merged.findIndex((r) => day >= r.start && day <= r.end);
 		if (index >= 0) groups[index]?.push(row);
 	}
 	return groups;

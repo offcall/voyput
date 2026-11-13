@@ -33,7 +33,7 @@ export interface VizData {
 }
 
 /**
- * Aggregates rows grouped by date range (see `splitRowsByTrips`). Movements,
+ * Aggregates rows grouped by date range (see `splitRowsByRanges`). Movements,
  * moves and distances stay inside each range; counts use all rows.
  */
 export function buildVizData(

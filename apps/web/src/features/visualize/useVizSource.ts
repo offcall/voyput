@@ -1,14 +1,12 @@
 import {
-	deriveTrips,
-	isCountryCode,
+	isIsoDate,
 	type LocationRow,
 	sortStays,
 	type TravelStay,
-	type Trip,
 } from "@voyput/core";
 import { useEffect, useState } from "react";
 import { useDb } from "../../db/DbContext";
-import { HOME_KEY, homeFor } from "../trips/tripStore";
+import { BIRTH_KEY } from "../trips/tripStore";
 
 export type VizSource =
 	| { status: "loading" }
@@ -16,13 +14,13 @@ export type VizSource =
 	| {
 			status: "ready";
 			rows: LocationRow[];
-			/** Trips of the stored stays, in date order. */
-			trips: Trip[];
-			/** The stored stays, to leave transit photos out of a trip. */
+			/** The stored stays, in date order: the chart filter lists them. */
 			stays: TravelStay[];
+			/** The birth date, the first day of a stay since birth; null while unknown. */
+			birth: string | null;
 	  };
 
-/** Locations and stored trips, read once when the page opens. */
+/** Locations and stored stays, read once when the page opens. */
 export function useVizSource(): VizSource {
 	const db = useDb();
 	const [source, setSource] = useState<VizSource>({ status: "loading" });
@@ -31,17 +29,18 @@ export function useVizSource(): VizSource {
 		Promise.all([
 			db.locations.toArray(),
 			db.stays.toArray(),
-			db.kv.get(HOME_KEY),
+			db.kv.get(BIRTH_KEY),
 		])
-			.then(([rows, stored, picked]) => {
+			.then(([rows, stored, birth]) => {
 				if (!alive) return;
-				const stays = sortStays(stored);
-				const pickedHome = isCountryCode(picked?.value) ? picked.value : null;
 				setSource({
 					status: "ready",
 					rows,
-					trips: deriveTrips(stays, homeFor({ pickedHome }, stays)),
-					stays,
+					stays: sortStays(stored),
+					birth:
+						typeof birth?.value === "string" && isIsoDate(birth.value)
+							? birth.value
+							: null,
 				});
 			})
 			.catch((error: unknown) => {

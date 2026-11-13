@@ -54,22 +54,6 @@ export interface TravelStay {
 	stampIds: string[];
 	photoIds: string[];
 	approved: boolean;
-}
-
-/** Stays between two home stays: derived from the stays, never stored. */
-export interface Trip {
-	/** `trip-` and the id of its first stay. */
-	id: string;
-	/** Countries in visit order, e.g. "Italy → France". */
-	title: string;
-	/** First arrival and last departure, YYYY-MM-DD. */
-	start: string;
-	end: string;
-	stayIds: string[];
-	/** Countries of the trip's stays (transits included), in visit order. */
-	countries: string[];
-	/** Countries the traveller stayed in, transits left out. */
-	visited: string[];
-	/** Every stay of the trip is approved. */
-	approved: boolean;
+	/** The user changed, split or added this stay: a rebuild keeps it. */
+	edited?: boolean;
 }

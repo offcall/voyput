@@ -92,7 +92,6 @@ export function StayDetail({
 	next,
 	birth,
 	today,
-	home,
 	photoDays,
 	usable,
 	stamps,
@@ -103,7 +102,6 @@ export function StayDetail({
 	next: TravelStay | undefined;
 	birth: string | null;
 	today: string;
-	home: string | null;
 	photoDays: PhotoDays;
 	/** Stamps the history is built from. */
 	usable: readonly DatedStamp[];
@@ -219,7 +217,6 @@ export function StayDetail({
 					to={timeline.to}
 					start={start ?? timeline.from}
 					end={end ?? timeline.to}
-					home={home ?? ""}
 					photoDays={photoDays}
 					stamps={usable.filter(
 						(s) => s.date >= timeline.from && s.date <= timeline.to,

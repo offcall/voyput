@@ -33,12 +33,6 @@ export function daysIn(start: string, end: string): string[] {
 	return days;
 }
 
-const long = new Intl.DateTimeFormat("en-GB", {
-	day: "numeric",
-	month: "short",
-	year: "numeric",
-	timeZone: "UTC",
-});
 const weekday = new Intl.DateTimeFormat("en-GB", {
 	weekday: "short",
 	timeZone: "UTC",
@@ -50,7 +44,11 @@ const monthName = new Intl.DateTimeFormat("en-GB", {
 });
 
 const asDate = (day: string) => new Date(toMs(day));
-export const longDay = (day: string) => long.format(asDate(day));
+/** "1 May 2023". */
+export const longDay = (day: string) => {
+	const p = parts(day);
+	return `${p.d} ${p.m} ${p.y}`;
+};
 export const weekdayOf = (day: string) => weekday.format(asDate(day));
 export const monthOf = (day: string) => monthName.format(asDate(day));
 
@@ -65,18 +63,18 @@ export function localToday(now = new Date()): string {
 }
 
 const MONTHS = [
-	"January",
-	"February",
-	"March",
-	"April",
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
 	"May",
-	"June",
-	"July",
-	"August",
-	"September",
-	"October",
-	"November",
-	"December",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec",
 ];
 
 const parts = (day: string) => ({
@@ -86,7 +84,7 @@ const parts = (day: string) => ({
 });
 
 /**
- * "21 → 25 June, 2016", "21 June → 16 July, 2016" or "21 June 2016 → 3 July 2017".
+ * "21 → 25 Jun 2016", "21 Jun → 16 Jul 2016" or "21 Jun 2016 → 3 Jul 2017".
  * Null ends read "Since birth" and "now".
  */
 export function stayRange(start: string | null, end: string | null): string {
@@ -98,8 +96,11 @@ export function stayRange(start: string | null, end: string | null): string {
 	const s = parts(start);
 	if (end === null) return `${s.d} ${s.m} ${s.y} → now`;
 	const e = parts(end);
-	if (s.y === e.y && s.m === e.m) return `${s.d} → ${e.d} ${e.m}, ${e.y}`;
-	if (s.y === e.y) return `${s.d} ${s.m} → ${e.d} ${e.m}, ${e.y}`;
+	if (s.y === e.y && s.m === e.m)
+		return s.d === e.d
+			? `${s.d} ${s.m} ${s.y}`
+			: `${s.d} → ${e.d} ${e.m} ${e.y}`;
+	if (s.y === e.y) return `${s.d} ${s.m} → ${e.d} ${e.m} ${e.y}`;
 	return `${s.d} ${s.m} ${s.y} → ${e.d} ${e.m} ${e.y}`;
 }
 

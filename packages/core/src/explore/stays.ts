@@ -1,19 +1,18 @@
 import type { LocationRow } from "../locations/types";
 import { countryNameOf } from "../trips/countries";
 import { locationDay } from "../trips/evidence";
-import type { StayEdge, TravelStay, Trip } from "../trips/types";
+import type { StayEdge, TravelStay } from "../trips/types";
 import { addDays, spanDays } from "./dates";
 import { regionOf } from "./regions";
 import type { Stay } from "./types";
 
 export interface StaysOptions {
-	home: string | null;
+	/** Days in other countries count as abroad; null counts every stay. */
+	birthCountry: string | null;
 	/** Start of a "since birth" stay; without it that stay is left out. */
 	birth: string | null;
 	/** End of a stay the traveller is still in. */
 	today: string;
-	/** Trips derived from the same stays, for each stay's trip id and title. */
-	trips?: readonly Trip[];
 	/** Photo locations, to count the days each stay was seen on. */
 	locations?: readonly LocationRow[];
 }
@@ -30,10 +29,7 @@ export function buildStays(
 	stays: readonly TravelStay[],
 	options: StaysOptions,
 ): Stay[] {
-	const { home, birth, today } = options;
-	const tripOf = new Map<string, Trip>();
-	for (const trip of options.trips ?? [])
-		for (const id of trip.stayIds) tripOf.set(id, trip);
+	const { birthCountry, birth, today } = options;
 	const photoDay = new Map<string, string>();
 	for (const row of options.locations ?? []) {
 		const d = locationDay(row);
@@ -53,7 +49,6 @@ export function buildStays(
 			start = addDays(previousEnd, 1);
 		const next = stays[i + 1]?.arrival.date;
 		if (next === end && end > start) end = addDays(end, -1);
-		const trip = tripOf.get(s.id);
 		out.push({
 			id: s.id,
 			countryCode: s.countryCode,
@@ -63,9 +58,7 @@ export function buildStays(
 			end,
 			days: spanDays(start, end),
 			kind: s.kind,
-			home: s.countryCode === home,
-			tripId: trip?.id ?? null,
-			tripTitle: trip?.title ?? "",
+			abroad: s.countryCode !== birthCountry,
 			place: s.place,
 			entry: { ...s.arrival, date: start },
 			exit: { ...s.departure, date: s.departure.date ?? end },
@@ -78,23 +71,21 @@ export function buildStays(
 }
 
 export interface StaysSummary {
-	trips: number;
 	stays: number;
 	countries: number;
+	/** Days in stays outside the birth country (every stay's days when none is set). */
+	daysAbroad: number;
 	firstDate: string | null;
 	lastDate: string | null;
 }
 
-export function summarizeStays(
-	trips: readonly Trip[],
-	stays: readonly Stay[],
-): StaysSummary {
+export function summarizeStays(stays: readonly Stay[]): StaysSummary {
 	const starts = stays.map((s) => s.start).sort();
 	const ends = stays.map((s) => s.end).sort();
 	return {
-		trips: trips.length,
 		stays: stays.length,
 		countries: new Set(stays.map((s) => s.countryCode)).size,
+		daysAbroad: stays.reduce((n, s) => n + (s.abroad ? s.days : 0), 0),
 		firstDate: starts[0] ?? null,
 		lastDate: ends.at(-1) ?? null,
 	};

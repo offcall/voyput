@@ -25,7 +25,6 @@ export function defaultExploreFilters(stays: readonly Stay[]): ExploreFilters {
 		evidence: "all",
 		duration: "all",
 		search: "",
-		home: true,
 	};
 }
 
@@ -97,7 +96,6 @@ export function filterStays(
 	return stays
 		.filter(
 			(s) =>
-				(f.home || !s.home) &&
 				(!f.countries.length || f.countries.includes(s.countryCode)) &&
 				(f.region === "all" || s.region === f.region) &&
 				(f.kind === "all" || s.kind === f.kind) &&
@@ -105,7 +103,7 @@ export function filterStays(
 				matchesEvidence(s, f.evidence) &&
 				matchesDuration(s.days, f.duration) &&
 				(!search ||
-					`${s.country} ${s.countryCode} ${s.place} ${s.tripTitle}`
+					`${s.country} ${s.countryCode} ${s.place}`
 						.toLowerCase()
 						.includes(search)) &&
 				(!f.from || s.end >= f.from) &&

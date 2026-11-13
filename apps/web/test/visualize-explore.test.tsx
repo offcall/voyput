@@ -217,8 +217,8 @@ describe("visualize explore", () => {
 		expect(text).toBe(
 			"﻿" +
 				[
-					'"country","code","start","end","clip_start","clip_end","days","days_in_range","kind","entry_method","entry_source","exit_method","exit_source","stamps","stop_days","place","trip"',
-					'"Romania","RO","2023-03-01","2023-03-04","2023-03-01","2023-03-04","4","4","stay","Plane","Set by hand","Plane","Set by hand","0","0","","Romania"',
+					'"country","code","start","end","clip_start","clip_end","days","days_in_range","kind","entry_method","entry_source","exit_method","exit_source","stamps","stop_days","place"',
+					'"Romania","RO","2023-03-01","2023-03-04","2023-03-01","2023-03-04","4","4","stay","Plane","Set by hand","Plane","Set by hand","0","0",""',
 				].join("\r\n"),
 		);
 	});

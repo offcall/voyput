@@ -171,9 +171,6 @@
 	font-size: 12px;
 	overflow: hidden;
 }
-.vp-trips-tl-photos > span[data-home] {
-	background: color-mix(in srgb, var(--vp-muted) 35%, var(--vp-surface));
-}
 .vp-trips-tl-stamps {
 	display: flex;
 	flex-direction: column;
@@ -270,9 +267,6 @@
 	height: 12px;
 	border-radius: 2px;
 }
-.vp-trips-tl-key[data-key="home"] {
-	background: color-mix(in srgb, var(--vp-muted) 35%, var(--vp-surface));
-}
 .vp-trips-tl-key[data-key="none"] {
 	border: 1px solid var(--vp-border);
 	background: repeating-linear-gradient(
@@ -331,7 +325,7 @@
 	flex: 1;
 }
 
-/* Stays list: one row per stay, the stays of a trip framed together. */
+/* Stays list: one row per stay, thin rows for gaps between them. */
 .vp-stays-bar {
 	position: sticky;
 	top: 0;
@@ -340,17 +334,18 @@
 	background: var(--vp-bg);
 	border-bottom: 2px solid var(--vp-border);
 }
-.vp-stays-settings {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	gap: 12px 32px;
-}
-.vp-stays-home {
+.vp-stays-born {
 	margin: 0;
 	font-size: var(--vp-text-md);
 }
-.vp-stays-home-pick .vp-input {
+.vp-stays-born-pick {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 8px 12px;
+	font-size: var(--vp-text-sm);
+}
+.vp-stays-born-pick .vp-input {
 	max-width: 260px;
 }
 .vp-stays-link {
@@ -362,48 +357,66 @@
 	text-decoration: underline;
 	cursor: pointer;
 }
-.vp-stays-birth {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	gap: 8px 12px;
-	font-size: var(--vp-text-sm);
-}
 .vp-stays {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
 	container-type: inline-size;
 }
-.vp-stays-trip {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	margin: 6px 0;
-	padding: 8px 10px 10px;
-	border: 2px solid var(--vp-border-accent);
-	border-radius: var(--vp-radius-lg);
-	background: var(--vp-accent-soft);
-}
-.vp-stays-trip[data-approved] {
-	border-color: var(--vp-good);
-}
-.vp-stays-trip-head {
+.vp-stays-listbar {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 4px 10px;
-	margin: 0;
-	font-size: var(--vp-text-sm);
-	font-weight: 400;
+	align-items: center;
+	gap: 8px;
 }
-.vp-stays-trip-head > :first-child {
+.vp-stays-order {
+	display: inline-flex;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+.vp-stays-rebuild-note {
+	font-size: var(--vp-text-sm);
+}
+/* Days no stay covers: a thin dashed row between two stays. */
+.vp-stay-gap {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 12px;
+	margin-left: 36px;
+	padding: 2px 8px;
+	border: 2px dashed var(--vp-border);
+	border-radius: var(--vp-radius);
+	font-size: var(--vp-text-sm);
+}
+.vp-stay-gap-label {
 	font-family: var(--vp-font-pixel);
 	text-transform: uppercase;
-	color: var(--vp-accent);
+	color: var(--vp-muted);
 }
-.vp-stays-trip-title {
-	font-weight: 600;
+/* Add and split forms under a row. */
+.vp-stay-add {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 8px 12px;
+	margin-left: 36px;
+	padding: 10px;
+	border: 2px solid var(--vp-border-accent);
+	border-radius: var(--vp-radius);
+	background: var(--vp-accent-soft);
+}
+.vp-stay-add .vp-input {
+	max-width: 220px;
+}
+.vp-stay-form-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 8px;
+	font-size: var(--vp-text-sm);
 }
 .vp-stay-block {
 	display: flex;
@@ -575,6 +588,10 @@
 	}
 	.vp-stay-hints {
 		padding-left: 0;
+	}
+	.vp-stay-gap,
+	.vp-stay-add {
+		margin-left: 0;
 	}
 }
 

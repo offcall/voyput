@@ -21,10 +21,8 @@ export interface Stay {
 	/** Calendar days from `start` to `end`, both included (at least 1). */
 	days: number;
 	kind: "stay" | "transit";
-	/** A stay in the home country between two trips. */
-	home: boolean;
-	tripId: string | null;
-	tripTitle: string;
+	/** Outside the birth country; every stay while none is set. */
+	abroad: boolean;
 	/** Cities of the stops, comma separated. */
 	place: string;
 	entry: ExploreEdge;
@@ -62,6 +60,4 @@ export interface ExploreFilters {
 	evidence: EvidenceFilter;
 	duration: DurationFilter;
 	search: string;
-	/** Include home stays. */
-	home: boolean;
 }

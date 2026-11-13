@@ -5,7 +5,6 @@ import { countryName, longDay, METHOD_NAMES, plural } from "./format";
 export const CROSSING_HINTS: ReadonlySet<StayHint["kind"]> = new Set([
 	"overnight",
 	"long-window",
-	"gap",
 	"overlap",
 	"method-mismatch",
 ]);
@@ -13,7 +12,6 @@ export const CROSSING_HINTS: ReadonlySet<StayHint["kind"]> = new Set([
 export const HINT_ICONS: Readonly<Record<StayHint["kind"], string>> = {
 	overnight: "🌙",
 	"long-window": "⛴️",
-	gap: "⚠",
 	overlap: "⚠",
 	"method-mismatch": "⚠",
 	order: "⚠",
@@ -31,8 +29,6 @@ export function hintText(hint: StayHint): string {
 			return `Overnight travel: left ${longDay(hint.from)}, arrived ${longDay(hint.to)}. A night flight or a crossing after midnight; not an error.`;
 		case "long-window":
 			return `Long travel window: left ${longDay(hint.from)}, arrived ${longDay(hint.to)}. Two days on the way: a ferry, a night train or a long transfer? Check it if needed.`;
-		case "gap":
-			return `Gap: ${plural(hint.days, "day")} between leaving on ${longDay(hint.from)} and arriving on ${longDay(hint.to)} that no stay covers.`;
 		case "overlap":
 			return `Overlap: arrives ${longDay(hint.to)}, ${plural(hint.days, "day")} before the previous stay ends (${longDay(hint.from)}).`;
 		case "method-mismatch":

@@ -405,3 +405,19 @@
 .vp-viz-line + .vp-viz-scroll {
 	margin-top: var(--vp-space-5);
 }
+.vp-viz-filter-stays {
+	flex-basis: 100%;
+	font-size: var(--vp-text-sm);
+}
+.vp-viz-filter-stays > summary {
+	cursor: pointer;
+	color: var(--vp-muted);
+}
+.vp-viz-filter-list {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	max-height: 240px;
+	margin-top: 6px;
+	overflow-y: auto;
+}

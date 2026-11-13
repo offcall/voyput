@@ -142,30 +142,32 @@ const titleParts = (title: string) =>
 		.filter(Boolean);
 
 /**
- * The country of a stored trip without stops: the first of its stamps
- * outside home (an entry first), else a country its title names. Null when
- * neither tells.
+ * The country of a stored trip without stops: the first country its stamps
+ * entered, else the last one they left (a trip began by leaving where the
+ * traveller lived), else a country its title names. Null when none tells.
  */
 export function legacyTripCountry(
 	trip: LegacyTrip,
-	stamps: readonly Pick<Stamp, "id" | "countryCode" | "direction">[],
-	home: string | null,
+	stamps: readonly Pick<Stamp, "id" | "countryCode" | "direction" | "date">[],
 ): string | null {
-	const own = stamps.filter(
-		(s) =>
-			trip.stampIds.includes(s.id) &&
-			s.countryCode !== null &&
-			isCountryCode(s.countryCode) &&
-			s.countryCode !== home,
-	);
-	const stamp = own.find((s) => s.direction === "entry") ?? own[0];
+	const own = stamps
+		.filter(
+			(s) =>
+				trip.stampIds.includes(s.id) &&
+				s.countryCode !== null &&
+				isCountryCode(s.countryCode),
+		)
+		.sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
+	const stamp =
+		own.find((s) => s.direction === "entry") ??
+		own.filter((s) => s.direction === "exit").at(-1) ??
+		own[0];
 	if (stamp?.countryCode) return stamp.countryCode;
-	const parts = titleParts(trip.title);
-	for (const part of parts) {
+	for (const part of titleParts(trip.title)) {
 		const code = part.toUpperCase();
-		if (code.length === 2 && isCountryCode(code) && code !== home) return code;
+		if (code.length === 2 && isCountryCode(code)) return code;
 		const named = COUNTRY_CODES.find(
-			(cc) => cc !== home && countryNameOf(cc).toLowerCase() === part,
+			(cc) => countryNameOf(cc).toLowerCase() === part,
 		);
 		if (named) return named;
 	}

@@ -8,7 +8,6 @@ import {
 	buildYearRows,
 	COUNTRY_CODES,
 	defaultExploreFilters,
-	deriveTrips,
 	type ExploreFilters,
 	exploreKpis,
 	filterStays,
@@ -137,12 +136,10 @@ const history: TravelStay[] = [
 	),
 ];
 
-const trips = deriveTrips(history, "MD");
 const options = {
-	home: "MD",
+	birthCountry: "MD",
 	birth: null,
 	today: "2030-01-01",
-	trips,
 	locations,
 };
 const stays = buildStays(history, options);
@@ -189,20 +186,18 @@ describe("buildStays", () => {
 		expect(ro?.entry.source).toBe("photos");
 		expect(ro?.exit).toMatchObject({ source: "stamp", method: "plane" });
 		expect(home).toMatchObject({
-			home: true,
+			abroad: false,
 			kind: "stay",
-			tripId: null,
 			entry: { source: "stamp", method: "plane", date: "2016-05-21" },
 			exit: { source: "manual", method: "car", date: "2016-06-01" },
 			estimated: false,
 		});
 	});
 
-	it("carries trip, place, stamps, photo days and kind", () => {
+	it("carries place, stamps, photo days and kind", () => {
 		const [ua, ro, , tr] = stays;
 		expect(ua).toMatchObject({
-			tripId: "trip-ukraine-romania:0",
-			tripTitle: "Ukraine → Romania",
+			abroad: true,
 			country: "Ukraine",
 			region: "Europe",
 			place: "Odesa, Izmail",
@@ -230,7 +225,7 @@ describe("buildStays", () => {
 					edge("2019-08-03", "manual"),
 				),
 			],
-			{ ...options, home: null, trips: [] },
+			{ ...options, birthCountry: null },
 		);
 		expect(hop.map((s) => [s.countryCode, s.start, s.end])).toEqual([
 			["AT", "2019-08-01", "2019-08-01"],
@@ -238,16 +233,17 @@ describe("buildStays", () => {
 		]);
 	});
 
-	it("ends a stay still going on today and marks no home without one", () => {
+	it("ends a stay still going on today; without a birth country every stay is abroad", () => {
 		const open = buildStays(
-			[stay("x", "PL", edge("2029-12-30", "stamp"), edge(null, "estimated"))],
-			{ ...options, home: null },
+			[stay("x", "MD", edge("2029-12-30", "stamp"), edge(null, "estimated"))],
+			{ ...options, birthCountry: null },
 		);
-		expect(open[0]).toMatchObject({ end: "2030-01-01", days: 3, home: false });
-		expect(summarizeStays(trips, stays)).toEqual({
-			trips: 3,
+		expect(open[0]).toMatchObject({ end: "2030-01-01", days: 3, abroad: true });
+		expect(summarizeStays(open).daysAbroad).toBe(3);
+		expect(summarizeStays(stays)).toEqual({
 			stays: 7,
 			countries: 5,
+			daysAbroad: 3 + 5 + 1 + 3,
 			firstDate: "2016-05-13",
 			lastDate: "2017-01-03",
 		});
@@ -260,9 +256,7 @@ describe("filterStays", () => {
 		expect(run({})).toHaveLength(stays.length);
 	});
 
-	it("applies home, countries, region, kind and method", () => {
-		expect(run({ home: false }).some((r) => r.home)).toBe(false);
-		expect(ids(run({ home: false }))).toHaveLength(4);
+	it("applies countries, region, kind and method", () => {
 		expect(ids(run({ countries: ["RO", "AT"] }))).toEqual([
 			"ukraine-romania:1",
 			"austria:0",
@@ -315,7 +309,7 @@ describe("filterStays", () => {
 			estimated: 3,
 		});
 		expect(kpis.longest?.id).toBe("home:2016-05-21");
-		expect(exploreKpis(run({ home: false })).daysAbroad).toBe(12);
+		expect(exploreKpis(run({})).daysAbroad).toBe(12);
 	});
 
 	it("gives a year range cut to the last stay", () => {

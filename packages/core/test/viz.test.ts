@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LocationRow } from "../src";
-import { buildVizData, buildWorldShapes, splitRowsByTrips } from "../src";
+import { buildVizData, buildWorldShapes, splitRowsByRanges } from "../src";
 
 function row(date: string, countryCode: string, lat = 0, lon = 0): LocationRow {
 	return {
@@ -52,14 +52,14 @@ describe("viz aggregates", () => {
 		expect(data.distances.totalKm).toBeLessThan(1770);
 	});
 
-	it("never joins two selected trips across the gap between them", () => {
-		// Trip 1: two days in Berlin. Trip 2: the Paris day. The 2025 Berlin photo is in neither.
+	it("never joins two selected stays across the gap between them", () => {
+		// Stay 1: two days in Berlin. Stay 2: the Paris day. The 2025 Berlin photo is in neither.
 		const trips = [
 			{ start: "2024-05-03", end: "2024-05-03" },
 			{ start: "2024-05-01", end: "2024-05-02" },
 			{ start: "2024-05-03", end: "2024-05-03" },
 		];
-		const ranges = splitRowsByTrips(rows, trips);
+		const ranges = splitRowsByRanges(rows, trips);
 		expect(ranges.map((r) => r.length)).toEqual([2, 3]);
 
 		const data = buildVizData(ranges);
@@ -69,14 +69,14 @@ describe("viz aggregates", () => {
 		]);
 		expect(data.moves).toEqual([]);
 		expect(data.transitions).toEqual([]);
-		// Only Paris → Berlin inside trip 2 (~877 km), not Berlin → Paris across the gap.
+		// Only Paris → Berlin inside range 2 (~877 km), not Berlin → Paris across the gap.
 		expect(data.distances.segmentCount).toBe(3);
 		expect(data.distances.totalKm).toBeGreaterThan(870);
 		expect(data.distances.totalKm).toBeLessThan(885);
 	});
 
-	it("keeps every row when no trip is selected", () => {
-		expect(splitRowsByTrips(rows, [])).toEqual([rows]);
+	it("keeps every row when no stay is selected", () => {
+		expect(splitRowsByRanges(rows, [])).toEqual([rows]);
 	});
 });
 

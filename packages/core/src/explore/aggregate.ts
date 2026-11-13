@@ -6,9 +6,9 @@ import type { FilteredStay, Stay } from "./types";
 export interface ExploreKpis {
 	stays: number;
 	countries: number;
-	/** Days inside the range, home stays included. */
+	/** Days inside the range. */
 	days: number;
-	/** The same without home stays. */
+	/** The same outside the birth country (all of them while none is set). */
 	daysAbroad: number;
 	/** Stays of a single day. */
 	oneDay: number;
@@ -28,7 +28,7 @@ export function exploreKpis(rows: readonly FilteredStay[]): ExploreKpis {
 		stays: rows.length,
 		countries: new Set(rows.map((r) => r.countryCode)).size,
 		days: sum(rows),
-		daysAbroad: sum(rows.filter((r) => !r.home)),
+		daysAbroad: sum(rows.filter((r) => r.abroad)),
 		oneDay: rows.filter((r) => r.days === 1).length,
 		transits: rows.filter((r) => r.kind === "transit").length,
 		estimated: rows.filter((r) => r.estimated).length,

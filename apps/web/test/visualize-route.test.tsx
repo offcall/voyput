@@ -51,7 +51,7 @@ const trip = (
 	stampIds: [],
 });
 
-/** Home in Moldova, a trip to Romania, then one to Japan and South Korea. */
+/** Moldova, a stay in Romania, Moldova again, then Japan and South Korea. */
 async function seed(name: string): Promise<VoyputDb> {
 	const db = new VoyputDb(name);
 	await db.locations.bulkPut([
@@ -152,7 +152,7 @@ describe("route player", () => {
 		}
 		expect(seen).toEqual(["RO", "MD", "JP", "KR"]);
 		expect(bubbles()).toEqual(["RO", "MD", "JP", "KR"]);
-		// Trips & photos: RO ×2 photo stops, home, JP ×2, KR.
+		// Stays & photos: RO ×2 photo stops, MD (no photo: its centre), JP ×2, KR.
 		expect(stat("Legs")).toBe("5 / 5");
 		expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
 	});
@@ -217,38 +217,42 @@ describe("route player", () => {
 		expect(queue).toHaveLength(0);
 	});
 
-	it("jumps between trips and captions trip, country and date", async () => {
+	it("jumps between stays and captions stay, country and date", async () => {
 		await openRoute("route-trips");
 		const caption = () =>
 			document.querySelector(".vp-route-stop")?.textContent ?? "";
 		const date = () => document.querySelector(".vp-route-date")?.textContent;
 		fireEvent.click(screen.getByRole("button", { name: "Pause" }));
-		expect(caption()).toContain("Trip 1/2 · Romania");
-		expect(caption()).toContain("Romania");
+		expect(caption()).toContain("Stay 1/4 · Romania");
 		expect(date()).toBe("2 Mar 2024");
 		expect(
-			screen.getByRole<HTMLButtonElement>("button", { name: "Previous trip" })
+			screen.getByRole<HTMLButtonElement>("button", { name: "Previous stay" })
 				.disabled,
 		).toBe(true);
+		expect(caption()).not.toMatch(/Trip|home/);
 
-		fireEvent.click(screen.getByRole("button", { name: "Next trip" }));
+		fireEvent.click(screen.getByRole("button", { name: "Next stay" }));
+		expect(position()).toBe(2);
+		expect(caption()).toContain("Stay 2/4 · Moldova");
+		fireEvent.click(screen.getByRole("button", { name: "Next stay" }));
 		expect(position()).toBe(3);
-		expect(caption()).toContain("Trip 2/2 · Japan → South Korea");
-		expect(caption()).toContain("Japan");
+		expect(caption()).toContain("Stay 3/4 · Japan");
 		expect(date()).toBe("10 Jun 2024");
 		// Jumping keeps the player paused.
 		expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Next stay" }));
+		expect(caption()).toContain("Stay 4/4 · South Korea");
 
-		fireEvent.change(slider(), { target: { value: "2" } });
-		expect(caption()).toContain("At home");
-		fireEvent.click(screen.getByRole("button", { name: "Previous trip" }));
+		fireEvent.change(slider(), { target: { value: "1" } });
+		expect(caption()).toContain("Stay 1/4 · Romania");
+		fireEvent.click(screen.getByRole("button", { name: "Previous stay" }));
 		expect(position()).toBe(0);
 	});
 
-	it("keeps playing after a trip jump and pauses when the page is hidden", async () => {
+	it("keeps playing after a stay jump and pauses when the page is hidden", async () => {
 		await openRoute("route-hidden");
-		fireEvent.click(screen.getByRole("button", { name: "Next trip" }));
-		expect(position()).toBe(3);
+		fireEvent.click(screen.getByRole("button", { name: "Next stay" }));
+		expect(position()).toBe(2);
 		expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
 
 		const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
@@ -259,15 +263,20 @@ describe("route player", () => {
 		expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
 	});
 
-	it("points to Trips when there are locations but no stays", async () => {
+	it("plays stays suggested from photos alone and says they are suggestions", async () => {
 		const db = new VoyputDb("route-empty");
 		await db.locations.bulkPut([
 			photo("2024-01-05", "MD", "Moldova", 47.0, 28.8),
 		]);
 		renderApp("/visualize/route", { db });
-		expect(await screen.findByText("No trips yet")).toBeTruthy();
 		expect(
-			screen.getByRole("link", { name: "Build trips" }).getAttribute("href"),
+			await screen.findByText(
+				"These stays are suggestions from your stamps and photos.",
+			),
+		).toBeTruthy();
+		expect(
+			screen.getByRole("link", { name: "Check stays" }).getAttribute("href"),
 		).toBe("/collect/trips");
+		expect(screen.queryByText("No stays yet")).toBeNull();
 	});
 });

@@ -49,14 +49,12 @@ async function seed(
 	{ locations, trips }: { locations: boolean; trips: boolean },
 ): Promise<VoyputDb> {
 	const db = new VoyputDb(name);
-	// Home photos only, so no trip is suggested from them.
 	if (locations)
 		await db.locations.bulkPut([
 			photo("2024-01-05", "MD", "Moldova"),
 			photo("2024-01-06", "MD", "Moldova"),
 		]);
 	if (trips) await seedTrips(db, [romania], "MD");
-	else await db.kv.put({ key: "trips:home", value: "MD" });
 	return db;
 }
 
@@ -69,33 +67,45 @@ describe("visualize placeholders", () => {
 		renderApp("/visualize/route", {
 			db: await seed("needs-empty", { locations: false, trips: false }),
 		});
-		expect(await screen.findByText("No trips yet")).toBeTruthy();
+		expect(await screen.findByText("No stays yet")).toBeTruthy();
 		expect(hrefOf("Import photo locations")).toBe("/collect/locations");
 		expect(screen.queryByText(/Step \d of \d/)).toBeNull();
 	});
 
 	it("shows the Explore placeholder instead of the dashboard", async () => {
 		renderApp("/visualize/explore", {
-			db: await seed("needs-explore", { locations: true, trips: false }),
+			db: await seed("needs-explore", { locations: false, trips: false }),
 		});
-		expect(await screen.findByText("No trips yet")).toBeTruthy();
-		expect(hrefOf("Build trips")).toBe("/collect/trips");
+		expect(await screen.findByText("No stays yet")).toBeTruthy();
 		expect(screen.queryByText("Longest stay")).toBeNull();
 	});
 
-	it("tells a chart tab's user their trips are kept but locations are missing", async () => {
+	it("draws Explore from photos alone: every photo place is a suggested stay", async () => {
+		renderApp("/visualize/explore", {
+			db: await seed("needs-photos", { locations: true, trips: false }),
+		});
+		expect(
+			await screen.findByText(
+				"These stays are suggestions from your stamps and photos.",
+			),
+		).toBeTruthy();
+		expect(hrefOf("Check stays")).toBe("/collect/trips");
+		expect(screen.queryByText("No stays yet")).toBeNull();
+	});
+
+	it("tells a chart tab's user their stays are kept but locations are missing", async () => {
 		renderApp("/visualize/map", {
 			db: await seed("needs-chart", { locations: false, trips: true }),
 		});
 		expect(
 			await screen.findByText("No photo location history yet"),
 		).toBeTruthy();
-		expect(main().getByText(/You have 1 trip, but this view/)).toBeTruthy();
+		expect(main().getByText(/You have 1 stay, but this view/)).toBeTruthy();
 		expect(hrefOf("Import photo locations")).toBe("/collect/locations");
 		expect(screen.queryByRole("group", { name: "Route map" })).toBeNull();
 	});
 
-	it("plays saved trips without locations and hints at the import", async () => {
+	it("plays saved stays without locations and hints at the import", async () => {
 		renderApp("/visualize/route", {
 			db: await seed("needs-route", { locations: false, trips: true }),
 		});
@@ -103,10 +113,10 @@ describe("visualize placeholders", () => {
 			await screen.findByRole("img", { name: "Route player map" }),
 		).toBeTruthy();
 		expect(hrefOf("Import photo locations")).toBe("/collect/locations");
-		expect(screen.queryByText("No trips yet")).toBeNull();
+		expect(screen.queryByText("No stays yet")).toBeNull();
 	});
 
-	it("draws a chart from locations alone and suggests saving trips for the filter", async () => {
+	it("draws a chart from locations alone and suggests saving stays for the filter", async () => {
 		renderApp("/visualize/map", {
 			db: await seed("needs-filter", { locations: true, trips: false }),
 		});
@@ -114,19 +124,26 @@ describe("visualize placeholders", () => {
 			await screen.findByRole("group", { name: "Route map" }),
 		).toBeTruthy();
 		expect(
-			main().getByText("Save trips to filter these charts by journey."),
+			main().getByText(
+				"Save your stays to filter these charts by country or stay.",
+			),
 		).toBeTruthy();
-		expect(hrefOf("Build trips")).toBe("/collect/trips");
+		expect(hrefOf("Check stays")).toBe("/collect/trips");
 	});
 
-	it("draws the chart and the trip filter when both are there", async () => {
+	it("draws the chart and the stay filter when both are there", async () => {
 		renderApp("/visualize/map", {
 			db: await seed("needs-full", { locations: true, trips: true }),
 		});
 		expect(
 			await screen.findByRole("group", { name: "Route map" }),
 		).toBeTruthy();
-		expect(main().getByRole("checkbox", { name: /Romania/ })).toBeTruthy();
-		expect(main().queryByRole("link", { name: "Build trips" })).toBeNull();
+		expect(
+			main().getByRole("checkbox", { name: /^Romania 1 stay$/ }),
+		).toBeTruthy();
+		expect(
+			main().getByRole("checkbox", { name: /^2\. Romania 1 → 5 Mar 2024$/ }),
+		).toBeTruthy();
+		expect(main().queryByRole("link", { name: "Check stays" })).toBeNull();
 	});
 });

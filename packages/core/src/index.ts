@@ -87,7 +87,6 @@ export {
 } from "./stamps/visits";
 export {
 	applyDismissed,
-	homeAfterTrips,
 	mergeKept,
 	methodOf,
 	type Period,
@@ -99,24 +98,31 @@ export {
 } from "./trips/build";
 export { COUNTRY_CODES, isCountryCode } from "./trips/countries";
 export {
+	addStay,
+	canSplitAt,
+	type EvidenceDays,
+	type NewStay,
+	splitStay,
+	withBirthStay,
+} from "./trips/edit";
+export {
 	type DatedStamp,
-	guessHomeCountry,
 	usableStamps,
 } from "./trips/evidence";
 export {
 	clearStayIds,
+	gapBetween,
 	type HintContext,
 	type HintSeverity,
 	hasError,
 	type StayCounts,
+	type StayGap,
 	type StayHint,
 	stayCounts,
 	stayHints,
 } from "./trips/hints";
 export {
-	deriveTrips,
 	type HistorySource,
-	homeOf,
 	type StaySpan,
 	spanLength,
 	staySpan,
@@ -135,6 +141,5 @@ export {
 	TRAVEL_METHODS,
 	type TravelMethod,
 	type TravelStay,
-	type Trip,
 } from "./trips/types";
 export * from "./viz";

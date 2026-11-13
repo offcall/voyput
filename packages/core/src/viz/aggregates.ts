@@ -10,7 +10,7 @@ export interface Movement {
 	/** Last day, `YYYY-MM-DD`. */
 	end: string;
 	photos: number;
-	/** Index of the date range (selected trip) the movement belongs to. */
+	/** Index of the date range (selected stays) the movement belongs to. */
 	range: number;
 }
 

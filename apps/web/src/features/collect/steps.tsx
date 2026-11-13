@@ -58,10 +58,10 @@ const DEFINITIONS: Record<StepId, Omit<CollectStep, "id">> = {
 		render: () => <ReviewPage />,
 	},
 	trips: {
-		label: "Trips",
-		title: "Trips",
+		label: "Stays",
+		title: "Stays",
 		description:
-			"Your history as one-country stays, from your stamps and photo locations. Trips are the stays between home stays. Approve the ones that are right.",
+			"Your history as one-country stays, from your stamps and photo locations. Edit, split or add stays and approve the ones that are right.",
 		sprite: "suitcase",
 		render: () => <TripsPage />,
 	},
@@ -112,7 +112,7 @@ export function stepCount(id: StepId, plan: Plan): string | null {
 				return `${number.format(input.toReview)} to check`;
 			return input.stamps > 0 ? plural(input.stamps, "stamp") : null;
 		case "trips":
-			return plan.trips > 0 ? `${number.format(plan.trips)} saved` : null;
+			return plan.stays > 0 ? `${number.format(plan.stays)} saved` : null;
 	}
 }
 
@@ -133,6 +133,6 @@ export function nextAction(id: StepId, plan: Plan): string {
 				? `Review ${plural(input.toReview, "stamp")}`
 				: "Review the stamps";
 		case "trips":
-			return "Save your trips";
+			return "Save your stays";
 	}
 }

@@ -139,15 +139,15 @@ describe("database", () => {
 					s.approved,
 				]),
 		).toEqual([
-			["UA", null, "2024-04-30", false],
 			["ES", "2024-04-30", "2024-05-03", true],
 			["UA", "2024-05-03", null, false],
 		]);
 		expect(db.tables.map((t) => t.name)).not.toContain("trips");
+		expect(await db.kv.get("trips:home")).toBeUndefined();
 		db.close();
 	});
 
-	it("keeps deleted trips deleted: their periods stay home", async () => {
+	it("keeps deleted trips deleted: nothing begins in their periods", async () => {
 		const old = oldDb("db-migrate-dismissed");
 		await old.table("trips").put(spain);
 		await old
@@ -168,7 +168,6 @@ describe("database", () => {
 
 		const db = new VoyputDb("db-migrate-dismissed");
 		expect(await storedStays(db)).toEqual([
-			["UA", null, "2024-04-30"],
 			["ES", "2024-04-30", "2024-05-03"],
 			["UA", "2024-05-03", null],
 		]);
@@ -217,16 +216,99 @@ describe("database", () => {
 
 		const db = new VoyputDb("db-migrate-stopless");
 		expect(await storedStays(db)).toEqual([
-			["UA", null, "2024-02-01"],
 			["RO", "2024-02-01", "2024-02-03"],
-			["UA", "2024-02-03", "2024-03-01"],
 			["PT", "2024-03-01", "2024-03-04"],
-			["UA", "2024-03-04", null],
 		]);
 		const kept = await db.kv.get(LEGACY_TRIPS_KEY);
 		expect(
 			Array.isArray(kept?.value) && kept.value.map((t: LegacyTrip) => t.id),
 		).toEqual(["lost"]);
+		db.close();
+	});
+
+	it("drops only generated home stays from a stored history (version 5)", async () => {
+		const old = new Dexie("db-migrate-home");
+		old.version(4).stores({
+			passports: "id",
+			photos: "id, passportId",
+			extractions: "photoId",
+			stamps: "id, passportId, photoId, date",
+			locations: "uuid, date, countryCode",
+			stays: "id",
+			kv: "key",
+		});
+		const estimate = (date: string | null) => ({
+			date,
+			source: "estimated",
+			method: "unknown",
+		});
+		const base = {
+			place: "",
+			kind: "stay",
+			stampIds: [],
+			photoIds: [],
+			approved: false,
+		};
+		await old.table("stays").bulkPut([
+			// Made up by the old suggestion: goes.
+			{
+				...base,
+				id: "stay-birth-ua",
+				countryCode: "UA",
+				arrival: estimate(null),
+				departure: estimate("2024-04-30"),
+			},
+			{
+				...base,
+				id: "stay-2024-05-03-ua-home",
+				countryCode: "UA",
+				arrival: estimate("2024-05-03"),
+				departure: estimate("2024-06-01"),
+			},
+			// Evidence, a place, an approval or a date set by hand: stays.
+			{
+				...base,
+				id: "stay-2024-04-30-es",
+				countryCode: "ES",
+				arrival: estimate("2024-04-30"),
+				departure: estimate("2024-05-03"),
+				photoIds: ["u1"],
+			},
+			{
+				...base,
+				id: "stay-2024-06-01-ua",
+				countryCode: "UA",
+				arrival: estimate("2024-06-01"),
+				departure: estimate("2024-07-01"),
+				place: "Kyiv",
+			},
+			{
+				...base,
+				id: "stay-2024-07-01-ua-home",
+				countryCode: "UA",
+				arrival: { ...estimate("2024-07-01"), source: "manual" },
+				departure: estimate("2024-08-01"),
+			},
+			{
+				...base,
+				id: "stay-2024-08-01-ua-home",
+				countryCode: "UA",
+				arrival: estimate("2024-08-01"),
+				departure: estimate(null),
+				approved: true,
+			},
+		]);
+		await old.table("kv").put({ key: "trips:home", value: "UA" });
+		old.close();
+
+		const db = new VoyputDb("db-migrate-home");
+		expect((await db.stays.toArray()).map((s) => s.id).sort()).toEqual([
+			"stay-2024-04-30-es",
+			"stay-2024-06-01-ua",
+			"stay-2024-07-01-ua-home",
+			"stay-2024-08-01-ua-home",
+		]);
+		expect(await db.kv.get("trips:home")).toBeUndefined();
 		db.close();
 	});
 });

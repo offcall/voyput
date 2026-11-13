@@ -40,18 +40,3 @@ export function buildPhotoDays(locations: readonly LocationRow[]): PhotoDays {
 	}
 	return days;
 }
-
-/** Photos taken outside `home` between `start` and `end`. */
-export function photosAbroad(
-	photoDays: PhotoDays,
-	home: string,
-	start: string,
-	end: string,
-): number {
-	let total = 0;
-	for (const [day, list] of photoDays) {
-		if (day < start || day > end) continue;
-		for (const c of list) if (c.countryCode !== home) total += c.photos;
-	}
-	return total;
-}

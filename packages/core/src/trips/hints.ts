@@ -13,14 +13,6 @@ export type StayHint =
 	| { kind: "overnight"; severity: "info"; from: string; to: string }
 	| { kind: "long-window"; severity: "warning"; from: string; to: string }
 	| {
-			kind: "gap";
-			severity: "error";
-			from: string;
-			to: string;
-			/** Days between them that no stay covers. */
-			days: number;
-	  }
-	| {
 			kind: "overlap";
 			severity: "error";
 			from: string;
@@ -68,8 +60,6 @@ function crossingHints(prev: TravelStay, stay: TravelStay): StayHint[] {
 		hints.push({ kind: "overnight", severity: "info", from, to });
 	else if (delta === 2)
 		hints.push({ kind: "long-window", severity: "warning", from, to });
-	else if (delta > 2)
-		hints.push({ kind: "gap", severity: "error", from, to, days: delta - 1 });
 	const out = prev.departure.method;
 	const into = stay.arrival.method;
 	if (
@@ -86,6 +76,28 @@ function crossingHints(prev: TravelStay, stay: TravelStay): StayHint[] {
 			to: into,
 		});
 	return hints;
+}
+
+/** Days no stay covers between two stays in a row, when there is more than a travel window. */
+export interface StayGap {
+	/** The earlier stay's departure and the later one's arrival, YYYY-MM-DD. */
+	from: string;
+	to: string;
+	/** Days strictly between them. */
+	days: number;
+}
+
+/**
+ * The gap between `prev` and the stay after it: more than one day between
+ * departure and arrival (one day is a travel window, see the hints). Just a
+ * gap, not an error: nothing is assumed about days without evidence.
+ */
+export function gapBetween(prev: TravelStay, next: TravelStay): StayGap | null {
+	const from = prev.departure.date;
+	const to = next.arrival.date;
+	if (from === null || to === null) return null;
+	const days = day(to) - day(from) - 1;
+	return days > 1 ? { from, to, days } : null;
 }
 
 const covers = (s: TravelStay, date: string) =>

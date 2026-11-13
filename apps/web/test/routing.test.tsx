@@ -103,7 +103,7 @@ describe("routing", () => {
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/collect/passports"),
 		);
-		await user.click(screen.getByRole("link", { name: /^Step 5: Trips/ }));
+		await user.click(screen.getByRole("link", { name: /^Step 5: Stays/ }));
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/collect/trips"),
 		);

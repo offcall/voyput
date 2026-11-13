@@ -18,7 +18,6 @@ export function DaysTimeline({
 	to,
 	start,
 	end,
-	home,
 	photoDays,
 	stamps,
 	linked,
@@ -31,7 +30,6 @@ export function DaysTimeline({
 	/** The stay being edited. */
 	start: string;
 	end: string;
-	home: string;
 	photoDays: PhotoDays;
 	/** Stamps between `from` and `to`. */
 	stamps: readonly DatedStamp[];
@@ -131,13 +129,9 @@ export function DaysTimeline({
 										{countries.map((c) => (
 											<span
 												key={c.countryCode}
-												data-home={c.countryCode === home || undefined}
 												style={{
 													flexGrow: c.photos,
-													background:
-														c.countryCode === home
-															? undefined
-															: colorOf(c.countryCode),
+													background: colorOf(c.countryCode),
 												}}
 											/>
 										))}
@@ -186,9 +180,6 @@ export function DaysTimeline({
 				</div>
 			</div>
 			<div className="vp-trips-tl-legend">
-				<span>
-					<i className="vp-trips-tl-key" data-key="home" /> Home
-				</span>
 				<span>
 					<i className="vp-trips-tl-key" data-key="none" /> No photos
 				</span>

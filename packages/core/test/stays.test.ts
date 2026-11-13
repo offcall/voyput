@@ -1,18 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+	addStay,
 	applyDismissed,
+	canSplitAt,
 	clearStayIds,
-	deriveTrips,
-	homeOf,
+	gapBetween,
 	type LocationRow,
 	legacyTripStays,
 	mergeKept,
 	type Stamp,
+	splitStay,
 	stayCounts,
 	stayHints,
 	suggestStays,
 	type TravelStay,
 	usableStamps,
+	withBirthStay,
 	withoutTransitRows,
 } from "../src/index";
 
@@ -58,8 +61,8 @@ const stamp = (
 	reviewed: true,
 });
 
-const suggest = (stamps: Stamp[], locations: LocationRow[] = [], home = "UA") =>
-	suggestStays({ stamps: usableStamps(stamps), locations, home });
+const suggest = (stamps: Stamp[], locations: LocationRow[] = []) =>
+	suggestStays({ stamps: usableStamps(stamps), locations });
 
 /** Country, arrival, departure, sources and kind, for short assertions. */
 const brief = (stays: readonly TravelStay[]) =>
@@ -72,7 +75,7 @@ const brief = (stays: readonly TravelStay[]) =>
 	]);
 
 describe("suggestStays", () => {
-	it("starts at home since birth and returns home after a stamped trip", () => {
+	it("suggests stays only where there is evidence: no home since birth, none after a trip", () => {
 		const stays = suggest([
 			stamp("a", "2016-08-10", "UA", "exit"),
 			stamp("b", "2016-08-10", "ES", "entry"),
@@ -80,15 +83,24 @@ describe("suggestStays", () => {
 			stamp("d", "2016-08-24", "UA", "entry"),
 		]);
 		expect(brief(stays)).toEqual([
-			["UA", null, "2016-08-10", "estimated/stamp", "stay"],
+			["UA", "2016-08-10", "2016-08-10", "estimated/stamp", "stay"],
 			["ES", "2016-08-10", "2016-08-24", "stamp/stamp", "stay"],
 			["UA", "2016-08-24", null, "stamp/estimated", "stay"],
 		]);
 		expect(stays[1]?.stampIds).toEqual(["b", "c"]);
 		expect(stays[1]?.arrival).toMatchObject({ method: "plane", stampId: "b" });
+		// Leaving a country is not coming back anywhere: what follows is a gap.
+		expect(
+			brief(
+				suggest([
+					stamp("a", "2016-08-10", "ES", "entry"),
+					stamp("b", "2016-08-24", "ES", "exit"),
+				]),
+			),
+		).toEqual([["ES", "2016-08-10", "2016-08-24", "stamp/stamp", "stay"]]);
 	});
 
-	it("splits a photos-only trip on the border day, which both stays share", () => {
+	it("splits photos on the border day, which both stays share, from the first photo on", () => {
 		const stays = suggest(
 			[],
 			[
@@ -101,7 +113,7 @@ describe("suggestStays", () => {
 			],
 		);
 		expect(brief(stays)).toEqual([
-			["UA", null, "2017-05-03", "estimated/photos", "stay"],
+			["UA", "2017-05-01", "2017-05-03", "photos/photos", "stay"],
 			["PL", "2017-05-03", "2017-05-06", "photos/photos", "stay"],
 			["UA", "2017-05-06", null, "photos/estimated", "stay"],
 		]);
@@ -117,7 +129,7 @@ describe("suggestStays", () => {
 			stamp("d", "2023-04-28", "TH", "entry"),
 		]);
 		expect(brief(stays)).toEqual([
-			["UA", null, "2023-04-27", "estimated/stamp", "stay"],
+			["UA", "2023-04-27", "2023-04-27", "estimated/stamp", "stay"],
 			["QA", "2023-04-27", "2023-04-27", "stamp/stamp", "transit"],
 			["TH", "2023-04-28", null, "stamp/estimated", "stay"],
 		]);
@@ -138,19 +150,18 @@ describe("suggestStays", () => {
 			stamp("b", "2018-10-20", "UA", "entry"),
 		]);
 		expect(brief(stays)).toEqual([
-			["UA", null, "2018-10-12", "estimated/estimated", "stay"],
 			["GE", "2018-10-12", "2018-10-20", "stamp/estimated", "stay"],
 			["UA", "2018-10-20", null, "stamp/estimated", "stay"],
 		]);
 	});
 
-	it("leaves the days after leaving home to the photos, or as a window", () => {
+	it("leaves the days after an exit to the photos, as a window, or as a gap", () => {
 		const ferry = suggest([
 			stamp("a", "2019-06-01", "UA", "exit", "ship"),
 			stamp("b", "2019-06-03", "GE", "entry", "ship"),
 		]);
 		expect(brief(ferry).map((s) => s.slice(0, 3))).toEqual([
-			["UA", null, "2019-06-01"],
+			["UA", "2019-06-01", "2019-06-01"],
 			["GE", "2019-06-03", null],
 		]);
 		const hints = stayHints(ferry, { stamps: [], passports: [], birth: null });
@@ -163,11 +174,32 @@ describe("suggestStays", () => {
 			],
 			[photo("2019-06-02", "TR"), photo("2019-06-04", "TR")],
 		);
-		expect(brief(viaTurkey).map((s) => s.slice(0, 3))).toEqual([
-			["UA", null, "2019-06-01"],
-			["TR", "2019-06-01", "2019-06-05"],
-			["GE", "2019-06-05", null],
+		expect(brief(viaTurkey).map((s) => s.slice(0, 4))).toEqual([
+			["UA", "2019-06-01", "2019-06-01", "estimated/stamp"],
+			["TR", "2019-06-01", "2019-06-05", "estimated/estimated"],
+			["GE", "2019-06-05", null, "stamp/estimated"],
 		]);
+
+		// Photos a week away from the stamps: their own days, gaps around them.
+		const gaps = suggest(
+			[
+				stamp("a", "2019-06-01", "UA", "exit"),
+				stamp("b", "2019-06-30", "GE", "entry"),
+			],
+			[photo("2019-06-10", "TR"), photo("2019-06-12", "TR")],
+		);
+		expect(brief(gaps).map((s) => s.slice(0, 4))).toEqual([
+			["UA", "2019-06-01", "2019-06-01", "estimated/stamp"],
+			["TR", "2019-06-10", "2019-06-12", "photos/photos"],
+			["GE", "2019-06-30", null, "stamp/estimated"],
+		]);
+		const hinted = stayHints(gaps, { stamps: [], passports: [], birth: null });
+		expect(hinted.flat()).toEqual([]);
+		expect(gapBetween(gaps[0] as TravelStay, gaps[1] as TravelStay)).toEqual({
+			from: "2019-06-01",
+			to: "2019-06-10",
+			days: 8,
+		});
 	});
 
 	it("subdivides a Schengen stay by photos and keeps one stay per country", () => {
@@ -183,29 +215,26 @@ describe("suggestStays", () => {
 			],
 		);
 		expect(brief(stays).map((s) => s.slice(0, 4))).toEqual([
-			["UA", null, "2019-07-01", "estimated/estimated"],
 			["IT", "2019-07-01", "2019-07-09", "stamp/photos"],
 			["FR", "2019-07-09", "2019-07-15", "photos/stamp"],
-			["UA", "2019-07-15", null, "estimated/estimated"],
 		]);
-		expect(stays[2]?.stampIds).toEqual(["b"]);
+		expect(stays[1]?.stampIds).toEqual(["b"]);
 	});
 
-	it("leaves the Schengen exit before the home entry of the same day", () => {
+	it("leaves the Schengen exit before the entry of the same day", () => {
 		const stays = suggest([
 			stamp("a", "2019-07-01", "IT", "entry"),
 			stamp("b", "2019-07-15", "UA", "entry"),
 			stamp("c", "2019-07-15", "FR", "exit"),
 		]);
 		expect(brief(stays).map((s) => s.slice(0, 3))).toEqual([
-			["UA", null, "2019-07-01"],
 			["IT", "2019-07-01", "2019-07-15"],
 			["FR", "2019-07-15", "2019-07-15"],
 			["UA", "2019-07-15", null],
 		]);
 	});
 
-	it("goes on from a foreign exit to photos abroad instead of assuming home", () => {
+	it("goes on from an exit to the photos that follow", () => {
 		const stays = suggest(
 			[
 				stamp("a", "2020-01-01", "FR", "entry"),
@@ -218,12 +247,11 @@ describe("suggestStays", () => {
 			],
 		);
 		expect(brief(stays).map((s) => s.slice(0, 3))).toEqual([
-			["UA", null, "2020-01-01"],
 			["FR", "2020-01-01", "2020-01-05"],
 			["ES", "2020-01-05", "2020-01-12"],
 			["UA", "2020-01-12", null],
 		]);
-		// Weeks later, photos abroad are a new trip after time at home.
+		// Weeks later, photos abroad are a stay of their own after a gap.
 		const later = suggest(
 			[
 				stamp("a", "2020-01-01", "FR", "entry"),
@@ -231,7 +259,10 @@ describe("suggestStays", () => {
 			],
 			[photo("2020-03-01", "ES")],
 		);
-		expect(brief(later).map((s) => s[0])).toEqual(["UA", "FR", "UA", "ES"]);
+		expect(brief(later).map((s) => s.slice(0, 3))).toEqual([
+			["FR", "2020-01-01", "2020-01-05"],
+			["ES", "2020-03-01", null],
+		]);
 	});
 
 	it("fills an unknown method from the other side of the same crossing", () => {
@@ -263,7 +294,7 @@ const stay = (
 });
 
 describe("stayHints", () => {
-	it("flags overlaps, gaps, reversed dates and missing dates as errors", () => {
+	it("flags overlaps, reversed dates and missing dates as errors; a gap is not one", () => {
 		const stays = [
 			stay("a", "UA", null, "2020-01-10"),
 			stay("b", "PL", "2020-01-08", "2020-01-12"),
@@ -275,12 +306,23 @@ describe("stayHints", () => {
 		expect(hints.map((list) => list.map((h) => h.kind))).toEqual([
 			[],
 			["overlap"],
-			["gap", "order"],
+			["order"],
 			["missing-arrival", "missing-departure"],
 			[],
 		]);
 		expect(hints[1]?.[0]).toMatchObject({ days: 2 });
-		expect(hints[2]?.[0]).toMatchObject({ days: 7 });
+		expect(gapBetween(stays[1] as TravelStay, stays[2] as TravelStay)).toEqual({
+			from: "2020-01-12",
+			to: "2020-01-20",
+			days: 7,
+		});
+		// One day between is a travel window, not a gap.
+		expect(
+			gapBetween(
+				stay("x", "UA", null, "2020-01-01"),
+				stay("y", "PL", "2020-01-03", null),
+			),
+		).toBeNull();
 		expect(stayCounts(stays, hints)).toEqual({
 			left: 5,
 			withErrors: 3,
@@ -321,7 +363,6 @@ describe("stayHints", () => {
 		const hints = stayHints(stays, { stamps, passports: [], birth: null });
 		expect(hints[0]).toEqual([]);
 		expect(hints[1]?.map((h) => h.kind)).toEqual([
-			"gap",
 			"stamp-mismatch",
 			"stamp-mismatch",
 		]);
@@ -404,7 +445,7 @@ describe("rebuilding around kept stays", () => {
 });
 
 describe("applyDismissed", () => {
-	it("keeps home where the user deleted a trip", () => {
+	it("drops the stays of a trip the user deleted and joins what it separated", () => {
 		const stays = suggest([
 			stamp("a", "2016-08-10", "UA", "exit"),
 			stamp("b", "2016-08-10", "ES", "entry"),
@@ -413,59 +454,28 @@ describe("applyDismissed", () => {
 			stamp("e", "2017-05-03", "PL", "entry"),
 			stamp("f", "2017-05-12", "UA", "entry"),
 		]);
-		const kept = applyDismissed(
-			stays,
-			[{ start: "2016-08-10", end: "2016-08-24" }],
-			"UA",
-		);
+		const kept = applyDismissed(stays, [
+			{ start: "2016-08-10", end: "2016-08-24" },
+		]);
 		expect(brief(kept).map((s) => s.slice(0, 3))).toEqual([
-			["UA", null, "2017-05-03"],
+			["UA", "2016-08-10", "2017-05-03"],
 			["PL", "2017-05-03", "2017-05-12"],
 			["UA", "2017-05-12", null],
 		]);
 		expect(kept[0]?.stampIds).toEqual(["a", "d"]);
-		// A period that only cuts a stay leaves its other days.
-		const cut = applyDismissed(
-			stays,
-			[{ start: "2017-05-08", end: "2017-05-20" }],
-			"UA",
-		);
+		// A period that only crosses a stay's edge leaves it.
 		expect(
-			brief(cut)
-				.slice(3)
-				.map((s) => s.slice(0, 3)),
-		).toEqual([
-			["PL", "2017-05-03", "2017-05-08"],
-			["UA", "2017-05-08", null],
-		]);
+			applyDismissed(stays, [{ start: "2017-05-08", end: "2017-05-20" }]),
+		).toEqual(stays);
 	});
 });
 
-describe("trips from stays", () => {
+describe("transit photos", () => {
 	const stays = [
-		stay("h1", "UA", null, "2019-07-01"),
-		stay("it", "IT", "2019-07-01", "2019-07-09", { approved: true }),
+		stay("it", "IT", "2019-07-01", "2019-07-09"),
 		stay("qa", "QA", "2019-07-09", "2019-07-09", { kind: "transit" }),
 		stay("fr", "FR", "2019-07-09", "2019-07-15"),
-		stay("h2", "UA", "2019-07-15", null),
 	];
-
-	it("takes home from the country of most stays and a trip between home stays", () => {
-		expect(homeOf(stays)).toBe("UA");
-		expect(deriveTrips(stays, "UA")).toEqual([
-			{
-				id: "trip-it",
-				title: "Italy → France",
-				start: "2019-07-01",
-				end: "2019-07-15",
-				stayIds: ["it", "qa", "fr"],
-				countries: ["IT", "QA", "FR"],
-				visited: ["IT", "FR"],
-				approved: false,
-			},
-		]);
-		expect(deriveTrips(stays, null)).toEqual([]);
-	});
 
 	it("drops photos taken in a transit country during the transit", () => {
 		const rows = [photo("2019-07-09", "QA"), photo("2019-07-09", "FR")];
@@ -514,5 +524,133 @@ describe("legacyTripStays", () => {
 			approved: true,
 			arrival: { method: "walk" },
 		});
+	});
+});
+
+describe("editing stays", () => {
+	const days = {
+		stamps: new Map([
+			["in", "2020-01-01"],
+			["mid", "2020-01-10"],
+			["out", "2020-01-20"],
+		]),
+		photos: new Map([
+			["p1", "2020-01-05"],
+			["p2", "2020-01-10"],
+			["p3", "2020-01-15"],
+		]),
+	};
+	const es = stay("es", "ES", "2020-01-01", "2020-01-20", {
+		arrival: {
+			date: "2020-01-01",
+			source: "stamp",
+			method: "plane",
+			stampId: "in",
+		},
+		departure: {
+			date: "2020-01-20",
+			source: "stamp",
+			method: "car",
+			stampId: "out",
+		},
+		stampIds: ["in", "mid", "out"],
+		photoIds: ["p1", "p2", "p3"],
+		place: "Madrid",
+		approved: true,
+	});
+
+	it("splits a stay at a day inside it into two of its country", () => {
+		const list = [stay("fr", "FR", "2019-12-20", "2020-01-01"), es];
+		const out = splitStay(list, "es", "2020-01-10", days);
+		expect(brief(out).map((s) => s.slice(0, 4))).toEqual([
+			["FR", "2019-12-20", "2020-01-01", "stamp/stamp"],
+			["ES", "2020-01-01", "2020-01-10", "stamp/manual"],
+			["ES", "2020-01-10", "2020-01-20", "manual/stamp"],
+		]);
+		const [, first, second] = out;
+		expect(first).toMatchObject({
+			id: "es",
+			stampIds: ["in", "mid"],
+			photoIds: ["p1"],
+			approved: false,
+			edited: true,
+		});
+		expect(second).toMatchObject({
+			id: "es-2020-01-10",
+			place: "Madrid",
+			stampIds: ["out"],
+			photoIds: ["p2", "p3"],
+			departure: { method: "car", stampId: "out" },
+			edited: true,
+		});
+	});
+
+	it("splits only inside the stay", () => {
+		expect(canSplitAt(es, "2020-01-01")).toBe(false);
+		expect(canSplitAt(es, "2020-01-02")).toBe(true);
+		expect(canSplitAt(es, "2020-01-20")).toBe(false);
+		expect(
+			canSplitAt(
+				{ ...es, departure: { ...es.departure, date: null } },
+				"2024-01-01",
+			),
+		).toBe(true);
+		expect(splitStay([es], "es", "2020-01-20", days)).toEqual([es]);
+	});
+
+	it("adds a stay set by hand in date order", () => {
+		const list = [
+			stay("a", "UA", "2020-01-01", "2020-01-05"),
+			stay("b", "PL", "2020-02-01", null),
+		];
+		const { stays, id } = addStay(list, {
+			countryCode: "TR",
+			arrival: "2020-01-05",
+			departure: "2020-02-01",
+		});
+		expect(id).toBe("stay-2020-01-05-tr-added");
+		expect(brief(stays)).toEqual([
+			["UA", "2020-01-01", "2020-01-05", "stamp/stamp", "stay"],
+			["TR", "2020-01-05", "2020-02-01", "manual/manual", "stay"],
+			["PL", "2020-02-01", null, "stamp/stamp", "stay"],
+		]);
+		expect(stays[1]).toMatchObject({ approved: false, edited: true });
+	});
+
+	it("starts the history since birth only with a birth country and date", () => {
+		const list = [stay("es", "ES", "2016-08-10", "2016-08-24")];
+		expect(withBirthStay(list, { birthCountry: "MD", birth: null })).toEqual(
+			list,
+		);
+		expect(
+			withBirthStay(list, { birthCountry: null, birth: "1997-05-21" }),
+		).toEqual(list);
+		const born = withBirthStay(list, {
+			birthCountry: "MD",
+			birth: "1997-05-21",
+		});
+		expect(brief(born).map((s) => s.slice(0, 4))).toEqual([
+			["MD", null, "2016-08-10", "estimated/estimated"],
+			["ES", "2016-08-10", "2016-08-24", "stamp/stamp"],
+		]);
+		// Already since birth: nothing changes.
+		expect(
+			withBirthStay(born, { birthCountry: "MD", birth: "1997-05-21" }),
+		).toEqual(born);
+		// A first stay there by estimate becomes the stay since birth.
+		const photos = [
+			stay("md", "MD", "2010-01-01", "2016-08-10", {
+				arrival: { date: "2010-01-01", source: "photos", method: "unknown" },
+			}),
+			...list,
+		];
+		const since = withBirthStay(photos, {
+			birthCountry: "MD",
+			birth: "1997-05-21",
+		});
+		expect(since.map((s) => [s.id, s.arrival.date])).toEqual([
+			["md", null],
+			["es", "2016-08-10"],
+		]);
 	});
 });

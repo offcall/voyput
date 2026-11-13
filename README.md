@@ -1,6 +1,6 @@
 # voyput
 
-Reconstructs a travel history from passport stamp photos, cross-checked against Apple Photos location data. Everything runs in the browser: the user brings photos and a CSV, reads stamps with their own OpenRouter key, reviews them, builds a history of one-country stays (trips are the stays between home stays) and sees it on charts.
+Reconstructs a travel history from passport stamp photos, cross-checked against Apple Photos location data. Everything runs in the browser: the user brings photos and a CSV, reads stamps with their own OpenRouter key, reviews them, builds a history of one-country stays (edit, split or add them; days without evidence stay gaps) and sees it on charts.
 
 ## Commands
 
@@ -19,7 +19,7 @@ npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/d
 
 ## Navigation
 
-- **Collect** (`/collect/<step>`): one wizard — passports, photo locations, extract, review, trips — with a success header and a stepper on top. `/` opens the first step that is not done. Old URLs (`/import`, `/review?photo=…`, `/trips/<id>`, …) redirect. See [ADR 0016](docs/adr/0016-collect-wizard.md).
+- **Collect** (`/collect/<step>`): one wizard — passports, photo locations, extract, review, stays — with a success header and a stepper on top. `/` opens the first step that is not done. Old URLs (`/import`, `/review?photo=…`, `/trips/<id>`, …) redirect. See [ADR 0016](docs/adr/0016-collect-wizard.md).
 - **Visualize** (`/visualize/<tab>`): one route per tab ([ADR 0015](docs/adr/0015-collect-and-visualize-navigation.md)).
 - **Settings** (`/settings`).
 

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { LocationRow } from "../../src/locations/types";
 import {
-	adjacentTripStart,
+	adjacentStayStart,
 	currentWaypointIndex,
 	headingAt,
 	type JourneyStay,
 	journeyDayAt,
 	journeyWaypoints,
+	stayStarts,
 	stayWaypoints,
-	tripStarts,
 	type Waypoint,
 } from "../../src/route";
 
@@ -32,16 +32,16 @@ const row = (
 });
 
 const stays: JourneyStay[] = [
-	{ countryCode: "RO", start: "2024-03-01", end: "2024-03-05", tripId: "ro" },
-	{ countryCode: "MD", start: "2024-03-06", end: "2024-06-08", tripId: null },
-	{ countryCode: "JP", start: "2024-06-09", end: "2024-06-11", tripId: "asia" },
-	{ countryCode: "KR", start: "2024-06-12", end: "2024-06-13", tripId: "asia" },
-	{ countryCode: "TH", start: "2024-07-01", end: "2024-07-04", tripId: "th" },
-	{ countryCode: "ZZ", start: "2024-08-01", end: "2024-08-02", tripId: "zz" },
+	{ countryCode: "RO", start: "2024-03-01", end: "2024-03-05", id: "ro" },
+	{ countryCode: "MD", start: "2024-03-06", end: "2024-06-08", id: "md" },
+	{ countryCode: "JP", start: "2024-06-09", end: "2024-06-11", id: "jp" },
+	{ countryCode: "KR", start: "2024-06-12", end: "2024-06-13", id: "kr" },
+	{ countryCode: "TH", start: "2024-07-01", end: "2024-07-04", id: "th" },
+	{ countryCode: "ZZ", start: "2024-08-01", end: "2024-08-02", id: "zz" },
 ];
 
 const rows = [
-	// Out of order on purpose; a home photo inside the home stay is not a stop.
+	// Out of order on purpose.
 	row("2024-06-11T09:00", "JP", 34.7, 135.5),
 	row("2024-03-02T10:00", "RO", 44.4, 26.1),
 	row("2024-03-03T10:00", "RO", 45.6, 25.6),
@@ -65,7 +65,7 @@ const wp = (x: number, y: number, start: string): Waypoint => ({
 });
 
 describe("journeyWaypoints", () => {
-	it("walks through the trip's photos and anchors home and photo-less stays", () => {
+	it("walks through each stay's photos and anchors photo-less stays", () => {
 		const journey = journeyWaypoints(stays, rows);
 		expect(journey.waypoints.map((w) => w.countryCode)).toEqual([
 			"RO",
@@ -76,49 +76,41 @@ describe("journeyWaypoints", () => {
 			"KR",
 			"TH",
 		]);
-		expect(journey.tripIds).toEqual([
-			"ro",
-			"ro",
-			null,
-			"asia",
-			"asia",
-			"asia",
-			"th",
-		]);
+		expect(journey.stayIds).toEqual(["ro", "ro", "md", "jp", "jp", "kr", "th"]);
 		// KR's only photo is on 06-11, before its stay starts, and TH has none:
 		// both fall back to the centroid. ZZ has neither and is skipped.
 		expect(journey.waypoints.map((w) => w.photos)).toEqual([
-			1, 1, 0, 1, 1, 0, 0,
+			1, 1, 1, 1, 1, 0, 0,
 		]);
-		expect(journey.photos).toBe(4);
+		expect(journey.photos).toBe(5);
 		expect(journey.skipped).toBe(1);
 		expect(new Set(journey.waypoints.map((w) => w.id)).size).toBe(7);
 	});
 
-	it("without photos equals the by-countries waypoints, with trip ids", () => {
+	it("without photos equals the by-countries waypoints, with stay ids", () => {
 		const journey = journeyWaypoints(stays, rows, { photos: false });
 		expect(journey.waypoints).toEqual(stayWaypoints(stays, rows).waypoints);
-		expect(journey.tripIds).toEqual(["ro", null, "asia", "asia", "th"]);
+		expect(journey.stayIds).toEqual(["ro", "md", "jp", "kr", "th"]);
 		expect(journey.skipped).toBe(1);
 		expect(journey.photos).toBe(0);
 	});
 });
 
-describe("trip jumps", () => {
-	const starts = tripStarts(["ro", "ro", null, "asia", "asia", "th"]);
+describe("stay jumps", () => {
+	const starts = stayStarts(["ro", "ro", null, "jp", "jp", "th"]);
 
-	it("finds where each trip begins", () => {
+	it("finds where each stay begins", () => {
 		expect(starts).toEqual([0, 3, 5]);
-		expect(tripStarts(["a", "b", "b"])).toEqual([0, 1]);
+		expect(stayStarts(["a", "b", "b"])).toEqual([0, 1]);
 	});
 
-	it("jumps to the next and the previous trip", () => {
-		expect(adjacentTripStart(starts, 0, 1)).toBe(3);
-		expect(adjacentTripStart(starts, 3, 1)).toBe(5);
-		expect(adjacentTripStart(starts, 5, 1)).toBeNull();
-		expect(adjacentTripStart(starts, 3.4, -1)).toBe(3);
-		expect(adjacentTripStart(starts, 3, -1)).toBe(0);
-		expect(adjacentTripStart(starts, 0, -1)).toBeNull();
+	it("jumps to the next and the previous stay", () => {
+		expect(adjacentStayStart(starts, 0, 1)).toBe(3);
+		expect(adjacentStayStart(starts, 3, 1)).toBe(5);
+		expect(adjacentStayStart(starts, 5, 1)).toBeNull();
+		expect(adjacentStayStart(starts, 3.4, -1)).toBe(3);
+		expect(adjacentStayStart(starts, 3, -1)).toBe(0);
+		expect(adjacentStayStart(starts, 0, -1)).toBeNull();
 	});
 });
 

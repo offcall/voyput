@@ -105,7 +105,7 @@ describe("visualize", () => {
 		);
 	});
 
-	it("renders every tab and narrows them to the selected trips", async () => {
+	it("renders every tab and narrows them to the selected stays", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("visualize-filter");
 		await db.locations.bulkPut([
@@ -174,8 +174,10 @@ describe("visualize", () => {
 			expect(content()).toBeTruthy();
 		}
 
+		// A country picks all its stays; single stays are listed too.
+		await user.click(screen.getByRole("checkbox", { name: /^Japan 1 stay$/ }));
 		await user.click(
-			screen.getByRole("checkbox", { name: /Japan → South Korea/ }),
+			screen.getByRole("checkbox", { name: /^\d+\. South Korea / }),
 		);
 		await expectCountries("2");
 		await user.click(screen.getByRole("link", { name: "Moves" }));
@@ -184,13 +186,18 @@ describe("visualize", () => {
 			panel().getByRole("group", { name: "Moves between countries" }),
 		).toBeTruthy();
 
-		await user.click(screen.getByRole("checkbox", { name: /Romania/ }));
+		await user.click(
+			screen.getByRole("checkbox", { name: /^Romania 1 stay$/ }),
+		);
 		await expectCountries("3");
 
 		await user.click(screen.getByRole("button", { name: "Show all data" }));
-		await user.click(screen.getByRole("checkbox", { name: /Bulgaria/ }));
+		await expectCountries("4");
+		await user.click(
+			screen.getByRole("checkbox", { name: /^Bulgaria 1 stay$/ }),
+		);
 		expect(
-			await screen.findByText("No photos fall inside the selected trips."),
+			await screen.findByText("No photos fall inside the selected stays."),
 		).toBeTruthy();
 		// The tabs stay and keep the chosen tab.
 		expect(

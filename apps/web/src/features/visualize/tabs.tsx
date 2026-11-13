@@ -1,4 +1,4 @@
-import type { LocationRow, Trip, VizData, WorldShapes } from "@voyput/core";
+import type { LocationRow, VizData, WorldShapes } from "@voyput/core";
 import { PixelArt, type SpriteName } from "@voyput/ui";
 import type { ReactNode } from "react";
 import { ChartPanel } from "./ChartPanel";
@@ -21,13 +21,11 @@ import { RouteTab } from "./route/RouteTab";
 export interface VizTabContext {
 	/** Every stored location row, unfiltered. */
 	rows: readonly LocationRow[];
-	/** Saved trips, by start date. */
-	trips: readonly Trip[];
-	/** Aggregates of the rows inside the selected trips (all rows when none is selected). */
+	/** Aggregates of the rows inside the selected stays (all rows when none is selected). */
 	data: VizData;
 	/** World outlines, or `null` until loaded. */
 	world: WorldShapes | null;
-	/** Stays built from stored and suggested trips, for the stay views. */
+	/** Stays, stored or suggested, for the stay views. */
 	stays: StaysData;
 	/** How much data there is; `needs` are checked against it. */
 	have: VizHave;
@@ -39,14 +37,14 @@ export interface VizTab {
 	label: string;
 	/** Small decorative icon for the nav. */
 	icon?: ReactNode;
-	/** Shows the trip filter and summary tiles above the tab; `false` gives the tab the full width. */
-	usesTripFilter: boolean;
+	/** Shows the stay filter and summary tiles above the tab; `false` gives the tab the full width. */
+	usesStayFilter: boolean;
 	/** Data the tab cannot draw without; when some is missing the layout shows a placeholder instead. Defaults to `["locations"]`. */
 	needs?: readonly VizNeed[];
 	render: (ctx: VizTabContext) => ReactNode;
 }
 
-/** A tab that shows one chart in a card, under the trip filter. */
+/** A tab that shows one chart in a card, under the stay filter. */
 function chartTab(
 	id: string,
 	label: string,
@@ -57,7 +55,7 @@ function chartTab(
 		id,
 		label,
 		icon: <PixelArt name={panel.sprite} scale={1} />,
-		usesTripFilter: true,
+		usesStayFilter: true,
 		needs: ["locations"],
 		render: (ctx) => (
 			<ChartPanel
@@ -77,16 +75,16 @@ export const VIZ_TABS: readonly VizTab[] = [
 		id: "route",
 		label: "Route",
 		icon: <PixelArt name="plane" scale={1} />,
-		usesTripFilter: false,
-		needs: ["trips"],
+		usesStayFilter: false,
+		needs: ["stays"],
 		render: ({ stays, have }) => <RouteTab data={stays} have={have} />,
 	},
 	{
 		id: "explore",
 		label: "Explore",
 		icon: <PixelArt name="suitcase" scale={1} />,
-		usesTripFilter: false,
-		needs: ["trips"],
+		usesStayFilter: false,
+		needs: ["stays"],
 		render: ({ stays }) => <ExploreTab stays={stays.stays} />,
 	},
 	chartTab(

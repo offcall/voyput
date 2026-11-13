@@ -22,6 +22,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0016](0016-collect-wizard.md) | Collect Wizard | Accepted |
 | [0017](0017-photo-location-window-setting.md) | Photo Location Window Setting | Accepted |
 | [0018](0018-stamp-read-date.md) | Stamp Read Date | Accepted |
-| [0019](0019-stays-as-source-of-truth.md) | Stays as Source of Truth | Accepted |
+| [0019](0019-stays-as-source-of-truth.md) | Stays as Source of Truth | Accepted; home and derived trips superseded by 0022 |
 | [0020](0020-gemini-flash-default-model.md) | Gemini 3.8 Flash as Default Model | Accepted |
 | [0021](0021-commons-sample-pages-in-demo.md) | Commons Sample Pages in the Demo | Accepted |
+| [0022](0022-stays-without-home.md) | Stays Without Home | Accepted |
