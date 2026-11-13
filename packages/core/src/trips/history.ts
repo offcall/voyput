@@ -1,7 +1,9 @@
 import { spanDays } from "../explore/dates";
 import type { LocationRow } from "../locations/types";
+import type { Stamp } from "../stamps/types";
+import { applyDismissed, mergeKept, type Period, suggestStays } from "./build";
 import { countryNameOf } from "./countries";
-import { locationDay } from "./evidence";
+import { guessHomeCountry, locationDay, usableStamps } from "./evidence";
 import type { TravelStay, Trip } from "./types";
 
 /** First and last day of a stay; null where it is unknown. */
@@ -118,4 +120,35 @@ export function withoutTransitRows(
 			)
 		);
 	});
+}
+
+/** Everything a history is suggested from, as stored. */
+export interface HistorySource {
+	/** All stamps; only usable ones count. */
+	stamps: readonly Stamp[];
+	locations: readonly LocationRow[];
+	/** The user's home, or null to guess it from the evidence. */
+	pickedHome: string | null;
+	/** Periods of trips the user deleted before stays: home there. */
+	dismissed: readonly Period[];
+}
+
+/**
+ * The history suggested from the evidence, built around the stays in `kept`.
+ * Without stamps, locations or a picked home there is nothing to suggest.
+ */
+export function suggestHistory(
+	source: HistorySource,
+	kept: readonly TravelStay[] = [],
+): TravelStay[] {
+	const stamps = usableStamps(source.stamps);
+	const home = source.pickedHome ?? guessHomeCountry(stamps, source.locations);
+	const suggested = home
+		? applyDismissed(
+				suggestStays({ stamps, locations: source.locations, home }),
+				source.dismissed,
+				home,
+			)
+		: [];
+	return mergeKept(suggested, kept);
 }

@@ -16,6 +16,7 @@ Trips were stored as periods outside a home country, with stops per day and two 
 - `Trip` is derived (`trips/history.ts`: `deriveTrips`): a run of stays outside home. Home is the country of most stays unless the user picks one. Explore's `Stay` is a read model built from `TravelStay`s.
 - Photos taken in a transit country during the transit do not count as a visit (`withoutTransitRows`); transits stay out of a trip's `visited` countries.
 - Dexie version 3 adds a `stays` table and drops `trips`; its upgrade converts stored trips into stays (`legacyTripStays`) so user edits are kept.
+- Periods of trips the user deleted before stays (`trips:dismissed` in `kv`) stay home: every suggestion, in the upgrade and on the Trips step, passes through `applyDismissed`.
 
 ## Consequences
 

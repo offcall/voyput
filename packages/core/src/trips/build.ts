@@ -1,5 +1,6 @@
 import { day } from "../explore/dates";
 import type { LocationRow } from "../locations/types";
+import { isIsoDate } from "../passports/photos";
 import type { BorderCrossing } from "../stamps/types";
 import { type DatedStamp, locationDay } from "./evidence";
 import type { EdgeSource, StayEdge, TravelMethod, TravelStay } from "./types";
@@ -500,4 +501,94 @@ export function sortStays(stays: readonly TravelStay[]): TravelStay[] {
 		(a, b) =>
 			fromOf(a).localeCompare(fromOf(b)) || toOf(a).localeCompare(toOf(b)),
 	);
+}
+
+/** A span of days, both ends included. */
+export interface Period {
+	start: string;
+	end: string;
+}
+
+const isPeriod = (v: unknown): v is Period =>
+	typeof v === "object" &&
+	v !== null &&
+	"start" in v &&
+	"end" in v &&
+	typeof v.start === "string" &&
+	isIsoDate(v.start) &&
+	typeof v.end === "string" &&
+	isIsoDate(v.end);
+
+/** Periods read from storage; anything malformed is skipped. */
+export const periodsOf = (value: unknown): Period[] =>
+	Array.isArray(value) ? value.filter(isPeriod) : [];
+
+const joinInto = (into: TravelStay, next: TravelStay) => {
+	into.departure = next.departure;
+	into.stampIds = [...into.stampIds, ...next.stampIds];
+	into.photoIds = [...into.photoIds, ...next.photoIds];
+};
+
+/**
+ * Periods where the user deleted a trip (before stays): home there, nothing
+ * abroad. A stay abroad inside such a period goes, one across its edge is cut
+ * back to it when a stamp or the user dates its other edge, and home fills
+ * what is left; home stays that meet join.
+ */
+export function applyDismissed(
+	stays: readonly TravelStay[],
+	periods: readonly Period[],
+	home: string,
+): TravelStay[] {
+	if (periods.length === 0) return [...stays];
+	let list = [...stays];
+	for (const p of periods) {
+		list = list.flatMap((s): TravelStay[] => {
+			const a = fromOf(s);
+			const d = toOf(s);
+			if (s.countryCode === home || a > p.end || d < p.start) return [s];
+			// A rest outside the period stays only when a stamp or the user dates
+			// its far edge; an estimate around evidence inside the period goes too.
+			const before =
+				a < p.start && exact(s.arrival)
+					? [{ ...s, departure: edge(p.start, "estimated") }]
+					: [];
+			const after =
+				d > p.end && exact(s.departure)
+					? [{ ...s, id: `${s.id}-after`, arrival: edge(p.end, "estimated") }]
+					: [];
+			return [...before, ...after];
+		});
+	}
+	const touches = (from: string, to: string) =>
+		periods.some((p) => p.start <= to && from <= p.end);
+	const out: TravelStay[] = [];
+	for (const stay of list) {
+		const s = { ...stay };
+		const last = out.at(-1);
+		if (last && last.countryCode === home && s.countryCode === home) {
+			joinInto(last, s);
+			continue;
+		}
+		const from = last?.departure.date;
+		const to = s.arrival.date;
+		if (last && from && to && from < to && touches(from, to)) {
+			if (last.countryCode === home) last.departure = edge(to, "estimated");
+			else if (s.countryCode === home) s.arrival = edge(from, "estimated");
+			else
+				out.push({
+					id: `stay-${from}-${home.toLowerCase()}-home`,
+					countryCode: home,
+					place: "",
+					kind: "stay",
+					arrival: edge(from, "estimated"),
+					departure: edge(to, "estimated"),
+					stampIds: [],
+					photoIds: [],
+					approved: false,
+				});
+		}
+		out.push(s);
+	}
+	return out;
 }

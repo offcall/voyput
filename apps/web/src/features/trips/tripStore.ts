@@ -1,16 +1,16 @@
 import {
-	guessHomeCountry,
+	type HistorySource,
 	homeOf,
 	isCountryCode,
 	isIsoDate,
 	type LocationRow,
-	mergeKept,
 	type Passport,
+	type Period,
+	periodsOf,
 	type Stamp,
 	sortStays,
-	suggestStays,
+	suggestHistory,
 	type TravelStay,
-	usableStamps,
 } from "@voyput/core";
 import type { VoyputDb } from "../../db/db";
 
@@ -18,11 +18,16 @@ import type { VoyputDb } from "../../db/db";
 export const HOME_KEY = "trips:home";
 /** `db.kv` key of the birth date, the start of the first stay. */
 export const BIRTH_KEY = "trips:birth";
+/** `db.kv` key of the periods of trips the user deleted before stays (Dexie version 2). */
+export const DISMISSED_KEY = "trips:dismissed";
 
-export interface TripsData {
+export { suggestHistory };
+
+export interface TripsData extends HistorySource {
 	stamps: Stamp[];
 	locations: LocationRow[];
 	passports: Passport[];
+	dismissed: Period[];
 	/** The stored history, in date order; empty until the user edits a suggestion. */
 	stored: TravelStay[];
 	/** Home country chosen by the user, or null (also when invalid). */
@@ -31,20 +36,21 @@ export interface TripsData {
 }
 
 export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
-	const [stamps, locations, passports, stored, home, birth] = await Promise.all(
-		[
+	const [stamps, locations, passports, stored, home, birth, dismissed] =
+		await Promise.all([
 			db.stamps.toArray(),
 			db.locations.toArray(),
 			db.passports.toArray(),
 			db.stays.toArray(),
 			db.kv.get(HOME_KEY),
 			db.kv.get(BIRTH_KEY),
-		],
-	);
+			db.kv.get(DISMISSED_KEY),
+		]);
 	return {
 		stamps,
 		locations,
 		passports,
+		dismissed: periodsOf(dismissed?.value),
 		stored: sortStays(stored),
 		pickedHome: isCountryCode(home?.value) ? home.value : null,
 		birth:
@@ -52,22 +58,6 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 				? birth.value
 				: null,
 	};
-}
-
-/**
- * The history suggested from the evidence, built around the stays in `kept`.
- * Without stamps, locations or a picked home there is nothing to suggest.
- */
-export function suggestHistory(
-	data: TripsData,
-	kept: readonly TravelStay[] = [],
-): TravelStay[] {
-	const stamps = usableStamps(data.stamps);
-	const home = data.pickedHome ?? guessHomeCountry(stamps, data.locations);
-	const suggested = home
-		? suggestStays({ stamps, locations: data.locations, home })
-		: [];
-	return mergeKept(suggested, kept);
 }
 
 /** The stored history, or a suggestion while nothing is stored. */

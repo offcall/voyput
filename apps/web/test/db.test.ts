@@ -23,6 +23,49 @@ const row: LocationRow = {
 	uuid: "u1",
 };
 
+/** The database as version 2 left it, with its `trips` table. */
+function oldDb(name: string): Dexie {
+	const old = new Dexie(name);
+	old.version(2).stores({
+		passports: "id",
+		photos: "id, passportId",
+		extractions: "photoId",
+		stamps: "id, passportId, photoId, date",
+		locations: "uuid, date, countryCode",
+		trips: "id, start",
+		kv: "key",
+	});
+	return old;
+}
+
+const spain: LegacyTrip = {
+	id: "t1",
+	title: "Barcelona",
+	start: "2024-04-30",
+	end: "2024-05-03",
+	confirmed: true,
+	arrival: { date: "2024-04-30", source: "manual", method: "plane" },
+	departure: { date: "2024-05-03", source: "manual", method: "plane" },
+	stops: [
+		{
+			id: "s",
+			day: "2024-05-01",
+			countryCode: "ES",
+			country: "Spain",
+			cities: ["Barcelona"],
+			kind: "stay",
+		},
+	],
+	stampIds: [],
+};
+
+/** Country, arrival, departure of the stored stays, in date order. */
+async function storedStays(db: VoyputDb) {
+	return (await db.stays.toArray())
+		.sort((a, b) => (a.arrival.date ?? "").localeCompare(b.arrival.date ?? ""))
+		.map((s) => [s.countryCode, s.arrival.date, s.departure.date]);
+}
+
 describe("database", () => {
 	it("keeps photos and does not duplicate re-imported locations after reopening", async () => {
 		const first = new VoyputDb("db-roundtrip");
@@ -51,16 +94,7 @@ describe("database", () => {
 	});
 
 	it("turns stored trips into stays inside a suggested history", async () => {
-		const old = new Dexie("db-migrate");
-		old.version(2).stores({
-			passports: "id",
-			photos: "id, passportId",
-			extractions: "photoId",
-			stamps: "id, passportId, photoId, date",
-			locations: "uuid, date, countryCode",
-			trips: "id, start",
-			kv: "key",
-		});
+		const old = oldDb("db-migrate");
 		const trip: LegacyTrip = {
 			id: "t1",
 			title: "Barcelona",
@@ -110,6 +144,34 @@ describe("database", () => {
 			["UA", "2024-05-03", null, false],
 		]);
 		expect(db.tables.map((t) => t.name)).not.toContain("trips");
+		db.close();
+	});
+
+	it("keeps deleted trips deleted: their periods stay home", async () => {
+		const old = oldDb("db-migrate-dismissed");
+		await old.table("trips").put(spain);
+		await old
+			.table("locations")
+			.bulkPut([
+				row,
+				{ ...row, uuid: "u2", date: "2024-06-01T10:00:00", countryCode: "PL" },
+				{ ...row, uuid: "u3", date: "2024-06-10T10:00:00", countryCode: "UA" },
+			]);
+		await old.table("kv").bulkPut([
+			{ key: "trips:home", value: "UA" },
+			{
+				key: "trips:dismissed",
+				value: [{ start: "2024-05-31", end: "2024-06-05" }],
+			},
+		]);
+		old.close();
+
+		const db = new VoyputDb("db-migrate-dismissed");
+		expect(await storedStays(db)).toEqual([
+			["UA", null, "2024-04-30"],
+			["ES", "2024-04-30", "2024-05-03"],
+			["UA", "2024-05-03", null],
+		]);
 		db.close();
 	});
 });

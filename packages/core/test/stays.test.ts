@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	applyDismissed,
 	clearStayIds,
 	deriveTrips,
 	homeOf,
@@ -398,6 +399,44 @@ describe("rebuilding around kept stays", () => {
 			stays[0]?.id,
 			"mine",
 			stays[2]?.id,
+		]);
+	});
+});
+
+describe("applyDismissed", () => {
+	it("keeps home where the user deleted a trip", () => {
+		const stays = suggest([
+			stamp("a", "2016-08-10", "UA", "exit"),
+			stamp("b", "2016-08-10", "ES", "entry"),
+			stamp("c", "2016-08-24", "ES", "exit"),
+			stamp("d", "2016-08-24", "UA", "entry"),
+			stamp("e", "2017-05-03", "PL", "entry"),
+			stamp("f", "2017-05-12", "UA", "entry"),
+		]);
+		const kept = applyDismissed(
+			stays,
+			[{ start: "2016-08-10", end: "2016-08-24" }],
+			"UA",
+		);
+		expect(brief(kept).map((s) => s.slice(0, 3))).toEqual([
+			["UA", null, "2017-05-03"],
+			["PL", "2017-05-03", "2017-05-12"],
+			["UA", "2017-05-12", null],
+		]);
+		expect(kept[0]?.stampIds).toEqual(["a", "d"]);
+		// A period that only cuts a stay leaves its other days.
+		const cut = applyDismissed(
+			stays,
+			[{ start: "2017-05-08", end: "2017-05-20" }],
+			"UA",
+		);
+		expect(
+			brief(cut)
+				.slice(3)
+				.map((s) => s.slice(0, 3)),
+		).toEqual([
+			["PL", "2017-05-03", "2017-05-08"],
+			["UA", "2017-05-08", null],
 		]);
 	});
 });

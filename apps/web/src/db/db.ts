@@ -1,17 +1,15 @@
 import {
-	guessHomeCountry,
 	isCountryCode,
 	type LegacyTrip,
 	type LocationRow,
 	legacyTripStays,
-	mergeKept,
 	type Passport,
 	type PassportPhoto,
 	type PhotoExtraction,
+	periodsOf,
 	type Stamp,
-	suggestStays,
+	suggestHistory,
 	type TravelStay,
-	usableStamps,
 } from "@voyput/core";
 import Dexie, { type Table, type Transaction } from "dexie";
 
@@ -65,19 +63,21 @@ export async function migrateTrips(tx: Transaction): Promise<void> {
 	const trips = await tx.table<LegacyTrip, string>("trips").toArray();
 	const kept = trips.flatMap(legacyTripStays);
 	if (kept.length === 0) return;
-	const [stamps, locations, picked] = await Promise.all([
+	const [stamps, locations, picked, dismissed] = await Promise.all([
 		tx.table<Stamp, string>("stamps").toArray(),
 		tx.table<LocationRow, string>("locations").toArray(),
 		tx.table<KvRecord, string>("kv").get("trips:home"),
+		tx.table<KvRecord, string>("kv").get("trips:dismissed"),
 	]);
-	const usable = usableStamps(stamps);
-	const home = isCountryCode(picked?.value)
-		? picked.value
-		: guessHomeCountry(usable, locations);
-	const suggested = home
-		? suggestStays({ stamps: usable, locations, home })
-		: [];
-	await tx
-		.table<TravelStay, string>("stays")
-		.bulkPut(mergeKept(suggested, kept));
+	// Deleted trips stay deleted: the Trips step reads the same periods.
+	const history = suggestHistory(
+		{
+			stamps,
+			locations,
+			pickedHome: isCountryCode(picked?.value) ? picked.value : null,
+			dismissed: periodsOf(dismissed?.value),
+		},
+		kept,
+	);
+	await tx.table<TravelStay, string>("stays").bulkPut(history);
 }

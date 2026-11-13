@@ -86,8 +86,11 @@ export {
 	zoneOf,
 } from "./stamps/visits";
 export {
+	applyDismissed,
 	mergeKept,
 	methodOf,
+	type Period,
+	periodsOf,
 	type StayEvidence,
 	sortStays,
 	suggestStays,
@@ -110,10 +113,12 @@ export {
 } from "./trips/hints";
 export {
 	deriveTrips,
+	type HistorySource,
 	homeOf,
 	type StaySpan,
 	spanLength,
 	staySpan,
+	suggestHistory,
 	withoutTransitRows,
 } from "./trips/history";
 export { type LegacyTrip, legacyTripStays } from "./trips/legacy";
