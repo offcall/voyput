@@ -166,17 +166,21 @@ export function StampCard({
 						▾
 					</span>
 				</button>
-				{level === "critical" ? <Badge tone="bad">issue</Badge> : null}
-				{level === "warning" ? <Badge tone="warn">photo location</Badge> : null}
-				{stamp.reviewed ? <Badge tone="good">reviewed</Badge> : null}
-				<Button
-					variant="danger"
-					className="review-icon-button"
-					aria-label={`Delete ${label.toLowerCase()}`}
-					onClick={onDelete}
-				>
-					<TrashIcon />
-				</Button>
+				<span className="review-stamp-actions">
+					{level === "critical" ? <Badge tone="bad">issue</Badge> : null}
+					{level === "warning" ? (
+						<Badge tone="warn">photo location</Badge>
+					) : null}
+					{stamp.reviewed ? <Badge tone="good">reviewed</Badge> : null}
+					<Button
+						variant="danger"
+						className="review-icon-button"
+						aria-label={`Delete ${label.toLowerCase()}`}
+						onClick={onDelete}
+					>
+						<TrashIcon />
+					</Button>
+				</span>
 			</div>
 
 			{expanded ? (

@@ -454,7 +454,7 @@ fieldset.review-filters {
 }
 @media (max-width: 960px) {
 	.review-split {
-		grid-template-columns: 1fr;
+		grid-template-columns: minmax(0, 1fr);
 	}
 }
 .review-photo-pane {
@@ -691,6 +691,20 @@ fieldset.review-filters {
 }
 .review-stamp-toggle:hover {
 	background: var(--review-soft);
+}
+/* Badges and delete move together to a second row before covering the date. */
+.review-stamp-summary {
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+.review-stamp-toggle {
+	flex-basis: 19rem;
+}
+.review-stamp-actions {
+	flex: none;
+	display: flex;
+	align-items: center;
+	gap: 6px;
 }
 .review-stamp-date {
 	flex: none;
