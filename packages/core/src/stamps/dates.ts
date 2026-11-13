@@ -16,30 +16,41 @@ export const isValidDate = (value: unknown): value is string | null => {
 };
 
 const MONTH_NAMES = [
-	"JAN",
-	"FEB",
-	"MAR",
-	"APR",
+	"JANUARY",
+	"FEBRUARY",
+	"MARCH",
+	"APRIL",
 	"MAY",
-	"JUN",
-	"JUL",
-	"AUG",
-	"SEP",
-	"OCT",
-	"NOV",
-	"DEC",
+	"JUNE",
+	"JULY",
+	"AUGUST",
+	"SEPTEMBER",
+	"OCTOBER",
+	"NOVEMBER",
+	"DECEMBER",
 ];
+
+/** Month number (1–12) of a whole word: "DEC", "SEPT" or "DECEMBER"; 0 for other words such as "DECLARATION". */
+const monthOf = (word: string): number => {
+	const index = MONTH_NAMES.findIndex(
+		(name) =>
+			name === word ||
+			name.slice(0, 3) === word ||
+			(name === "SEPTEMBER" && word === "SEPT"),
+	);
+	return index + 1;
+};
 
 /** "2 DEC 2019" → "2  12  2019", so every format becomes plain digit groups. */
 export const monthNamesToNumbers = (text: string): string =>
 	text.toUpperCase().replace(/[A-Z]{3,}/g, (word) => {
-		const index = MONTH_NAMES.indexOf(word.slice(0, 3));
-		return index < 0 ? " " : ` ${String(index + 1).padStart(2, "0")} `;
+		const month = monthOf(word);
+		return month === 0 ? " " : ` ${String(month).padStart(2, "0")} `;
 	});
 
 const hasMonthName = (text: string): boolean =>
-	(text.toUpperCase().match(/[A-Z]{3,}/g) ?? []).some((word) =>
-		MONTH_NAMES.includes(word.slice(0, 3)),
+	(text.toUpperCase().match(/[A-Z]{3,}/g) ?? []).some(
+		(word) => monthOf(word) > 0,
 	);
 
 /**

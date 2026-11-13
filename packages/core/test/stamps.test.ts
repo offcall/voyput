@@ -277,6 +277,8 @@ describe("dateMatchesText", () => {
 		["2023-03-24", "Mar 24, 23"],
 		["2026-06-06", "2026/06/06"],
 		["2026-06-07", "2026-6-7 12"],
+		["2019-12-02", "DECEMBER 2 2019"],
+		["2019-09-02", "2 SEPT 2019"],
 	])("accepts %s for %j", (date, text) => {
 		expect(dateMatchesText(date, text)).toBe(true);
 	});
@@ -287,6 +289,11 @@ describe("dateMatchesText", () => {
 		["2016-03-24", "MAR 24 23 16"],
 		// Month first only with a month name.
 		["2023-03-24", "03 24 23"],
+		// Words that only start like a month are not month names.
+		["2023-03-24", "03 24 23 JUNIOR"],
+		["2023-03-24", "MAYOR 03 24 23"],
+		["2023-03-24", "DECLARATION 03 24 23"],
+		["2019-05-02", "2 MAYOR 2019"],
 		// Year first only with all four digits.
 		["2026-06-07", "26/06/07"],
 		["2023-03-24", ""],
