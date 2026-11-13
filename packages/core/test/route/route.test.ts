@@ -10,6 +10,7 @@ import {
 	currentWaypoint,
 	elapsedAt,
 	filterRouteRows,
+	legsDone,
 	legsPathD,
 	legValue,
 	panView,
@@ -19,6 +20,7 @@ import {
 	revealedGroups,
 	routeLegDurations,
 	stayWaypoints,
+	stopPosition,
 	trailPoints,
 	type Waypoint,
 	ZOOM_PRESETS,
@@ -255,6 +257,19 @@ describe("position", () => {
 		expect(currentWaypoint(route, { legIndex: 0, legProgress: 0.6 })).toBe(
 			route[1],
 		);
+	});
+
+	it("counts a leg as done once landed and snaps to the last stop left", () => {
+		expect(legsDone({ legIndex: 2, legProgress: 0.99 })).toBe(2);
+		expect(legsDone({ legIndex: 2, legProgress: 1 })).toBe(3);
+		expect(stopPosition({ legIndex: 2, legProgress: 0.7 })).toEqual({
+			legIndex: 2,
+			legProgress: 0,
+		});
+		expect(stopPosition({ legIndex: 2, legProgress: 1 })).toEqual({
+			legIndex: 2,
+			legProgress: 1,
+		});
 	});
 });
 

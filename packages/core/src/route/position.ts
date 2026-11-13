@@ -147,3 +147,23 @@ export function currentWaypoint(
 	const index = Math.max(0, Math.min(waypoints.length - 2, position.legIndex));
 	return waypoints[position.legProgress < 0.5 ? index : index + 1];
 }
+
+/**
+ * Legs finished at `position`, for `revealedGroups` and `createFlownPath`: the
+ * current leg counts once the dot has landed, so the last stop is reached at
+ * the end of the route.
+ */
+export function legsDone(position: RoutePosition): number {
+	return position.legProgress >= 1 ? position.legIndex + 1 : position.legIndex;
+}
+
+/**
+ * The position snapped back to the stop the dot last left, for reduced
+ * motion: the dot jumps from stop to stop instead of flying. The end of the
+ * route stays the end.
+ */
+export function stopPosition(position: RoutePosition): RoutePosition {
+	return position.legProgress >= 1
+		? position
+		: { legIndex: position.legIndex, legProgress: 0 };
+}
