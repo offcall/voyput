@@ -26,17 +26,30 @@ const isEstimated = (...sources: EdgeSource[]) =>
 
 type Draft = Omit<Stay, "order">;
 
-/** Stops grouped into runs of one country, in day order. */
+/**
+ * Stops grouped into runs of one country, in day order. On a day with stops in
+ * several countries, the country of the run already open comes first, so a
+ * border day continues the current run instead of splitting it.
+ */
 function countryRuns(stops: readonly TripStop[]): TripStop[][] {
-	const sorted = [...stops].sort(
-		(a, b) =>
-			a.day.localeCompare(b.day) || a.countryCode.localeCompare(b.countryCode),
-	);
+	const byDay = new Map<string, TripStop[]>();
+	for (const stop of stops) {
+		const day = byDay.get(stop.day);
+		if (day) day.push(stop);
+		else byDay.set(stop.day, [stop]);
+	}
 	const runs: TripStop[][] = [];
-	for (const stop of sorted) {
-		const run = runs.at(-1);
-		if (run && run[0]?.countryCode === stop.countryCode) run.push(stop);
-		else runs.push([stop]);
+	for (const day of [...byDay.keys()].sort()) {
+		const open = runs.at(-1)?.[0]?.countryCode;
+		const rank = (s: TripStop) => (s.countryCode === open ? 0 : 1);
+		const ordered = (byDay.get(day) ?? []).sort(
+			(a, b) => rank(a) - rank(b) || a.countryCode.localeCompare(b.countryCode),
+		);
+		for (const stop of ordered) {
+			const run = runs.at(-1);
+			if (run && run[0]?.countryCode === stop.countryCode) run.push(stop);
+			else runs.push([stop]);
+		}
 	}
 	return runs;
 }
@@ -48,7 +61,13 @@ function tripStays(trip: Trip, stamps: readonly StayStamp[]): Draft[] {
 		const first = run[0] as TripStop;
 		const next = runs[i + 1]?.[0];
 		const start = i === 0 ? trip.start : first.day;
-		const end = next ? addDays(next.day, -1) : trip.end;
+		const last = (run.at(-1) as TripStop).day;
+		// A run that shares its last day with the next run (a border day) ends on that day.
+		const end = next
+			? next.day === last
+				? last
+				: addDays(next.day, -1)
+			: trip.end;
 		const entry =
 			i === 0 ? boundaryEdge(trip.arrival, start) : photosEdge(start);
 		const exit = next ? photosEdge(end) : boundaryEdge(trip.departure, end);

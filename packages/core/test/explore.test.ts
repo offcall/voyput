@@ -179,6 +179,29 @@ describe("buildStays", () => {
 		expect(tr).toMatchObject({ kind: "transit", region: "Asia" });
 	});
 
+	it("lets a border day with stops in two countries end one run and start the next", () => {
+		const border = trip(
+			"border",
+			"2019-07-01",
+			"2019-07-10",
+			// France sorts before Italy, but Italy is the run already open on the 8th.
+			[
+				stop("2019-07-02", "IT"),
+				stop("2019-07-08", "FR"),
+				stop("2019-07-08", "IT"),
+				stop("2019-07-09", "FR"),
+			],
+			edge("2019-07-01", "manual", "plane"),
+			edge("2019-07-10", "manual", "plane"),
+		);
+		expect(
+			buildStays([border], null).map((s) => [s.countryCode, s.start, s.end]),
+		).toEqual([
+			["IT", "2019-07-01", "2019-07-08"],
+			["FR", "2019-07-08", "2019-07-10"],
+		]);
+	});
+
 	it("gives no home stays without a home and counts trips without stops", () => {
 		const away = buildStays(trips, null);
 		expect(away.some((s) => s.home)).toBe(false);
