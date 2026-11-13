@@ -85,12 +85,42 @@ export {
 	type Visit,
 	zoneOf,
 } from "./stamps/visits";
+export {
+	mergeKept,
+	methodOf,
+	type StayEvidence,
+	suggestStays,
+} from "./trips/build";
 export { COUNTRY_CODES, isCountryCode } from "./trips/countries";
 export {
 	type DatedStamp,
 	guessHomeCountry,
 	usableStamps,
 } from "./trips/evidence";
+export {
+	clearStayIds,
+	type HintContext,
+	type HintSeverity,
+	hasError,
+	type StayCounts,
+	type StayHint,
+	stayCounts,
+	stayHints,
+} from "./trips/hints";
+export {
+	deriveTrips,
+	homeOf,
+	type StaySpan,
+	spanLength,
+	staySpan,
+	withoutTransitRows,
+} from "./trips/history";
+export type {
+	LegacyBoundary as Boundary,
+	LegacyStop as TripStop,
+	LegacyTrip as Trip,
+} from "./trips/legacy";
+export { legacyTripStays } from "./trips/legacy";
 export {
 	buildTrip,
 	changePeriod,
@@ -101,5 +131,9 @@ export {
 	tripTitle,
 	visibleTrips,
 } from "./trips/suggest";
-export type { Boundary, Trip, TripStop } from "./trips/types";
+export {
+	TRAVEL_METHODS,
+	type TravelMethod,
+	type TravelStay,
+} from "./trips/types";
 export * from "./viz";

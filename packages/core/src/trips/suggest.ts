@@ -1,7 +1,11 @@
 import type { LocationRow } from "../locations/types";
 import { countryNameOf } from "./countries";
 import { type DatedStamp, daysBetween, locationDay } from "./evidence";
-import type { Boundary, Trip, TripStop } from "./types";
+import type {
+	LegacyBoundary as Boundary,
+	LegacyTrip as Trip,
+	LegacyStop as TripStop,
+} from "./legacy";
 
 /** What trips are built from. `home` is the country trips leave from. */
 export interface TripEvidence {

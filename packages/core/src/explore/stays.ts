@@ -1,6 +1,10 @@
 import type { Stamp } from "../stamps/types";
 import { countryNameOf } from "../trips/countries";
-import type { Boundary, Trip, TripStop } from "../trips/types";
+import type {
+	LegacyBoundary as Boundary,
+	LegacyTrip as Trip,
+	LegacyStop as TripStop,
+} from "../trips/legacy";
 import { addDays, spanDays } from "./dates";
 import { regionOf } from "./regions";
 import type { EdgeSource, Stay, StayEdge } from "./types";
