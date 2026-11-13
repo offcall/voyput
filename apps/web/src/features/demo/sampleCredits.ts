@@ -40,7 +40,7 @@ export const SAMPLE_CREDITS: SampleCredit[] = [
 		title: "Passport stamps 18-19.jpg",
 		url: `${COMMONS}Passport_stamps_18-19.jpg`,
 		...JON,
-		changes: PAGE(19),
+		changes: `${PAGE(19)}; the visa sticker's serial number covered`,
 	},
 	{
 		files: "sample-04.jpg",
@@ -54,14 +54,14 @@ export const SAMPLE_CREDITS: SampleCredit[] = [
 		title: "Passport pages 26-27.jpg",
 		url: `${COMMONS}Passport_pages_26-27.jpg`,
 		...JON,
-		changes: PAGE(27),
+		changes: `${PAGE(27)}; three handwritten numbers covered`,
 	},
 	{
 		files: "sample-06.jpg",
 		title: "Passport pages 28-29.jpg",
 		url: `${COMMONS}Passport_pages_28-29.jpg`,
 		...JON,
-		changes: PAGE(29),
+		changes: `${PAGE(29)}; the handwritten receipt number covered`,
 	},
 	{
 		files: "sample-07.jpg",
