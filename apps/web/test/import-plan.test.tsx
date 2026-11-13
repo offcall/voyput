@@ -114,11 +114,7 @@ describe("Your plan on Import", () => {
 		await db.stamps.bulkPut([stamp("s1", false), stamp("s2", false)]);
 		renderApp("/import", { db });
 
-		const plan = await screen.findByRole(
-			"region",
-			{ name: "Your plan" },
-			{ timeout: 10000 },
-		);
+		const plan = await screen.findByRole("region", { name: "Your plan" });
 		expect(within(plan).getByText("0/5 done")).toBeTruthy();
 		expect(within(plan).getByText(/Ready for review/).textContent).toMatch(
 			/Ready for review\s*2/,
@@ -169,11 +165,7 @@ describe("Your plan on Import", () => {
 		]);
 		renderApp("/import", { db });
 
-		const plan = await screen.findByRole(
-			"region",
-			{ name: "Your plan" },
-			{ timeout: 10000 },
-		);
+		const plan = await screen.findByRole("region", { name: "Your plan" });
 		await waitFor(() =>
 			expect(within(plan).getByText("4/5 done")).toBeTruthy(),
 		);
@@ -194,11 +186,7 @@ describe("Your plan on Import", () => {
 			expect((await db.kv.get("plan:visualized"))?.value).toBe(true),
 		);
 		await user.click(screen.getByRole("link", { name: "Collect" }));
-		const done = await screen.findByRole(
-			"region",
-			{ name: "Your plan" },
-			{ timeout: 10000 },
-		);
+		const done = await screen.findByRole("region", { name: "Your plan" });
 		await waitFor(() =>
 			expect(within(done).getByText("5/5 done")).toBeTruthy(),
 		);
