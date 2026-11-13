@@ -12,7 +12,9 @@ import { MapChart } from "./charts/MapChart";
 import { MatrixChart } from "./charts/MatrixChart";
 import { MovementsTable } from "./charts/MovementsTable";
 import { SankeyChart } from "./charts/SankeyChart";
+import type { StaysData } from "./data/useStays";
 import { ExploreTab } from "./explore/ExploreTab";
+import type { VizHave, VizNeed } from "./needs";
 import { RouteTab } from "./route/RouteTab";
 
 /** What a tab gets to draw from; the Visualize layout loads it once for all tabs. */
@@ -25,6 +27,10 @@ export interface VizTabContext {
 	data: VizData;
 	/** World outlines, or `null` until loaded. */
 	world: WorldShapes | null;
+	/** Stays built from stored and suggested trips, for the stay views. */
+	stays: StaysData;
+	/** How much data there is; `needs` are checked against it. */
+	have: VizHave;
 }
 
 export interface VizTab {
@@ -35,6 +41,8 @@ export interface VizTab {
 	icon?: ReactNode;
 	/** Shows the trip filter and summary tiles above the tab; `false` gives the tab the full width. */
 	usesTripFilter: boolean;
+	/** Data the tab cannot draw without; when some is missing the layout shows a placeholder instead. Defaults to `["locations"]`. */
+	needs?: readonly VizNeed[];
 	render: (ctx: VizTabContext) => ReactNode;
 }
 
@@ -50,6 +58,7 @@ function chartTab(
 		label,
 		icon: <PixelArt name={panel.sprite} scale={1} />,
 		usesTripFilter: true,
+		needs: ["locations"],
 		render: (ctx) => (
 			<ChartPanel
 				title={panel.title}
@@ -69,14 +78,16 @@ export const VIZ_TABS: readonly VizTab[] = [
 		label: "Route",
 		icon: <PixelArt name="plane" scale={1} />,
 		usesTripFilter: false,
-		render: () => <RouteTab />,
+		needs: ["trips"],
+		render: ({ stays, have }) => <RouteTab data={stays} have={have} />,
 	},
 	{
 		id: "explore",
 		label: "Explore",
 		icon: <PixelArt name="suitcase" scale={1} />,
 		usesTripFilter: false,
-		render: () => <ExploreTab />,
+		needs: ["trips"],
+		render: ({ stays }) => <ExploreTab stays={stays.stays} />,
 	},
 	chartTab(
 		"movements",

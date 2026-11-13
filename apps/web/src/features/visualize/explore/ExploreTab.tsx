@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import {
 	buildStayRoutes,
 	buildYearRows,
@@ -28,7 +27,6 @@ import { useMemo, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { ChartPanel } from "../ChartPanel";
 import { formatInt } from "../charts/format";
-import { useStays } from "../data/useStays";
 import { BarList } from "./BarList";
 import { Chip, ChipGroup } from "./Chip";
 import { CountryScatter } from "./CountryScatter";
@@ -45,29 +43,8 @@ type Selection =
 	| { type: "country"; code: string }
 	| null;
 
-/** `/visualize/explore`: loads the stays, then shows the dashboard. */
-export function ExploreTab() {
-	const source = useStays();
-	if (source.status === "loading") return <p>Loading…</p>;
-	if (source.status === "error")
-		return <p role="alert">Could not read your trips: {source.message}</p>;
-	if (source.data.stays.length === 0)
-		return (
-			<EmptyState
-				art={<PixelArt name="suitcase" scale={4} />}
-				title="No stays yet"
-			>
-				<p>
-					Explore is built from your trips. <Link to="/trips">Open Trips</Link>{" "}
-					to check or add some.
-				</p>
-			</EmptyState>
-		);
-	return <ExploreDashboard stays={source.data.stays} />;
-}
-
-/** Filter bar, KPIs and every stay view; filters live in component state. */
-function ExploreDashboard({ stays }: { stays: readonly Stay[] }) {
+/** `/visualize/explore`: filter bar, KPIs and every stay view over the loaded stays; filters live in component state. */
+export function ExploreTab({ stays }: { stays: readonly Stay[] }) {
 	const colourOf = useCountryColour();
 	const defaults = useMemo(() => defaultExploreFilters(stays), [stays]);
 	const [filters, setFilters] = useState<Filters>(defaults);

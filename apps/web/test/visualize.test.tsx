@@ -47,11 +47,13 @@ const expectCountries = (count: string) =>
 
 describe("visualize", () => {
 	it("points to Import when there are no locations", async () => {
-		renderApp("/visualize");
-		expect(await screen.findByText("No locations yet")).toBeTruthy();
+		renderApp("/visualize/map");
+		expect(await screen.findByText("No location history yet")).toBeTruthy();
 		expect(
-			screen.getByRole("link", { name: "Import the location CSV" }),
-		).toBeTruthy();
+			screen
+				.getByRole("link", { name: "Import locations" })
+				.getAttribute("href"),
+		).toBe("/import");
 	});
 
 	it("reports a failed database read instead of the empty state", async () => {
@@ -63,7 +65,7 @@ describe("visualize", () => {
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"disk is gone",
 		);
-		expect(screen.queryByText("No locations yet")).toBeNull();
+		expect(screen.queryByText("No location history yet")).toBeNull();
 	});
 
 	it("renders every tab and narrows them to the selected trips", async () => {

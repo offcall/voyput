@@ -216,7 +216,9 @@ describe("route player", () => {
 			photo("2024-01-05", "MD", "Moldova", 47.0, 28.8),
 		]);
 		renderApp("/visualize/route", { db });
-		expect(await screen.findByText("No trips to play yet")).toBeTruthy();
-		expect(screen.getByRole("link", { name: "Trips" })).toBeTruthy();
+		expect(await screen.findByText("No trips yet")).toBeTruthy();
+		expect(
+			screen.getByRole("link", { name: "Build trips" }).getAttribute("href"),
+		).toBe("/trips");
 	});
 });

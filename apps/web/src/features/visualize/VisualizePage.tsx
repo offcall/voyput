@@ -1,29 +1,26 @@
-import { Link, useParams } from "@tanstack/react-router";
+import { useParams } from "@tanstack/react-router";
 import { buildVizData, splitRowsByTrips } from "@voyput/core";
-import {
-	EmptyState,
-	PageHeader,
-	PixelArt,
-	Stack,
-	Stat,
-	StatGroup,
-} from "@voyput/ui";
-import { useMemo, useState } from "react";
+import { PageHeader, PixelArt, Stack, Stat, StatGroup } from "@voyput/ui";
+import { type ReactNode, useMemo, useState } from "react";
 import { formatInt } from "./charts/format";
+import { useStays } from "./data/useStays";
+import { missingNeed, VizEmpty, type VizHave, VizHint } from "./needs";
 import { TripFilter } from "./TripFilter";
-import { findVizTab, firstVizTab } from "./tabs";
+import { findVizTab, firstVizTab, type VizTab } from "./tabs";
 import { useVizSource } from "./useVizSource";
 import { useWorld } from "./useWorld";
 import "./visualize.css";
 
-function Header() {
+function Layout({ children }: { children: ReactNode }) {
 	return (
-		<PageHeader
-			eyebrow="Step 5 of 5"
-			title="Visualize"
-			description="Your travels drawn from photo locations: where, when and how far."
-			art={<PixelArt name="globe" scale={4} />}
-		/>
+		<Stack>
+			<PageHeader
+				title="Visualize"
+				description="Your travels drawn from photo locations: where, when and how far."
+				art={<PixelArt name="globe" scale={4} />}
+			/>
+			{children}
+		</Stack>
 	);
 }
 
@@ -36,6 +33,7 @@ export function VisualizePage() {
 	// The router redirects unknown ids; the fallback only covers the redirect's render.
 	const tab = (tabId ? findVizTab(tabId) : undefined) ?? firstVizTab();
 	const source = useVizSource();
+	const stays = useStays();
 	const world = useWorld();
 	const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
 
@@ -46,59 +44,72 @@ export function VisualizePage() {
 		return buildVizData(splitRowsByTrips(source.rows, trips));
 	}, [source, selected]);
 
-	if (source.status === "error") {
+	if (source.status === "error" || stays.status === "error") {
+		const message =
+			source.status === "error"
+				? source.message
+				: stays.status === "error"
+					? stays.message
+					: "";
 		return (
-			<Stack>
-				<Header />
-				<p role="alert">Could not read your data: {source.message}</p>
-			</Stack>
+			<Layout>
+				<p role="alert">Could not read your data: {message}</p>
+			</Layout>
 		);
 	}
 
-	if (source.status === "loading" || !data) {
+	if (source.status === "loading" || stays.status === "loading" || !data) {
 		return (
-			<Stack>
-				<Header />
+			<Layout>
 				<p>Loading…</p>
-			</Stack>
+			</Layout>
 		);
 	}
 
-	if (source.rows.length === 0) {
+	const have: VizHave = {
+		locations: source.rows.length,
+		trips: stays.data.stays.length > 0 ? stays.data.trips.length : 0,
+		storedTrips: source.trips.length,
+	};
+	const missing = missingNeed(tab.needs ?? ["locations"], have);
+	if (missing) {
 		return (
-			<Stack>
-				<Header />
-				<EmptyState
-					art={<PixelArt name="plane" scale={4} />}
-					title="No locations yet"
-				>
-					<p>
-						Charts are drawn from your photo locations.{" "}
-						<Link to="/import">Import the location CSV</Link> first.
-					</p>
-				</EmptyState>
-			</Stack>
+			<Layout>
+				<VizEmpty need={missing} have={have} />
+			</Layout>
 		);
 	}
 
-	const ctx = { rows: source.rows, trips: source.trips, data, world };
+	const ctx = {
+		rows: source.rows,
+		trips: source.trips,
+		data,
+		world,
+		stays: stays.data,
+		have,
+	};
 	if (!tab.usesTripFilter) {
 		return (
-			<Stack>
-				<Header />
+			<Layout>
+				<SuggestedTripsHint tab={tab} have={have} />
 				{tab.render(ctx)}
-			</Stack>
+			</Layout>
 		);
 	}
 
 	return (
-		<Stack>
-			<Header />
-			<TripFilter
-				trips={source.trips}
-				selected={selected}
-				onChange={setSelected}
-			/>
+		<Layout>
+			{have.storedTrips === 0 ? (
+				<VizHint to="/trips" label="Build trips">
+					Save trips to filter these charts by journey.
+				</VizHint>
+			) : (
+				<TripFilter
+					trips={source.trips}
+					selected={selected}
+					onChange={setSelected}
+				/>
+			)}
 			<StatGroup>
 				<Stat
 					label={data.countries.length === 1 ? "Country" : "Countries"}
@@ -117,6 +128,16 @@ export function VisualizePage() {
 				</p>
 			) : null}
 			{tab.render(ctx)}
-		</Stack>
+		</Layout>
+	);
+}
+
+/** Stay views drawn only from suggested trips say so, since nothing there is confirmed yet. */
+function SuggestedTripsHint({ tab, have }: { tab: VizTab; have: VizHave }) {
+	if (!tab.needs?.includes("trips") || have.storedTrips > 0) return null;
+	return (
+		<VizHint to="/trips" label="Check trips">
+			These trips are suggestions from your stamps and photos.
+		</VizHint>
 	);
 }
