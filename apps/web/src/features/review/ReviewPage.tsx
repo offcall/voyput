@@ -1,3 +1,4 @@
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import type { Stamp } from "@voyput/core";
 import { Button, Progress, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useState } from "react";
@@ -31,7 +32,12 @@ export function ReviewPage() {
 	const [ui, setUi] = useState<ReviewUiState | null>(null);
 	const [uiError, setUiError] = useState<string | null>(null);
 	const [deleted, setDeleted] = useState<Stamp | null>(null);
-	const [currentId, setCurrentId] = useState<string | null>(null);
+	/** Open tab and photo live in the URL (`?tab=timeline&photo=<id>`); an unknown photo falls back to the first. */
+	const search = useSearch({ from: "/review" });
+	const navigate = useNavigate({ from: "/review" });
+	const currentId = search.photo ?? null;
+	const setCurrentId = (photo: string) =>
+		void navigate({ search: (s) => ({ ...s, photo }) });
 	const [focus, setFocus] = useState<Focus | null>(null);
 	const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 	const [validations, setValidations] = useState<Record<string, Validation>>(
@@ -60,7 +66,7 @@ export function ReviewPage() {
 		void saveUiState(db, next);
 	};
 	const openStamp = (stamp: Stamp) => {
-		setCurrentId(stamp.photoId);
+		void navigate({ search: { tab: "photos", photo: stamp.photoId } });
 		setExpanded((e) => ({ ...e, [stamp.id]: true }));
 		setFocus((f) => ({ stampId: stamp.id, seq: (f?.seq ?? 0) + 1 }));
 	};
@@ -108,6 +114,15 @@ export function ReviewPage() {
 					// Opening a stamp from the timeline starts over on the Photos tab; card
 					// state and validate results live here, so the remount keeps them.
 					key={focus?.seq ?? 0}
+					value={search.tab ?? "photos"}
+					onValueChange={(tab) =>
+						void navigate({
+							search: (s) => ({
+								...s,
+								tab: tab === "timeline" ? "timeline" : "photos",
+							}),
+						})
+					}
 					items={[
 						{
 							value: "photos",

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted; hash history partly superseded by [0013](0013-browser-history-routes.md)
 
 ## Context
 

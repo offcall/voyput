@@ -1,3 +1,4 @@
+import { useNavigate, useParams } from "@tanstack/react-router";
 import {
 	buildTrip,
 	COUNTRY_CODES,
@@ -34,7 +35,13 @@ export function TripsPage() {
 	const db = useDb();
 	const [data, setData] = useState<TripsData | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [selectedId, setSelectedId] = useState<string | null>(null);
+	/** The selected trip lives in the URL (`/trips/<id>`); an unknown id selects nothing. */
+	const selectedId = useParams({ strict: false }).tripId ?? null;
+	const navigate = useNavigate();
+	const setSelectedId = (tripId: string | null) =>
+		void navigate(
+			tripId ? { to: "/trips/$tripId", params: { tripId } } : { to: "/trips" },
+		);
 
 	const reload = useCallback(
 		() =>

@@ -13,6 +13,10 @@ npm run build      # static app in apps/web/dist
 npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/demo
 ```
 
+## Deploy
+
+`apps/web/dist` is a static site with path routes (`/trips/<id>`, see [ADR 0013](docs/adr/0013-browser-history-routes.md)). The server (Coolify, nginx, any static host) must serve `index.html` for unknown paths, and the app must live at the domain root. Files that exist (`/assets/...`, `/demo/...`) are served as they are.
+
 ## Layout
 
 - `apps/web` — the app: routes, sections in `src/features/`, IndexedDB, AI client.
