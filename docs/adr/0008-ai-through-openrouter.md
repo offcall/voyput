@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. Default model superseded by ADR 0017.
 
 ## Context
 
