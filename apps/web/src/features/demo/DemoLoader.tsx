@@ -1,4 +1,4 @@
-import { Button, Card, Dialog, Notice } from "@voyput/ui";
+import { Button, Card, Dialog, Notice, PixelArt, PixelSky } from "@voyput/ui";
 import { useState } from "react";
 import { useDb } from "../../db/DbContext";
 import { focusStoredLocations, locationLine } from "../import/csv/locationLine";
@@ -68,15 +68,11 @@ export function DemoLoader({
 	return (
 		<Card className="demo-card" title="Try it with demo data">
 			<div className="demo-art" aria-hidden="true">
-				<span className="demo-stamp" data-n="1">
-					UA ← 10.08
-				</span>
-				<span className="demo-stamp" data-n="2">
-					ES → 10.08
-				</span>
-				<span className="demo-stamp" data-n="3">
-					MD ← 03.05
-				</span>
+				<PixelSky height={104}>
+					<PixelArt name="plane" scale={3} className="demo-plane" />
+					<PixelArt name="passport" scale={4} className="demo-passport" />
+					<PixelArt name="stamp" scale={3} className="demo-stamp" />
+				</PixelSky>
 			</div>
 			<p className="demo-text">
 				A fictional passport with stamps already read and reviewed, plus
