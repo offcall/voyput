@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	buildVizData,
@@ -7,7 +7,7 @@ import {
 	WORLD_HEIGHT,
 	WORLD_WIDTH,
 } from "@voyput/core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { HeatmapChart } from "../src/features/visualize/charts/HeatmapChart";
 import {
 	binView,
@@ -130,4 +130,46 @@ describe("heatmap chart", () => {
 		expect(screen.getByText("Photos per square")).toBeTruthy();
 		expect(screen.getByText("1")).toBeTruthy();
 	});
+
+	it("binds zoom and resize again when the map comes back after an empty filter", () => {
+		const observed: Element[] = [];
+		vi.stubGlobal(
+			"ResizeObserver",
+			class {
+				observe(target: Element) {
+					observed.push(target);
+				}
+				disconnect() {}
+			},
+		);
+		const { rerender } = render(<HeatmapChart data={data} world={null} />);
+		rerender(<HeatmapChart data={buildVizData([[]])} world={null} />);
+		expect(screen.getByText("No data.")).toBeTruthy();
+		rerender(<HeatmapChart data={data} world={null} />);
+
+		const map = document.querySelector(".vp-heat-map");
+		expect(observed.at(-1)).toBe(map);
+		const fit = screen.getByRole<HTMLButtonElement>("button", {
+			name: "Fit to photos",
+		});
+		expect(fit.disabled).toBe(true);
+		fireEvent.wheel(screen.getByRole("img", { name: "Photo heatmap" }), {
+			deltaY: -200,
+		});
+		expect(fit.disabled).toBe(false);
+	});
+
+	it("reads the busiest square out when the map gets focus", () => {
+		render(<HeatmapChart data={data} world={null} />);
+		const live = document.querySelector("[aria-live=polite]");
+		expect(live?.textContent).toBe("");
+		fireEvent.focus(screen.getByRole("img", { name: "Photo heatmap" }));
+		expect(live?.textContent).toMatch(/^Busiest square: Moldova, 1 photo$/);
+		fireEvent.blur(screen.getByRole("img", { name: "Photo heatmap" }));
+		expect(live?.textContent).toBe("");
+	});
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
 });

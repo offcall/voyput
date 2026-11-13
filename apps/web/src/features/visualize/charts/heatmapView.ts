@@ -271,3 +271,10 @@ export function nearestCity(
 	}
 	return best;
 }
+
+/** "City, Country"; just the country when the spot has no city name of its own. */
+export function placeName(city: CityPoint): string {
+	return city.name && city.name !== city.country
+		? `${city.name}, ${city.country}`
+		: city.country;
+}

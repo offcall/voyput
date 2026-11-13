@@ -26,6 +26,7 @@ import {
 	ringsFromPath,
 	wrapLon,
 } from "./globeProjection";
+import { placeName } from "./heatmapView";
 import "./globe.css";
 
 const SIZE = 640;
@@ -35,6 +36,8 @@ const MAX_POINTS = 300;
 const SPIN = 0.09;
 /** Velocity kept per frame after a drag is let go. */
 const FRICTION = 0.94;
+/** Fastest spin a drag can leave behind, degrees per frame. */
+const MAX_FLING = 4;
 /** Picks a photo spot within this many canvas pixels of the pointer. */
 const HIT_PX = 9;
 
@@ -377,7 +380,7 @@ function tipFor(hover: Hover, view: GlobeView): Tip {
 	if (hover.kind === "city") {
 		const [x, y] = project(hover.city.lat, hover.city.lon, view, R);
 		return {
-			label: `${hover.city.name}, ${hover.city.country}`,
+			label: placeName(hover.city),
 			value: photos(hover.city.photos),
 			x: SIZE / 2 + x,
 			y: SIZE / 2 + y - 6,
@@ -417,6 +420,8 @@ export function GlobeChart({
 	const [paused, setPaused] = useState(prefersReducedMotion);
 	const [tip, setTip] = useState<Tip | null>(null);
 	const hintId = useId();
+	/** The country picked by keyboard, read out; the tip itself is `aria-hidden`. */
+	const [spoken, setSpoken] = useState("");
 	const painter = usePainter();
 	const countryColor = useCountryColour();
 	const scene = useMemo(() => buildScene(data, world), [data, world]);
@@ -520,10 +525,13 @@ export function GlobeChart({
 			const perPx = 180 / Math.PI / R;
 			const dLon = -(x - drag.x) * perPx;
 			const dLat = (y - drag.y) * perPx;
-			const dt = Math.max(1, e.timeStamp - drag.t) / 16.7;
+			// Degrees per frame of the last move, capped so one jerk is not a wild fling.
+			const frames = Math.max(16.7, e.timeStamp - drag.t) / 16.7;
+			const fling = (d: number) =>
+				Math.min(Math.max(d / frames, -MAX_FLING), MAX_FLING);
 			v.lon = wrapLon(v.lon + dLon);
 			v.lat = clampTilt(v.lat + dLat);
-			velocity.current = { lon: dLon / dt, lat: dLat / dt };
+			velocity.current = { lon: fling(dLon), lat: fling(dLat) };
 			drag = { x, y, t: e.timeStamp };
 			dirty = true;
 		};
@@ -569,6 +577,7 @@ export function GlobeChart({
 			picked.current = null;
 			hover.current = null;
 			setTip(null);
+			setSpoken("");
 			return;
 		}
 		if (step === undefined || count === 0) return;
@@ -593,6 +602,7 @@ export function GlobeChart({
 			x: SIZE / 2,
 			y: SIZE / 2,
 		});
+		setSpoken(`${country.name}: ${photos(country.photos)}`);
 	};
 
 	// Canvas pixels → pixels of the sky box the tip is placed in.
@@ -626,8 +636,12 @@ export function GlobeChart({
 						picked.current = null;
 						hover.current = null;
 						setTip(null);
+						setSpoken("");
 					}}
 				/>
+				<p className="vp-visually-hidden" aria-live="polite">
+					{spoken}
+				</p>
 				{tip && tipBox ? (
 					<ChartTip
 						label={tip.label}

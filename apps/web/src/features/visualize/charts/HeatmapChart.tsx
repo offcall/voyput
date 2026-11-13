@@ -22,6 +22,7 @@ import {
 	nearestCity,
 	niceBreaks,
 	panBy,
+	placeName,
 	rampSlot,
 	sameView,
 	toWorldXY,
@@ -162,8 +163,10 @@ export function HeatmapChart({
 	data: VizData;
 	world: WorldShapes | null;
 }) {
-	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const hostRef = useRef<HTMLDivElement>(null);
+	// State, not refs: the empty state unmounts both, and the listeners and the
+	// resize observer below must bind again to the new elements.
+	const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
+	const [host, setHost] = useState<HTMLDivElement | null>(null);
 	const hintId = useId();
 	const painter = usePainter();
 	const [size, setSize] = useState<Size>(FALLBACK);
@@ -186,6 +189,8 @@ export function HeatmapChart({
 		[world],
 	);
 	const [tip, setTip] = useState<Tip | null>(null);
+	/** What the keyboard user's focus shows; the tip itself is `aria-hidden`. */
+	const [spoken, setSpoken] = useState("");
 
 	// New data (e.g. another trip filter) fits the map to it again.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset on new points only.
@@ -195,7 +200,6 @@ export function HeatmapChart({
 	}, [xy]);
 
 	useEffect(() => {
-		const host = hostRef.current;
 		if (!host || typeof ResizeObserver !== "function") return;
 		const observer = new ResizeObserver(([entry]) => {
 			const box = entry?.contentRect;
@@ -204,10 +208,9 @@ export function HeatmapChart({
 		});
 		observer.observe(host);
 		return () => observer.disconnect();
-	}, []);
+	}, [host]);
 
 	useEffect(() => {
-		const canvas = canvasRef.current;
 		if (!canvas) return;
 		draw(
 			canvas,
@@ -218,14 +221,13 @@ export function HeatmapChart({
 			land,
 			painter(canvas.parentElement ?? document.body),
 		);
-	}, [size, shown, grid, breaks, land, painter]);
+	}, [canvas, size, shown, grid, breaks, land, painter]);
 
 	// Latest values for the native listeners below, which are bound once.
 	const live = useRef({ shown, size });
 	live.current = { shown, size };
 
 	useEffect(() => {
-		const canvas = canvasRef.current;
 		if (!canvas) return;
 		const pointers = new Map<number, { x: number; y: number }>();
 		const local = (e: { clientX: number; clientY: number }) => {
@@ -299,7 +301,7 @@ export function HeatmapChart({
 			canvas.removeEventListener("pointerup", up);
 			canvas.removeEventListener("pointercancel", up);
 		};
-	}, []);
+	}, [canvas]);
 
 	const tipAt = (px: number, py: number): Tip | null => {
 		const cell = cellAt(grid, shown, px, py, size.width, size.height);
@@ -311,7 +313,7 @@ export function HeatmapChart({
 			CELL_PX * shown.k * 2,
 		);
 		return {
-			label: city ? `${city.name}, ${city.country}` : "This square",
+			label: city ? placeName(city) : "This square",
 			value: photos(cell.count),
 			x: px,
 			y: py - CELL_PX / 2,
@@ -353,7 +355,9 @@ export function HeatmapChart({
 	};
 	const showHottest = () => {
 		const hot = hottestCell(grid);
-		setTip(hot ? tipAt(hot.px, hot.py) : null);
+		const next = hot ? tipAt(hot.px, hot.py) : null;
+		setTip(next);
+		setSpoken(next ? `Busiest square: ${next.label}, ${next.value}` : "");
 	};
 
 	if (data.heatPoints.length === 0) return <NoData />;
@@ -361,9 +365,9 @@ export function HeatmapChart({
 	const atFit = sameView(shown, fit);
 	return (
 		<figure className="vp-viz-figure vp-heat">
-			<div className="vp-heat-map" ref={hostRef}>
+			<div className="vp-heat-map" ref={setHost}>
 				<canvas
-					ref={canvasRef}
+					ref={setCanvas}
 					className="vp-heat-canvas"
 					role="img"
 					aria-label="Photo heatmap"
@@ -376,7 +380,10 @@ export function HeatmapChart({
 					}}
 					onPointerLeave={() => setTip(null)}
 					onFocus={showHottest}
-					onBlur={() => setTip(null)}
+					onBlur={() => {
+						setTip(null);
+						setSpoken("");
+					}}
 					onKeyDown={onKeyDown}
 				/>
 				{tip ? (
@@ -388,6 +395,9 @@ export function HeatmapChart({
 						below={tip.y < 56}
 					/>
 				) : null}
+				<p className="vp-visually-hidden" aria-live="polite">
+					{spoken}
+				</p>
 				<div className="vp-heat-zoom">
 					<Button
 						size="sm"
