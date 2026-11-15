@@ -34,7 +34,7 @@ async function seedCounts(db: VoyputDb) {
 describe("app shell", () => {
 	it("opens on the first Collect step and reaches Insights and Settings from the nav", async () => {
 		const user = userEvent.setup();
-		renderApp("/");
+		renderApp("/collect");
 		// The first visit asks what the user has, then opens the first step.
 		await user.click(await screen.findByRole("button", { name: /^Both/ }));
 		expect(

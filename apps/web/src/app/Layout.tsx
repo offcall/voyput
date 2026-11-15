@@ -94,10 +94,10 @@ export function Layout() {
 	return (
 		<AppShell
 			brand={
-				<>
+				<Link to="/" className="vp-brand-link" aria-label="voyput home">
 					<BrandMark />
 					<span className="vp-brand-name">VOYPUT</span>
-				</>
+				</Link>
 			}
 			nav={
 				<>

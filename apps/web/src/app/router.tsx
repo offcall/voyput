@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router";
 import { CollectPage } from "../features/collect/CollectPage";
 import { findStep } from "../features/collect/steps";
+import { HomePage } from "../features/home/HomePage";
 import { InsightsPage } from "../features/visualize/InsightsPage";
 import {
 	FIRST_VIEW,
@@ -23,9 +24,7 @@ const rootRoute = createRootRoute({ component: Layout });
 const indexRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/",
-	beforeLoad: () => {
-		throw redirect({ to: "/collect", replace: true });
-	},
+	component: HomePage,
 });
 
 const page = <TPath extends string>(

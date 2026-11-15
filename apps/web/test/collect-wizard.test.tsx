@@ -281,8 +281,8 @@ describe("collect wizard", () => {
 			],
 			"MD",
 		);
-		// All done: `/` opens the last source step, which keeps the Collect bar; Stays has none.
-		const { router } = renderApp("/", { db });
+		// All done: `/collect` opens the last source step, which keeps the Collect bar; Stays has none.
+		const { router } = renderApp("/collect", { db });
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/collect/review"),
 		);
@@ -308,7 +308,7 @@ describe("collect sources", () => {
 	it("asks what the user has on the first visit, hides the steps it does not need and keeps the choice", async () => {
 		const db = freshDb();
 		const user = userEvent.setup();
-		const first = renderApp("/", { db });
+		const first = renderApp("/collect", { db });
 		await screen.findByRole("heading", { level: 1, name: "What do you have?" });
 		expect(first.router.state.location.pathname).toBe("/collect");
 

@@ -40,6 +40,14 @@
 .vp-shell-brand svg {
 	flex: none;
 }
+/* The logo leads home (ADR 0025). */
+.vp-brand-link {
+	display: flex;
+	align-items: center;
+	gap: inherit;
+	color: inherit;
+	text-decoration: none;
+}
 
 /* Bottom tab bar on phones: the active tab gets a green pill behind its icon. */
 @media (max-width: 860px) {
