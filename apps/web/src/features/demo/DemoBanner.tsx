@@ -1,11 +1,8 @@
-import { Button, Dialog, Disclosure } from "@voyput/ui";
-import { useState } from "react";
+import { Button, Disclosure } from "@voyput/ui";
 import { locationLine } from "../import/csv/locationLine";
 import { type DemoState, useDemoActions } from "./DemoActions";
 import { SAMPLE_CREDITS } from "./sampleCredits";
 import "./demo.css";
-
-type Confirming = "replace" | "remove" | null;
 
 /**
  * One thin line on Passports while demo data is stored (or was just loaded or
@@ -14,7 +11,6 @@ type Confirming = "replace" | "remove" | null;
  */
 export function DemoBanner() {
 	const { hasDemo, state, load, remove } = useDemoActions();
-	const [confirming, setConfirming] = useState<Confirming>(null);
 	if (!hasDemo && state.kind === "idle") return null;
 	const busy = state.kind === "busy";
 
@@ -26,7 +22,7 @@ export function DemoBanner() {
 					<Button
 						size="sm"
 						variant="ghost"
-						onClick={() => setConfirming("remove")}
+						onClick={() => void remove()}
 						disabled={busy}
 					>
 						Remove demo data
@@ -48,11 +44,7 @@ export function DemoBanner() {
 						data stays.
 					</p>
 					<div className="demo-actions">
-						<Button
-							size="sm"
-							onClick={() => setConfirming("replace")}
-							disabled={busy}
-						>
+						<Button size="sm" onClick={() => void load()} disabled={busy}>
 							Load demo data again
 						</Button>
 					</div>
@@ -69,38 +61,6 @@ export function DemoBanner() {
 					</ul>
 				</Disclosure>
 			) : null}
-			<Dialog
-				open={confirming !== null}
-				onOpenChange={(open) => {
-					if (!open) setConfirming(null);
-				}}
-				title={
-					confirming === "replace" ? "Replace demo data?" : "Remove demo data?"
-				}
-				actions={
-					<>
-						<Button onClick={() => setConfirming(null)}>Cancel</Button>
-						<Button
-							variant={confirming === "remove" ? "danger" : "primary"}
-							onClick={() => {
-								const action = confirming === "remove" ? remove : load;
-								setConfirming(null);
-								void action();
-							}}
-						>
-							{confirming === "replace" ? "Replace" : "Remove"}
-						</Button>
-					</>
-				}
-			>
-				<p>
-					{confirming === "replace"
-						? "The demo passports, their pages and stamps and the demo photo locations are loaded again; review edits on demo stamps are lost. "
-						: "The demo passports, their pages and stamps and the demo photo locations are deleted. "}
-					Stays built on demo stamps are deleted too. Your own passports, photos
-					and photo locations stay.
-				</p>
-			</Dialog>
 		</section>
 	);
 }

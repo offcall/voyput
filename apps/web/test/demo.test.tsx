@@ -246,4 +246,43 @@ describe("demo data", () => {
 		expect(left[0]?.arrival).toMatchObject({ source: "estimated" });
 		expect(left[0]?.arrival.stampId).toBeUndefined();
 	});
+
+	it("asks before the Sources link replaces stored demo data", async () => {
+		stubDemoFetch();
+		stubObjectUrls();
+		const db = new VoyputDb(`demo-replace-${Date.now()}`);
+		await seedDemo(db);
+		await db.stamps.update("demo-stamp-01", { location: "Edited" });
+		const user = userEvent.setup();
+		renderApp("/collect/passports", { db });
+
+		const tryDemo = async () => {
+			await user.click(
+				await screen.findByRole("button", { name: /^Sources: .* · change$/ }),
+			);
+			await user.click(
+				within(await screen.findByRole("dialog")).getByRole("button", {
+					name: "Try with demo data",
+				}),
+			);
+			return screen.findByRole("dialog", { name: "Replace demo data?" });
+		};
+		const edited = async () => (await db.stamps.get("demo-stamp-01"))?.location;
+
+		await user.click(
+			within(await tryDemo()).getByRole("button", { name: "Cancel" }),
+		);
+		await waitFor(() =>
+			expect(
+				screen.queryByRole("dialog", { name: "Replace demo data?" }),
+			).toBeNull(),
+		);
+		expect(await edited()).toBe("Edited");
+
+		await user.click(
+			within(await tryDemo()).getByRole("button", { name: "Replace" }),
+		);
+		await screen.findByText(/5 demo pages/);
+		expect(await edited()).not.toBe("Edited");
+	});
 });

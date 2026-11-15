@@ -1,9 +1,11 @@
+import { Button, Dialog } from "@voyput/ui";
 import {
 	createContext,
 	type ReactNode,
 	useCallback,
 	useContext,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 import { useDb } from "../../db/DbContext";
@@ -38,10 +40,19 @@ interface DemoActions {
 	hasDemo: boolean | undefined;
 	/** The last load or remove in this Collect visit. */
 	state: DemoState;
-	/** Loads (or replaces) the demo data; resolves true when it worked. */
+	/**
+	 * Loads the demo data. When demo data is stored already it first asks to replace
+	 * it (review edits on demo stamps are lost); resolves true once loaded.
+	 */
 	load: () => Promise<boolean>;
+	/** Asks, then removes the demo data; resolves true once removed. */
 	remove: () => Promise<boolean>;
 }
+
+type Confirming = {
+	action: "replace" | "remove";
+	resolve: (done: boolean) => void;
+};
 
 const DemoActionsContext = createContext<DemoActions | null>(null);
 
@@ -82,18 +93,69 @@ export function DemoActionsProvider({ children }: { children: ReactNode }) {
 		[db, setDemoLoaded],
 	);
 
+	const [confirming, setConfirming] = useState<Confirming | null>(null);
+	const confirmingRef = useRef<Confirming | null>(null);
+	const ask = useCallback(
+		(action: Confirming["action"]) =>
+			new Promise<boolean>((resolve) => {
+				confirmingRef.current?.resolve(false);
+				const next = { action, resolve };
+				confirmingRef.current = next;
+				setConfirming(next);
+			}),
+		[],
+	);
+	const answer = (confirmed: boolean) => {
+		const current = confirmingRef.current;
+		confirmingRef.current = null;
+		setConfirming(null);
+		if (!current) return;
+		if (!confirmed) return current.resolve(false);
+		void run(current.action === "remove" ? "remove" : "load").then(
+			current.resolve,
+		);
+	};
+
 	const value = useMemo(
 		() => ({
 			hasDemo,
 			state,
-			load: () => run("load"),
-			remove: () => run("remove"),
+			load: async () =>
+				(await hasDemoData(db)) ? ask("replace") : run("load"),
+			remove: () => ask("remove"),
 		}),
-		[hasDemo, state, run],
+		[db, hasDemo, state, run, ask],
 	);
+	const replace = confirming?.action === "replace";
 	return (
 		<DemoActionsContext.Provider value={value}>
 			{children}
+			<Dialog
+				open={confirming !== null}
+				onOpenChange={(open) => {
+					if (!open) answer(false);
+				}}
+				title={replace ? "Replace demo data?" : "Remove demo data?"}
+				actions={
+					<>
+						<Button onClick={() => answer(false)}>Cancel</Button>
+						<Button
+							variant={replace ? "primary" : "danger"}
+							onClick={() => answer(true)}
+						>
+							{replace ? "Replace" : "Remove"}
+						</Button>
+					</>
+				}
+			>
+				<p>
+					{replace
+						? "The demo passports, their pages and stamps and the demo photo locations are loaded again; review edits on demo stamps and stamps added to demo pages are lost. "
+						: "The demo passports, their pages and stamps and the demo photo locations are deleted. "}
+					Stays built on demo stamps are deleted too. Your own passports, photos
+					and photo locations stay.
+				</p>
+			</Dialog>
 		</DemoActionsContext.Provider>
 	);
 }
