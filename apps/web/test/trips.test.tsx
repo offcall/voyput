@@ -107,6 +107,61 @@ async function more(user: User, item: string | RegExp) {
 const toastButton = (name: "Undo" | "Redo") =>
 	within(screen.getByRole("status")).getByRole("button", { name });
 
+/** A touch pointer at a point. */
+const touch = (clientX: number, clientY: number) => ({
+	clientX,
+	clientY,
+	pointerId: 7,
+	pointerType: "touch",
+	button: 0,
+});
+
+/** The open sheet's head, where swipes start. */
+const sheetHead = (country: string) => {
+	const head = screen
+		.getByRole("region", { name: `Stay: ${country}` })
+		.querySelector<HTMLElement>(".vp-trips-detail-head");
+	if (!head) throw new Error("no sheet head");
+	return head;
+};
+
+/** A touch drag on an element, from (100, 20) by (dx, dy). */
+function swipe(el: HTMLElement, dx: number, dy: number) {
+	fireEvent.pointerDown(el, touch(100, 20));
+	fireEvent.pointerMove(el, touch(100 + dx / 2, 20 + dy / 2));
+	fireEvent.pointerUp(el, touch(100 + dx, 20 + dy));
+}
+
+/** Touch pointer events and a narrow screen (the panel is a sheet); returns the undo. */
+function touchSheet() {
+	const had = { pointer: window.PointerEvent, media: window.matchMedia };
+	class TouchPointer extends MouseEvent {
+		pointerId: number;
+		pointerType: string;
+		constructor(type: string, init: PointerEventInit = {}) {
+			super(type, init);
+			this.pointerId = init.pointerId ?? 0;
+			this.pointerType = init.pointerType ?? "";
+		}
+	}
+	window.PointerEvent = TouchPointer as unknown as typeof PointerEvent;
+	window.matchMedia = (query: string) =>
+		({
+			matches: query === "(max-width: 1179px)",
+			media: query,
+			onchange: null,
+			addListener: () => {},
+			removeListener: () => {},
+			addEventListener: () => {},
+			removeEventListener: () => {},
+			dispatchEvent: () => false,
+		}) as MediaQueryList;
+	return () => {
+		window.PointerEvent = had.pointer;
+		window.matchMedia = had.media;
+	};
+}
+
 /** Stay numbers in the order the list shows them. */
 const shownNumbers = () =>
 	[...document.querySelectorAll(".vp-stays .vp-stay")].map((n) =>
@@ -503,6 +558,72 @@ describe("trips", () => {
 			expect(screen.queryByRole("region", { name: /^Stay:/ })).toBeNull(),
 		);
 		expect(document.querySelector(".vp-trips-backdrop")).toBeNull();
+	});
+
+	it("saves a typed place before a touch swipe switches or closes the sheet; a cancelled swipe does nothing", async () => {
+		// jsdom has neither PointerEvent nor layout: give it touch pointers and a sheet-sized screen.
+		const restore = touchSheet();
+		try {
+			const user = userEvent.setup();
+			const db = new VoyputDb("trips-swipe");
+			await seed(db);
+			renderApp("/collect/trips", { db });
+
+			const romania = await open(user, 2, "Romania");
+			const field = romania.getByRole<HTMLInputElement>("textbox", {
+				name: "Place",
+			});
+			const before = field.value;
+			await user.clear(field);
+			await user.type(field, "Sibiu");
+			// The swipe ends while the field still has focus: no blur saves it.
+			expect(document.activeElement).toBe(field);
+			swipe(sheetHead("Romania"), -120, 4);
+
+			await screen.findByRole("region", { name: "Stay: Moldova" });
+			await waitFor(async () =>
+				expect((await storedStays(db))[1]?.place).toBe("Sibiu"),
+			);
+			expect(screen.getByRole("status").textContent).toContain(
+				"Changed Romania",
+			);
+
+			// Down closes; nothing else changes.
+			swipe(sheetHead("Moldova"), 3, 140);
+			await waitFor(() =>
+				expect(screen.queryByRole("region", { name: /^Stay:/ })).toBeNull(),
+			);
+			const stored = await storedStays(db);
+			expect(stored).toHaveLength(5);
+			expect(stored.map((s) => s.approved)).toEqual([
+				false,
+				false,
+				false,
+				false,
+				false,
+			]);
+
+			// A swipe the system cancels neither closes nor moves, and the sheet snaps back.
+			await open(user, 4, "Japan");
+			const head = sheetHead("Japan");
+			const sheet = head.closest<HTMLElement>("[data-sheet]");
+			fireEvent.pointerDown(head, touch(100, 20));
+			fireEvent.pointerMove(head, touch(100, 160));
+			expect(sheet?.style.transform).toBe("translateY(140px)");
+			fireEvent.pointerCancel(head, touch(100, 160));
+			fireEvent.pointerUp(head, touch(100, 160));
+			expect(sheet?.style.transform).toBe("");
+			expect(screen.getByRole("region", { name: "Stay: Japan" })).toBeTruthy();
+			expect(await db.stays.count()).toBe(5);
+
+			// Undo still takes the place back.
+			await user.click(toastButton("Undo"));
+			await waitFor(async () =>
+				expect((await storedStays(db))[1]?.place).toBe(before),
+			);
+		} finally {
+			restore();
+		}
 	});
 
 	it("shows days without evidence as a thin gap row and adds a stay in it", async () => {

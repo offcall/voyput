@@ -129,6 +129,8 @@ export function TripsPage() {
 	const [folds, setFolds] = useState<ReadonlyMap<string, boolean>>(new Map());
 	const [toast, setToast] = useState<ToastMessage | null>(null);
 	const toastId = useRef(0);
+	/** Saves the open stay's pending edit; set by `StayDetail`. */
+	const flushDetail = useRef<(() => void) | null>(null);
 	/** Height of the sticky action bar: year headers stick right under it. */
 	const [barHeight, setBarHeight] = useState(0);
 	const barObserver = useRef<ResizeObserver | null>(null);
@@ -355,6 +357,16 @@ export function TripsPage() {
 		dropLegacy(trip);
 	};
 
+	/**
+	 * Closes the open stay or opens another (row, arrows, swipe, backdrop,
+	 * Close), saving first what the open stay still holds unsaved: a swipe
+	 * can end while the place field keeps focus, so blur cannot be relied on.
+	 */
+	const leaveFor = (id: string | null) => {
+		flushDetail.current?.();
+		select(id);
+	};
+
 	const index = stays.findIndex((s) => s.id === selectedId);
 	const selected = stays[index];
 	const groups = yearGroups(stays, order, birth, today);
@@ -381,7 +393,7 @@ export function TripsPage() {
 				birth={birth}
 				today={today}
 				selected={stay.id === selectedId}
-				onSelect={() => select(stay.id === selectedId ? null : stay.id)}
+				onSelect={() => leaveFor(stay.id === selectedId ? null : stay.id)}
 			/>
 		);
 	};
@@ -526,7 +538,7 @@ export function TripsPage() {
 					<div
 						className="vp-trips-backdrop"
 						aria-hidden="true"
-						onClick={() => select(null)}
+						onClick={() => leaveFor(null)}
 					/>
 				) : null}
 				<div className="vp-trips-pane" data-sheet={selected ? true : undefined}>
@@ -570,15 +582,16 @@ export function TripsPage() {
 									`Deleted ${countryName(selected.countryCode)}`,
 								);
 							}}
-							onClose={() => select(null)}
+							onClose={() => leaveFor(null)}
+							flushRef={flushDetail}
 							onPrevious={
 								index > 0
-									? () => select(stays[index - 1]?.id ?? null)
+									? () => leaveFor(stays[index - 1]?.id ?? null)
 									: undefined
 							}
 							onNext={
 								index < stays.length - 1
-									? () => select(stays[index + 1]?.id ?? null)
+									? () => leaveFor(stays[index + 1]?.id ?? null)
 									: undefined
 							}
 						/>

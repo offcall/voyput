@@ -13,7 +13,7 @@ import {
 	type TravelStay,
 } from "@voyput/core";
 import { Badge, Button } from "@voyput/ui";
-import { useState } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { useCountryColour } from "../../app/countryColours";
 import { DateField } from "./DateField";
 import { DaysTimeline } from "./DaysTimeline";
@@ -180,6 +180,7 @@ export function StayDetail({
 	onClose,
 	onPrevious,
 	onNext,
+	flushRef,
 }: {
 	stay: TravelStay;
 	/** Position in the history, from 1. */
@@ -211,11 +212,33 @@ export function StayDetail({
 	/** Opens the stay before or after this one; unset at either end. */
 	onPrevious?: (() => void) | undefined;
 	onNext?: (() => void) | undefined;
+	/**
+	 * Set to a function that saves what is still being typed (the place),
+	 * for the page to call before it closes this stay or opens another.
+	 */
+	flushRef?: RefObject<(() => void) | null>;
 }) {
 	const colorOf = useCountryColour();
 	const span = staySpan(stay, birth, today);
 	const days = spanLength(span);
 	const [place, setPlace] = useState(stay.place);
+	/** The last save from here, so a blur right after a flush does not save it twice. */
+	const lastSave = useRef<{ from: string; to: string } | null>(null);
+	const savePlace = () => {
+		const next = place.trim();
+		const last = lastSave.current;
+		if (next === stay.place || (last?.from === stay.place && last.to === next))
+			return;
+		lastSave.current = { from: stay.place, to: next };
+		onChange({ ...stay, place: next });
+	};
+	useEffect(() => {
+		if (!flushRef) return;
+		flushRef.current = savePlace;
+		return () => {
+			flushRef.current = null;
+		};
+	});
 	const [form, setForm] = useState<PanelForm>(null);
 	const swipe = useSheetSwipe({
 		close: onClose,
@@ -322,10 +345,7 @@ export function StayDetail({
 						value={place}
 						placeholder="City or border post"
 						onChange={(e) => setPlace(e.target.value)}
-						onBlur={() => {
-							if (place.trim() !== stay.place)
-								onChange({ ...stay, place: place.trim() });
-						}}
+						onBlur={savePlace}
 					/>
 				</label>
 			</div>
