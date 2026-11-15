@@ -30,7 +30,7 @@ export interface PlanInput {
 	/** Photos whose last extraction failed. */
 	failed: number;
 	stamps: number;
-	/** Stamps not marked reviewed. */
+	/** Stamps in the Review queue: unreviewed, or with an open warning. */
 	toReview: number;
 	/** Unreviewed stamps with a problem the extraction flagged. */
 	problems: number;

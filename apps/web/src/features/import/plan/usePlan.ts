@@ -1,16 +1,47 @@
-import { isCountryCode, isIsoDate, staySpan } from "@voyput/core";
-import { useCallback } from "react";
+import {
+	checkStamp,
+	isCountryCode,
+	isIsoDate,
+	type PhotoIndex,
+	type Stamp,
+	staySpan,
+} from "@voyput/core";
+import { useCallback, useMemo } from "react";
 import { useDb } from "../../../db/DbContext";
+import { useSettings } from "../../../settings/SettingsContext";
+import { needsAttention } from "../../review/queue";
+import { useLocationHistory } from "../../review/useReviewData";
 import { localToday } from "../../trips/format";
 import { BIRTH_COUNTRY_KEY, BIRTH_KEY } from "../../trips/tripStore";
 import { useLiveQuery } from "../photos/useLiveQuery";
 import { buildPlan, type Plan, type PlanStay } from "./planProgress";
 import { isSources, SOURCES_KEY } from "./sources";
 
+/**
+ * Stamps in the Review queue: unreviewed, or with a warning from the extraction or
+ * the photo locations that is still open. Same rule as Review's "Needs attention".
+ */
+export function countToCheck(
+	stamps: readonly Stamp[],
+	index: PhotoIndex | undefined,
+	windowDays: number,
+): number {
+	return stamps.filter((stamp) =>
+		needsAttention({
+			stamp,
+			check: index
+				? checkStamp(index, stamp, windowDays)
+				: { icloudCheck: "", suggestion: "" },
+		}),
+	).length;
+}
+
 /** The Collect plan, kept up to date with the database. */
 export function usePlan(): Plan | undefined {
 	const db = useDb();
-	return useLiveQuery(
+	const history = useLocationHistory();
+	const { settings } = useSettings();
+	const base = useLiveQuery(
 		useCallback(async () => {
 			const [
 				passports,
@@ -20,8 +51,7 @@ export function usePlan(): Plan | undefined {
 				extracted,
 				failedIds,
 				recoveredIds,
-				stamps,
-				toReview,
+				stampRows,
 				problems,
 				stored,
 				birthCountry,
@@ -38,8 +68,7 @@ export function usePlan(): Plan | undefined {
 					.filter((stamp) => stamp.source === "manual" && stamp.reviewed)
 					.toArray()
 					.then((manual) => new Set(manual.map((stamp) => stamp.photoId))),
-				db.stamps.count(),
-				db.stamps.filter((stamp) => !stamp.reviewed).count(),
+				db.stamps.toArray(),
 				// Same rule as trip evidence: a warning counts until it is fixed or hidden.
 				db.stamps
 					.filter((stamp) => !!stamp.problem && !stamp.dismissed?.problem)
@@ -63,22 +92,35 @@ export function usePlan(): Plan | undefined {
 			);
 			// A failed photo whose stamps the user added and reviewed by hand is handled.
 			const recovered = failedIds.filter((id) => recoveredIds.has(id)).length;
-			return buildPlan({
-				sources: isSources(sources?.value) ? sources.value : null,
-				passports,
-				photos,
-				locations,
-				locationCountries: locationCountries.filter(isCountryCode),
-				extracted: extracted + recovered,
-				failed: failedIds.length - recovered,
-				stamps,
-				toReview,
-				problems,
-				stays,
-				birthCountry: isCountryCode(birthCountry?.value)
-					? birthCountry.value
-					: null,
-			});
+			return {
+				stampRows,
+				input: {
+					sources: isSources(sources?.value) ? sources.value : null,
+					passports,
+					photos,
+					locations,
+					locationCountries: locationCountries.filter(isCountryCode),
+					extracted: extracted + recovered,
+					failed: failedIds.length - recovered,
+					stamps: stampRows.length,
+					problems,
+					stays,
+					birthCountry: isCountryCode(birthCountry?.value)
+						? birthCountry.value
+						: null,
+				},
+			};
 		}, [db]),
 	).data;
+	const index = history.data?.index;
+	const windowDays = settings.locationWindowDays;
+	return useMemo(() => {
+		if (!base) return undefined;
+		// Wait for the photo locations so the count does not jump once they load.
+		if (!history.data && !history.error) return undefined;
+		return buildPlan({
+			...base.input,
+			toReview: countToCheck(base.stampRows, index, windowDays),
+		});
+	}, [base, history.data, history.error, index, windowDays]);
 }
