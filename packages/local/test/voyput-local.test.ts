@@ -1,4 +1,9 @@
 import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import {
 	admit,
@@ -20,12 +25,14 @@ import {
 	pairingLink,
 	parseExtractBody,
 	type Runner,
+	readBody,
 	requestAad,
 	requestLines,
 	reserveFrom,
 	respond,
 	responseAad,
 	responseProof,
+	runProcess,
 	type Sealed,
 	seal,
 	sealKey,
@@ -497,6 +504,192 @@ describe("voyput-local job queue", () => {
 		expect(started()).toBe(1);
 	});
 });
+
+describe("voyput-local deadlines", () => {
+	const job: ExtractJob = {
+		engine: "claude",
+		system: "",
+		text: "",
+		image: { mediaType: "image/jpeg", data: Buffer.from("jpg") },
+	};
+	const open = () => new AbortController().signal;
+
+	it("stops reading an upload that is still arriving at the deadline", async () => {
+		const upload = new PassThrough();
+		upload.write('{"iv":');
+		const result = await readBody(upload, 1000, Date.now() + 20);
+		expect(result).toEqual({
+			status: 408,
+			error: "upload did not finish in time",
+		});
+		expect(upload.destroyed).toBe(true);
+	});
+
+	it("reads a complete upload and refuses one longer than declared", async () => {
+		const ok = new PassThrough();
+		const reading = readBody(ok, 4, Date.now() + 60_000);
+		ok.end("abcd");
+		expect(await reading).toEqual({ body: "abcd" });
+		const long = new PassThrough();
+		const refused = readBody(long, 2, Date.now() + 60_000);
+		long.write("abc");
+		expect(await refused).toMatchObject({ status: 413 });
+	});
+
+	it("never starts a job whose deadline passed while it waited", async () => {
+		let clock = 1_000;
+		const release: (() => void)[] = [];
+		let started = 0;
+		const line = limitJobs(
+			{
+				run: async () => {
+					started++;
+					await new Promise<void>((resolve) => release.push(resolve));
+					return "ok";
+				},
+			},
+			1,
+			5,
+			() => clock,
+		);
+		const first = line.reserve()?.run(job, open(), 61_000);
+		// Its timer is set for a minute of fake time, so only the clock moves.
+		const second = line.reserve()?.run(job, open(), 2_000);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		clock = 5_000;
+		release.shift()?.();
+		expect(await first).toBe("ok");
+		await expect(second).rejects.toThrow("deadline passed");
+		expect(started).toBe(1);
+		await expect(line.reserve()?.run(job, open(), 4_000)).rejects.toThrow(
+			"deadline passed before the job could start",
+		);
+		expect(started).toBe(1);
+	});
+
+	it("does not spawn a CLI after the deadline", async () => {
+		await expect(
+			runProcess(
+				"/nonexistent/claude",
+				{ program: "claude", args: [], stdin: "", answerFile: null },
+				tmpdir(),
+				open(),
+				Date.now() - 1,
+			),
+		).rejects.toThrow("deadline passed before the CLI could start");
+	});
+});
+
+describe.skipIf(process.platform === "win32")(
+	"voyput-local CLI processes",
+	() => {
+		/** Running, not merely a zombie waiting to be reaped (Linux /proc when present). */
+		const running = (pid: number) => {
+			try {
+				process.kill(pid, 0);
+			} catch {
+				return false;
+			}
+			try {
+				const stat = readFileSync(`/proc/${pid}/stat`, "utf8");
+				return stat.slice(stat.lastIndexOf(")") + 2)[0] !== "Z";
+			} catch {
+				return true;
+			}
+		};
+		/** Whether `pid` has stopped running within a short wait for the kill to land. */
+		const isAlive = async (pid: number) => {
+			for (let tries = 0; tries < 40 && running(pid); tries++)
+				await new Promise((resolve) => setTimeout(resolve, 50));
+			return running(pid);
+		};
+
+		/** A fake CLI script; its background `sleep` inherits stdout and stderr. */
+		async function fakeCli(body: string) {
+			const dir = await mkdtemp(join(tmpdir(), "vl-fake-cli-"));
+			const path = join(dir, "claude");
+			await writeFile(path, `#!/bin/sh\n${body}\n`);
+			await chmod(path, 0o755);
+			const descendant = () =>
+				Number(readFileSync(join(dir, "descendant.pid"), "utf8"));
+			return { dir, path, descendant };
+		}
+		const command = {
+			program: "claude" as const,
+			args: [],
+			stdin: "",
+			answerFile: null,
+		};
+
+		it("settles and kills the descendant when the CLI exits but a descendant holds its pipes", async () => {
+			const cli = await fakeCli(
+				'sleep 30 &\necho $! > "$(dirname "$0")/descendant.pid"\necho answer\nexit 0',
+			);
+			try {
+				const started = Date.now();
+				const out = await runProcess(
+					cli.path,
+					command,
+					cli.dir,
+					new AbortController().signal,
+					Date.now() + 60_000,
+					200,
+				);
+				expect(out).toBe("answer\n");
+				expect(Date.now() - started).toBeLessThan(5_000);
+				expect(await isAlive(cli.descendant())).toBe(false);
+			} finally {
+				await rm(cli.dir, { recursive: true, force: true });
+			}
+		});
+
+		it("settles and kills the whole tree on cancel, even with pipes held open", async () => {
+			const cli = await fakeCli(
+				'sleep 30 &\necho $! > "$(dirname "$0")/descendant.pid"\nsleep 30',
+			);
+			try {
+				const controller = new AbortController();
+				const running = runProcess(
+					cli.path,
+					command,
+					cli.dir,
+					controller.signal,
+					Date.now() + 60_000,
+					200,
+				);
+				await new Promise((resolve) => setTimeout(resolve, 300));
+				controller.abort();
+				await expect(running).rejects.toThrow("cancelled");
+				expect(await isAlive(cli.descendant())).toBe(false);
+			} finally {
+				await rm(cli.dir, { recursive: true, force: true });
+			}
+		});
+
+		it("settles at the deadline when the leader is gone and a descendant holds the pipes", async () => {
+			const cli = await fakeCli(
+				'(sleep 30; echo late) &\necho $! > "$(dirname "$0")/descendant.pid"\nkill -9 $$',
+			);
+			try {
+				const started = Date.now();
+				await expect(
+					runProcess(
+						cli.path,
+						command,
+						cli.dir,
+						new AbortController().signal,
+						Date.now() + 500,
+						200,
+					),
+				).rejects.toThrow();
+				expect(Date.now() - started).toBeLessThan(5_000);
+				expect(await isAlive(cli.descendant())).toBe(false);
+			} finally {
+				await rm(cli.dir, { recursive: true, force: true });
+			}
+		});
+	},
+);
 
 describe("voyput-local encryption", () => {
 	const key = sealKey(TOKEN);

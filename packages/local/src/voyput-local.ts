@@ -30,6 +30,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
+import type { Readable } from "node:stream";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
@@ -49,6 +50,8 @@ export const MAX_WAITING = 6;
 /** How far a request's timestamp may be from this clock. */
 export const MAX_SKEW_MS = 60_000;
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
+/** After the CLI exits (or is killed), how long to wait for its pipes to close. */
+export const PIPE_GRACE_MS = 2_000;
 const TEMP_PREFIX = "voyput-local-";
 
 export type Engine = "codex" | "claude";
@@ -487,6 +490,8 @@ export function limitJobs(
 	const enqueue = (job: ExtractJob, signal: AbortSignal, deadline: number) =>
 		new Promise<string>((resolve, reject) => {
 			if (closed) return reject(aborted("voyput-local is shutting down"));
+			if (now() >= deadline)
+				return reject(aborted("deadline passed before the job could start"));
 			const timer = setTimeout(
 				() => leave("deadline passed while waiting for a free run"),
 				Math.max(0, deadline - now()),
@@ -496,6 +501,11 @@ export function limitJobs(
 					clearTimeout(timer);
 					signal.removeEventListener("abort", onAbort);
 					if (signal.aborted) return reject(aborted("client went away"));
+					// The timer may not have fired yet when a run frees up.
+					if (now() >= deadline)
+						return reject(
+							aborted("deadline passed while waiting for a free run"),
+						);
 					running++;
 					runner
 						.run(job, signal, deadline)
@@ -798,17 +808,23 @@ const lastLine = (text: string) =>
 const quoteForCmd = (arg: string) => `"${arg.replace(/"/g, '""')}"`;
 
 /** Kills a CLI and everything it started. */
+/**
+ * Kills a CLI and everything it started. On POSIX the CLI leads its own
+ * process group (detached), and the group outlives its leader, so this also
+ * reaches descendants after the CLI itself exited. On Windows `taskkill /T`
+ * finds descendants only through a live parent.
+ */
 function killTree(child: ChildProcess) {
-	if (child.pid === undefined || child.exitCode !== null) return;
+	if (child.pid === undefined) return;
 	try {
 		if (process.platform === "win32")
 			spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
 				windowsHide: true,
-			});
-		// Detached: the child leads its own process group.
+			}).on("error", () => {});
 		else process.kill(-child.pid, "SIGKILL");
 	} catch {
-		child.kill("SIGKILL");
+		// ESRCH: nothing left in the group.
+		if (child.exitCode === null) child.kill("SIGKILL");
 	}
 }
 
@@ -817,16 +833,24 @@ const active = new Map<string, ChildProcess | null>();
 /** Set on shutdown: no CLI may start after it. */
 let closing = false;
 
-function runProcess(
+/**
+ * Runs one CLI and settles once, even when a descendant keeps its pipes open:
+ * when the CLI exits (or is killed) the rest of its group is killed too, and
+ * after `graceMs` the pipes are destroyed and the result settles.
+ */
+export function runProcess(
 	path: string,
 	command: Command,
 	cwd: string,
 	signal: AbortSignal,
 	deadline: number,
+	graceMs: number = PIPE_GRACE_MS,
 ): Promise<string> {
 	const windows = process.platform === "win32";
 	return new Promise((resolve, reject) => {
 		if (closing) return reject(aborted("voyput-local is shutting down"));
+		if (Date.now() >= deadline)
+			return reject(aborted("deadline passed before the CLI could start"));
 		const child = spawn(
 			windows ? quoteForCmd(path) : path,
 			windows ? command.args.map(quoteForCmd) : command.args,
@@ -841,9 +865,42 @@ function runProcess(
 		);
 		active.set(cwd, child);
 		let stopped = "";
+		let exit: { code: number | null; signal: string | null } | null = null;
+		let settled = false;
+		let grace: ReturnType<typeof setTimeout> | undefined;
+		let stdout = "";
+		let stderr = "";
+		const finish = (error?: Error) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timer);
+			clearTimeout(grace);
+			signal.removeEventListener("abort", onAbort);
+			for (const stream of [child.stdin, child.stdout, child.stderr])
+				stream?.destroy();
+			active.set(cwd, null);
+			if (error) return reject(error);
+			const result = exit ?? { code: null, signal: null };
+			if (stopped || result.signal)
+				reject(
+					new Error(
+						`${command.program} ${stopped || `stopped (${result.signal})`}`,
+					),
+				);
+			else if (result.code !== 0)
+				reject(
+					new Error(
+						`${command.program} exited with code ${result.code}: ${lastLine(stderr) || lastLine(stdout)}`,
+					),
+				);
+			else resolve(stdout);
+		};
+		/** Kills the tree, then gives the pipes `graceMs` before giving up on them. */
 		const stop = (reason: string) => {
-			stopped = reason;
+			if (settled) return;
+			stopped ||= reason;
 			killTree(child);
+			grace ??= setTimeout(() => finish(), graceMs);
 		};
 		const timer = setTimeout(
 			() => stop("timed out"),
@@ -851,30 +908,22 @@ function runProcess(
 		);
 		const onAbort = () => stop("cancelled: the client went away");
 		signal.addEventListener("abort", onAbort);
-		let stdout = "";
-		let stderr = "";
 		child.stdout?.on("data", (chunk: Buffer) => {
 			if (stdout.length < MAX_OUTPUT_BYTES) stdout += chunk.toString();
 		});
 		child.stderr?.on("data", (chunk: Buffer) => {
 			if (stderr.length < MAX_OUTPUT_BYTES) stderr += chunk.toString();
 		});
-		child.on("error", reject);
-		child.on("close", (code, killed) => {
-			clearTimeout(timer);
-			signal.removeEventListener("abort", onAbort);
-			active.set(cwd, null);
-			if (stopped || killed)
-				reject(
-					new Error(`${command.program} ${stopped || `stopped (${killed})`}`),
-				);
-			else if (code !== 0)
-				reject(
-					new Error(
-						`${command.program} exited with code ${code}: ${lastLine(stderr) || lastLine(stdout)}`,
-					),
-				);
-			else resolve(stdout);
+		child.on("error", (error) => finish(error));
+		child.on("exit", (code, exitSignal) => {
+			exit = { code, signal: exitSignal };
+			// Descendants left behind would hold the pipes open; end them too.
+			killTree(child);
+			grace ??= setTimeout(() => finish(), graceMs);
+		});
+		child.on("close", (code, closeSignal) => {
+			exit ??= { code, signal: closeSignal };
+			finish();
 		});
 		child.stdin?.on("error", () => {});
 		child.stdin?.end(command.stdin);
@@ -888,6 +937,8 @@ export function cliRunner(paths: Partial<Record<Engine, string>>): Runner {
 		async run(job, signal, deadline) {
 			const path = paths[job.engine];
 			if (!path) throw new Error(`${job.engine} is not available`);
+			if (Date.now() >= deadline)
+				throw aborted("deadline passed before the job could start");
 			// The pid in the name lets a later start remove dirs of a crashed run.
 			const dir = await mkdtemp(
 				join(tmpdir(), `${TEMP_PREFIX}${process.pid}-`),
@@ -994,26 +1045,45 @@ Usage: node voyput-local.mjs [--port <n>] [--codex] [--new-token]
   --help         Show this text.
 `;
 
-/** Reads exactly the admitted length; null when the upload is cut off or longer. */
-function readBody(
-	request: IncomingMessage,
+/**
+ * Reads exactly the admitted length before the request's deadline. An upload
+ * that is cut off, longer than admitted, or still arriving at the deadline is
+ * destroyed and answered with an error instead.
+ */
+export function readBody(
+	request: Readable,
 	length: number,
-): Promise<string | null> {
-	return new Promise<string | null>((resolve) => {
+	deadline: number,
+	now: () => number = Date.now,
+): Promise<{ body: string } | { status: number; error: string }> {
+	return new Promise((resolve) => {
 		const chunks: Buffer[] = [];
 		let size = 0;
+		let done = false;
+		const settle = (
+			result: { body: string } | { status: number; error: string },
+		) => {
+			if (done) return;
+			done = true;
+			clearTimeout(timer);
+			if (!("body" in result)) request.destroy();
+			resolve(result);
+		};
+		const timer = setTimeout(
+			() => settle({ status: 408, error: "upload did not finish in time" }),
+			Math.max(0, deadline - now()),
+		);
 		request.on("data", (chunk: Buffer) => {
 			size += chunk.length;
-			if (size > length) {
-				request.destroy();
-				resolve(null);
-				return;
-			}
+			if (size > length)
+				return settle({ status: 413, error: "body longer than declared" });
 			chunks.push(chunk);
 		});
-		request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-		request.on("error", () => resolve(null));
-		request.on("close", () => resolve(null));
+		request.on("end", () =>
+			settle({ body: Buffer.concat(chunks).toString("utf8") }),
+		);
+		request.on("error", () => settle({ status: 400, error: "upload cut off" }));
+		request.on("close", () => settle({ status: 400, error: "upload cut off" }));
 	});
 }
 
@@ -1081,19 +1151,19 @@ async function main() {
 			// The slot (queue place and body bytes) is held until the answer is sent.
 			try {
 				const length = Number(request.headers["content-length"] ?? 0);
-				const body = await readBody(request, length);
+				const read = await readBody(request, length, started + JOB_DEADLINE_MS);
 				result =
-					body === null
+					"error" in read
 						? {
-								status: 400,
+								status: read.status,
 								headers: {
 									...admitted.cors,
 									"content-type": "application/json",
 								},
-								body: JSON.stringify({ error: "upload cut off" }),
+								body: JSON.stringify({ error: read.error }),
 							}
 						: await respond(
-								{ ...head, body },
+								{ ...head, body: read.body },
 								admitted,
 								deps,
 								controller.signal,
