@@ -601,7 +601,7 @@ select.vp-input {
 	transform: translate(-50%, -50%);
 	box-sizing: border-box;
 	width: min(480px, calc(100vw - 32px));
-	max-height: calc(100vh - 32px);
+	max-height: calc(100dvh - 32px);
 	overflow-y: auto;
 	background: var(--vp-surface);
 	color: var(--vp-text);
@@ -793,7 +793,7 @@ select.vp-input {
 /* ---------- App shell ---------- */
 
 .vp-shell {
-	min-height: 100vh;
+	min-height: 100dvh;
 	display: grid;
 	grid-template-columns: 236px minmax(0, 1fr);
 }
@@ -804,7 +804,7 @@ select.vp-input {
 .vp-shell-header {
 	position: sticky;
 	top: 0;
-	height: 100vh;
+	height: 100dvh;
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
@@ -914,9 +914,17 @@ a[aria-current="page"] .vp-nav-count {
 	gap: var(--vp-space-4);
 }
 
-/* Narrow screens: a top bar with brand and footer, the section nav as a
-   bottom tab bar. */
+/* Narrow screens (phones, tablets): a top bar with brand and footer, the
+   section nav as a bottom tab bar. Both keep clear of the safe areas (notch,
+   home indicator, landscape sides); the page leaves room for the tab bar.
+   `--vp-tabbar-h` is the bar's height without the inset, for sticky actions
+   that sit above it: `bottom: calc(var(--vp-tabbar-h) + env(safe-area-inset-bottom))`. */
 @media (max-width: 860px) {
+	:root {
+		--vp-tabbar-h: 60px;
+		--vp-gutter-left: max(var(--vp-space-4), env(safe-area-inset-left));
+		--vp-gutter-right: max(var(--vp-space-4), env(safe-area-inset-right));
+	}
 	.vp-shell {
 		grid-template-columns: minmax(0, 1fr);
 	}
@@ -926,6 +934,7 @@ a[aria-current="page"] .vp-nav-count {
 		z-index: 20;
 		border-right: none;
 		border-bottom: 1px solid var(--vp-border);
+		padding-top: env(safe-area-inset-top);
 	}
 	.vp-shell-header {
 		position: static;
@@ -933,7 +942,9 @@ a[aria-current="page"] .vp-nav-count {
 		flex-direction: row;
 		align-items: center;
 		gap: var(--vp-space-3);
-		padding: var(--vp-space-2) var(--vp-space-3);
+		min-height: 52px;
+		padding: var(--vp-space-1) var(--vp-gutter-right) var(--vp-space-1)
+			var(--vp-gutter-left);
 	}
 	.vp-shell-brand {
 		padding: 0;
@@ -953,7 +964,8 @@ a[aria-current="page"] .vp-nav-count {
 		z-index: 20;
 		justify-content: space-around;
 		gap: 0;
-		padding: 6px var(--vp-space-2) calc(6px + env(safe-area-inset-bottom));
+		padding: 4px env(safe-area-inset-right) env(safe-area-inset-bottom)
+			env(safe-area-inset-left);
 		background: var(--vp-surface);
 		border-top: 1px solid var(--vp-border);
 		box-shadow: 0 -8px 24px rgb(0 0 0 / 0.12);
@@ -961,10 +973,14 @@ a[aria-current="page"] .vp-nav-count {
 	.vp-shell-header > .vp-shell-nav a {
 		flex: 1;
 		flex-direction: column;
+		justify-content: center;
 		gap: 2px;
-		padding: 6px 2px;
+		box-sizing: border-box;
+		min-height: calc(var(--vp-tabbar-h) - 4px);
+		padding: 4px 2px;
 		font-size: 11px;
 		text-align: center;
+		-webkit-tap-highlight-color: transparent;
 	}
 	.vp-shell-header > .vp-shell-nav a[aria-current="page"] {
 		box-shadow: inset 0 3px 0 var(--vp-accent);
@@ -983,11 +999,27 @@ a[aria-current="page"] .vp-nav-count {
 		flex-direction: row;
 	}
 	.vp-shell-main {
-		padding: var(--vp-space-5) var(--vp-space-4)
-			calc(88px + env(safe-area-inset-bottom));
+		padding: var(--vp-space-5) var(--vp-gutter-right)
+			calc(var(--vp-tabbar-h) + env(safe-area-inset-bottom) + var(--vp-space-8))
+			var(--vp-gutter-left);
 	}
 	.vp-shell-main h1 {
 		font-size: 24px;
+	}
+}
+/* Phones held sideways: little height, so the top bar scrolls away and the tab
+   bar is one short row (icon beside its label). */
+@media (max-width: 860px) and (max-height: 500px) {
+	:root {
+		--vp-tabbar-h: 48px;
+	}
+	.vp-shell-side {
+		position: static;
+	}
+	.vp-shell-header > .vp-shell-nav a {
+		flex-direction: row;
+		gap: 8px;
+		font-size: 12px;
 	}
 }
 

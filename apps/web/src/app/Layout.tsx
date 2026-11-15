@@ -19,6 +19,7 @@ import { CountryColoursProvider } from "./countryColours";
 import { BrandMark, icons } from "./icons";
 import "./layout.css";
 import { type ThemeMode, useTheme } from "./theme";
+import { TOUCH_LAYOUT, useMediaQuery } from "./useMediaQuery";
 
 export type Area = "collect" | "stays" | "insights";
 
@@ -90,15 +91,25 @@ export function Layout() {
 	const areas = useAreas(pathname);
 	const collectStep = collectTarget(areas.step, plan);
 	const inInsights = areas.area === "insights";
+	const touch = useMediaQuery(TOUCH_LAYOUT);
+
+	if (touch)
+		return (
+			<AppShell
+				brand={<Brand />}
+				nav={<TouchTabs plan={plan} areas={areas} collectStep={collectStep} />}
+				footer={<ThemeSwitch mode={theme} onChange={setTheme} />}
+			>
+				{inInsights ? <InsightsSwitch /> : null}
+				<CountryColoursProvider>
+					<Outlet />
+				</CountryColoursProvider>
+			</AppShell>
+		);
 
 	return (
 		<AppShell
-			brand={
-				<Link to="/" className="vp-brand-link" aria-label="voyput home">
-					<BrandMark />
-					<span className="vp-brand-name">VOYPUT</span>
-				</Link>
-			}
+			brand={<Brand />}
 			nav={
 				<>
 					<Link
@@ -192,6 +203,103 @@ export function Layout() {
 				<Outlet />
 			</CountryColoursProvider>
 		</AppShell>
+	);
+}
+
+/** The logo, leading home (ADR 0025). */
+function Brand() {
+	return (
+		<Link to="/" className="vp-brand-link" aria-label="voyput home">
+			<BrandMark />
+			<span className="vp-brand-name">VOYPUT</span>
+		</Link>
+	);
+}
+
+/**
+ * Phones and tablets: the bottom tab bar holds the four areas, Settings
+ * included; the Insights views move to `InsightsSwitch` at the top of the page.
+ */
+function TouchTabs({
+	plan,
+	areas,
+	collectStep,
+}: {
+	plan: Plan | undefined;
+	areas: ReturnType<typeof useAreas>;
+	collectStep: StepId;
+}) {
+	return (
+		<>
+			<Link
+				to="/collect/$step"
+				params={{ step: collectStep }}
+				data-area="collect"
+				aria-current={areas.area === "collect" ? "page" : undefined}
+			>
+				<span className="vp-nav-icon">
+					{icons.collect}
+					{plan ? (
+						<span
+							className="vp-tab-badge"
+							data-done={plan.doneCount === plan.steps.length ? "" : undefined}
+							aria-hidden="true"
+						>
+							{plan.doneCount}/{plan.steps.length}
+						</span>
+					) : null}
+				</span>
+				<span className="vp-nav-label">Collect</span>
+				{plan ? (
+					<span className="vp-visually-hidden">
+						, {plan.doneCount} of {plan.steps.length} steps done
+					</span>
+				) : null}
+			</Link>
+			<Link
+				to="/collect/$step"
+				params={{ step: "trips" }}
+				data-area="stays"
+				aria-current={areas.area === "stays" ? "page" : undefined}
+			>
+				<span className="vp-nav-icon">{icons.stays}</span>
+				<span className="vp-nav-label">Stays</span>
+			</Link>
+			<Link
+				to="/insights/$view"
+				params={{ view: areas.view }}
+				data-area="insights"
+				aria-current={areas.area === "insights" ? "page" : undefined}
+			>
+				<span className="vp-nav-icon">{icons.insights}</span>
+				<span className="vp-nav-label">Insights</span>
+			</Link>
+			<Link to="/settings" activeProps={{ "aria-current": "page" }}>
+				<span className="vp-nav-icon">{icons.settings}</span>
+				<span className="vp-nav-label">Settings</span>
+			</Link>
+		</>
+	);
+}
+
+/** Phones and tablets, inside Insights: the four views as one compact switch. */
+function InsightsSwitch() {
+	return (
+		<nav className="vp-insights-switch" aria-label="Insights views">
+			{INSIGHT_VIEWS.map((view) => (
+				<Link
+					key={view.id}
+					to="/insights/$view"
+					params={{ view: view.id }}
+					activeProps={{ "aria-current": "page" }}
+				>
+					<span className="vp-insights-switch-icon" aria-hidden="true">
+						{VIEW_ICONS[view.id]}
+					</span>
+					{view.label}
+				</Link>
+			))}
+		</nav>
 	);
 }
 

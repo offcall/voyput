@@ -49,9 +49,10 @@
 	text-decoration: none;
 }
 
-/* Bottom tab bar on phones: the active tab gets a green pill behind its icon. */
+/* Bottom tab bar on phones and tablets (Collect · Stays · Insights · Settings):
+   the active tab gets a green pill behind its icon. */
 @media (max-width: 860px) {
-	/* Short pages: keep the top bar its own height instead of sharing 100vh. */
+	/* Short pages: keep the top bar its own height instead of sharing 100dvh. */
 	.vp-shell {
 		grid-template-rows: auto 1fr;
 	}
@@ -61,8 +62,9 @@
 		color: var(--vp-accent-ink);
 	}
 	.vp-shell-header > .vp-shell-nav .vp-nav-icon {
-		width: 48px;
-		height: 26px;
+		position: relative;
+		width: 52px;
+		height: 28px;
 		border-radius: var(--vp-radius-full);
 		transition: background var(--vp-duration) var(--vp-ease);
 	}
@@ -72,6 +74,97 @@
 	}
 	.vp-shell-header > .vp-shell-nav .vp-nav-label {
 		font-weight: 700;
+	}
+	/* The Collect x/5 badge, pinned to the icon's top right. */
+	.vp-tab-badge {
+		position: absolute;
+		top: -6px;
+		left: 34px;
+		min-width: 22px;
+		padding: 0 4px;
+		box-sizing: border-box;
+		border-radius: var(--vp-radius-full);
+		background: var(--vp-surface-3);
+		color: var(--vp-text);
+		box-shadow: 0 0 0 2px var(--vp-surface);
+		font-size: 10px;
+		font-weight: 700;
+		line-height: 15px;
+		font-variant-numeric: tabular-nums;
+		text-align: center;
+	}
+	.vp-tab-badge[data-done] {
+		background: var(--vp-accent-ink);
+		color: var(--vp-surface);
+	}
+	/* The top bar: logo left, theme switch right, both finger-sized. */
+	.vp-theme-switch button {
+		min-width: 40px;
+		min-height: 36px;
+	}
+	.vp-brand-link {
+		min-height: 44px;
+	}
+}
+@media (max-width: 860px) and (max-height: 500px) {
+	.vp-shell-header > .vp-shell-nav .vp-nav-icon {
+		width: 40px;
+		height: 26px;
+	}
+	.vp-tab-badge {
+		left: 24px;
+	}
+	.vp-shell-header > .vp-shell-nav a {
+		gap: 14px;
+	}
+}
+
+/* Insights views on phones and tablets: one segmented row above the page. */
+.vp-insights-switch {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 2px;
+	margin-bottom: var(--vp-space-4);
+	padding: 3px;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius);
+	background: var(--vp-surface-2);
+}
+.vp-insights-switch a {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-height: 40px;
+	min-width: 0;
+	border-radius: var(--vp-radius-sm);
+	color: var(--vp-muted);
+	font-size: var(--vp-text-sm);
+	font-weight: 700;
+	text-decoration: none;
+	-webkit-tap-highlight-color: transparent;
+}
+.vp-insights-switch a[aria-current="page"] {
+	background: var(--vp-surface);
+	color: var(--vp-accent-ink);
+	box-shadow:
+		var(--vp-shadow-sm),
+		inset 0 -2px 0 var(--vp-accent);
+}
+.vp-insights-switch-icon {
+	display: grid;
+	line-height: 0;
+}
+.vp-insights-switch-icon svg {
+	width: 16px;
+	height: 16px;
+}
+@media (max-width: 400px) {
+	.vp-insights-switch a {
+		flex-direction: column;
+		gap: 1px;
+		font-size: 11px;
+		min-height: 44px;
 	}
 }
 
@@ -112,17 +205,6 @@
 }
 
 @media (max-width: 860px) {
-	.vp-shell-nav .vp-nav-desktop {
-		display: none;
-	}
-	.vp-shell-header > .vp-shell-nav a.vp-nav-sub {
-		padding: 6px 2px;
-		font-size: 11px;
-		font-weight: 700;
-	}
-	.vp-shell-header > .vp-shell-nav a.vp-nav-sub .vp-nav-icon {
-		display: grid;
-	}
 	.vp-local-note {
 		display: none;
 	}
