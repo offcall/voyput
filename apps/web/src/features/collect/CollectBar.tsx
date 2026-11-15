@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Dialog, PixelArt, PixelSky } from "@voyput/ui";
+import { Dialog, PixelArt, PixelSky, Sheet } from "@voyput/ui";
 import { useState } from "react";
 import { useDemoActions } from "../demo/DemoActions";
 import type { Plan, StepId } from "../import/plan/planProgress";
@@ -11,7 +11,8 @@ import { findStep, nextAction } from "./steps";
 /**
  * The top of Collect: the title on a pixel sky with a suitcase (a trophy once
  * every step is done), then one row with the steps for the chosen sources and one
- * next action.
+ * next action. On a narrow bar (phones) the row folds into one "3/5 · Review ▾"
+ * button that opens the steps in a sheet, and the next action takes the full width.
  */
 export function CollectBar({
 	plan,
@@ -37,11 +38,62 @@ export function CollectBar({
 			</PixelSky>
 			<div className="collect-bar">
 				<Stepper plan={plan} current={current} />
+				{plan ? <StepsSheet plan={plan} current={current} /> : null}
 				<div className="collect-bar-end">
 					{plan ? <NextAction plan={plan} current={current} /> : null}
 				</div>
 			</div>
 		</header>
+	);
+}
+
+/** Phones: "3/5 · Review ▾", opening every step in a bottom sheet. */
+function StepsSheet({ plan, current }: { plan: Plan; current: StepId }) {
+	const [open, setOpen] = useState(false);
+	const step = findStep(current);
+	const state = plan.steps.find((s) => s.id === current)?.state;
+	return (
+		<>
+			<button
+				type="button"
+				className="collect-steps-toggle"
+				aria-haspopup="dialog"
+				aria-label={`Steps: ${plan.doneCount} of ${plan.steps.length} done, now ${step?.label ?? ""}. Show all steps`}
+				onClick={() => setOpen(true)}
+			>
+				<span className="collect-steps-toggle-count" aria-hidden="true">
+					{plan.doneCount}/{plan.steps.length}
+				</span>
+				<span className="collect-steps-toggle-label" aria-hidden="true">
+					{step?.label}
+				</span>
+				{state ? (
+					<span
+						className="collect-stepper-mark"
+						data-state={state}
+						aria-hidden="true"
+					>
+						{state === "done" ? "✓" : state === "attention" ? "!" : ""}
+					</span>
+				) : null}
+				<span className="collect-steps-toggle-caret" aria-hidden="true">
+					▾
+				</span>
+			</button>
+			<Sheet
+				open={open}
+				onOpenChange={setOpen}
+				title="Collect steps"
+				description={`${plan.doneCount} of ${plan.steps.length} done`}
+			>
+				<Stepper
+					plan={plan}
+					current={current}
+					variant="list"
+					onNavigate={() => setOpen(false)}
+				/>
+			</Sheet>
+		</>
 	);
 }
 

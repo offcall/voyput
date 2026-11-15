@@ -9,7 +9,7 @@
 
 /* The sky grows with the hero text on narrow screens; `PixelSky` sets a fixed inline height. */
 .home > .vp-sky {
-	height: auto !important;
+	height: auto;
 	min-height: 300px;
 }
 .home > .vp-sky > .vp-sky-content {
@@ -144,5 +144,49 @@
 	}
 	.home-promise {
 		font-size: var(--vp-text-md);
+	}
+}
+
+/* Phones: the Continue button takes the full width and may wrap; the Stays and
+   Insights links beside it become finger-sized. */
+@media (max-width: 640px) {
+	.home {
+		gap: var(--vp-space-5);
+	}
+	.home > .vp-sky {
+		min-height: 0;
+	}
+	.home-actions {
+		gap: 0 var(--vp-space-5);
+	}
+	.home-actions .vp-button {
+		flex: 1 1 100%;
+		white-space: normal;
+		text-align: center;
+		line-height: 1.4;
+		min-height: 44px;
+	}
+	.home-actions > a:not(.vp-button) {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+	}
+	.home-steps {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.home-step {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		column-gap: var(--vp-space-3);
+		align-items: center;
+	}
+	.home-step-art {
+		grid-row: span 2;
+		min-width: 72px;
+		min-height: 0;
+		align-self: start;
+	}
+	.home-delete .vp-button {
+		flex: 1 1 100%;
 	}
 }
