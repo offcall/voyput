@@ -408,7 +408,7 @@ function prefersReducedMotion(): boolean {
 /**
  * Turning globe with visited countries in their colours, photo spots and
  * moves. Drag to turn (it keeps spinning a little after letting go); hover or
- * ←/→ shows a country. Rotation pauses while hovered, dragged or picked.
+ * ←/→ shows a country. Rotation pauses while hovered, dragged, picked or tapped.
  */
 export function GlobeChart({
 	data,
@@ -497,7 +497,7 @@ export function GlobeChart({
 					vel.lat = 0;
 				}
 				dirty = true;
-			} else if (!pausedRef.current && drag === null && !inside) {
+			} else if (!pausedRef.current && drag === null && !inside && !tapped) {
 				v.lon = wrapLon(v.lon - SPIN);
 				dirty = true;
 			}
@@ -507,9 +507,12 @@ export function GlobeChart({
 		};
 		// Where a touch went down: lifting it close by is a tap that shows a tip.
 		let pressed: [number, number] | null = null;
+		// A tapped tip holds the globe still until a tap elsewhere closes it.
+		let tapped = false;
 		const down = (e: PointerEvent) => {
 			const [x, y] = local(e);
 			pressed = e.pointerType === "mouse" ? null : [x, y];
+			tapped = false;
 			drag = { x, y, t: e.timeStamp };
 			velocity.current = { lon: 0, lat: 0 };
 			picked.current = null;
@@ -548,8 +551,11 @@ export function GlobeChart({
 			const v = view.current;
 			if (pressed && v && e.type === "pointerup") {
 				const [x, y] = local(e);
-				if (Math.hypot(x - pressed[0], y - pressed[1]) < TAP_SLOP)
-					showHover(hitTest(scene, v, x, y));
+				if (Math.hypot(x - pressed[0], y - pressed[1]) < TAP_SLOP) {
+					const hit = hitTest(scene, v, x, y);
+					showHover(hit);
+					tapped = hit !== null;
+				}
 			}
 			pressed = null;
 		};
@@ -561,6 +567,12 @@ export function GlobeChart({
 			// A finger leaves as it lifts; a tapped tip stays until the next tap.
 			if (drag === null && e.pointerType !== "touch") showHover(null);
 		};
+		const away = (e: Event) => {
+			if (!tapped || e.target === canvas) return;
+			tapped = false;
+			showHover(null);
+		};
+		document.addEventListener("pointerdown", away);
 		canvas.addEventListener("pointerdown", down);
 		canvas.addEventListener("pointermove", move);
 		canvas.addEventListener("pointerup", up);
@@ -571,6 +583,7 @@ export function GlobeChart({
 		return () => {
 			cancelAnimationFrame(frame);
 			observer?.disconnect();
+			document.removeEventListener("pointerdown", away);
 			canvas.removeEventListener("pointerdown", down);
 			canvas.removeEventListener("pointermove", move);
 			canvas.removeEventListener("pointerup", up);

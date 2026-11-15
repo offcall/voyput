@@ -272,6 +272,41 @@ describe("globe with outlines", () => {
 		expect(tip()).toBeUndefined();
 	});
 
+	it("holds a rotating globe still under a tapped tip until a tap elsewhere", async () => {
+		const { frame, lastSpotX } = recordingContext();
+		const user = userEvent.setup();
+		render(<GlobeChart data={data} world={world} />);
+		// Rotation is on (no Pause click).
+		expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+		const canvas = screen.getByRole("img", { name: "Globe" });
+		canvas.setPointerCapture = () => {};
+		canvas.focus();
+		await user.keyboard("{ArrowRight}");
+		frame(150);
+		await user.keyboard("{Escape}");
+		const ro = COUNTRY_CENTROIDS.RO;
+		if (!ro) throw new Error("no centroid for RO");
+		const tip = () => document.querySelector(".vp-chart-tip")?.textContent;
+
+		const [x, y] = at(44, 21, ro);
+		pointer(canvas, "pointerenter", x, y, "touch");
+		pointer(canvas, "pointerdown", x, y, "touch");
+		pointer(canvas, "pointerup", x, y, "touch");
+		pointer(canvas, "pointerleave", x, y, "touch");
+		expect(tip()).toBe("Romania2 photos");
+		frame();
+		const held = lastSpotX();
+		frame(20);
+		expect(lastSpotX()).toBe(held);
+		expect(tip()).toBe("Romania2 photos");
+
+		// A tap off the globe closes the tip and the globe turns again.
+		pointer(document.body, "pointerdown", 5, 5, "touch");
+		expect(tip()).toBeUndefined();
+		frame(20);
+		expect(lastSpotX()).not.toBe(held);
+	});
+
 	it("turns with a drag and keeps turning a little after letting go", async () => {
 		const { frame, lastSpotX } = recordingContext();
 		const user = userEvent.setup();

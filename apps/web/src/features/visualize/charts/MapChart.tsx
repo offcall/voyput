@@ -7,7 +7,7 @@ import {
 	type WorldShapes,
 } from "@voyput/core";
 import { Button, TwinkleStars } from "@voyput/ui";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { formatInt, NoData } from "./format";
 import { useMarkTip } from "./useMarkTip";
@@ -82,8 +82,9 @@ export function MapChart({
 		() => buildArcs(data.moves, countryColor),
 		[data.moves, countryColor],
 	);
-	const svgRef = useRef<SVGSVGElement>(null);
-	const size = useBoxSize(svgRef);
+	// State, not a ref: a new <svg> (e.g. after an empty filter) re-attaches the hooks.
+	const [svg, setSvg] = useState<SVGSVGElement | null>(null);
+	const size = useBoxSize(svg);
 	// A box taller than 2 : 1 (phones) gets a fit of its own shape, not sky bands.
 	const aspect = size && size[1] > 0 ? size[0] / size[1] : 2;
 	const fitted = useMemo(
@@ -108,7 +109,7 @@ export function MapChart({
 		[fitted],
 	);
 	const shown = fitAspect(view, size);
-	usePanZoom(svgRef, shown, onView, ZOOM_LIMITS);
+	usePanZoom(svg, shown, onView, ZOOM_LIMITS);
 	if (data.countries.length === 0) return <NoData />;
 	// World-box units per screen-ish unit at this zoom, for marks of a fixed size.
 	const unit = view[2] / WORLD_WIDTH;
@@ -118,7 +119,7 @@ export function MapChart({
 				<TwinkleStars count={28} seed={11} />
 				{/* biome-ignore lint/a11y/useSemanticElements: an SVG chart with focusable marks cannot be a fieldset. */}
 				<svg
-					ref={svgRef}
+					ref={setSvg}
 					viewBox={shown.map((n) => n.toFixed(1)).join(" ")}
 					role="group"
 					aria-label="Route map"

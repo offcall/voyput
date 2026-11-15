@@ -12,7 +12,7 @@ import {
 	type WorldShapes,
 } from "@voyput/core";
 import { PixelArt, TwinkleStars } from "@voyput/ui";
-import { memo, type ReactNode, useEffect, useRef } from "react";
+import { memo, type ReactNode, useEffect, useState } from "react";
 import { fitAspect, useBoxSize, usePanZoom } from "../charts/usePanZoom";
 
 /** Narrowest and widest view the wheel and pinch zoom to, in map units. */
@@ -105,13 +105,14 @@ export function RouteMap({
 	onAspect?: (aspect: number) => void;
 	overlay?: ReactNode;
 }) {
-	const svgRef = useRef<SVGSVGElement>(null);
+	// State, not a ref: a new <svg> (e.g. after an empty filter) re-attaches the hooks.
+	const [svg, setSvg] = useState<SVGSVGElement | null>(null);
 	// The drawn box: `view` grown to the map's own aspect (taller on a phone).
-	const size = useBoxSize(svgRef);
+	const size = useBoxSize(svg);
 	const shown = fitAspect(view, size);
 	const aspect = size && size[1] > 0 ? Math.min(size[0] / size[1], 2) : 2;
 	useEffect(() => onAspect?.(aspect), [onAspect, aspect]);
-	usePanZoom(svgRef, shown, onView, ZOOM_LIMITS);
+	usePanZoom(svg, shown, onView, ZOOM_LIMITS);
 	// Map units per full-map unit: marks keep their on-screen size when zoomed.
 	const unit = view[2] / WORLD_WIDTH;
 
@@ -122,7 +123,7 @@ export function RouteMap({
 		<div className="vp-viz-sky vp-route-sky">
 			<TwinkleStars count={36} seed={23} />
 			<svg
-				ref={svgRef}
+				ref={setSvg}
 				viewBox={shown.map((n) => n.toFixed(1)).join(" ")}
 				role="img"
 				aria-label="Route player map"

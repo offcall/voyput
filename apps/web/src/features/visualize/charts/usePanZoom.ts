@@ -1,5 +1,5 @@
 import type { MapView } from "@voyput/core";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface PanZoomOptions {
 	/** Narrowest and widest view width in map units. */
@@ -52,13 +52,14 @@ function zoomAt(
 	];
 }
 
-/** CSS size of an element, or `null` before it is measured (or without `ResizeObserver`). */
-export function useBoxSize(
-	ref: RefObject<Element | null>,
-): [number, number] | null {
+/**
+ * CSS size of an element, or `null` before it is measured (or without
+ * `ResizeObserver`). Pass the element itself (from a callback ref), so a
+ * replaced element is observed again.
+ */
+export function useBoxSize(el: Element | null): [number, number] | null {
 	const [size, setSize] = useState<[number, number] | null>(null);
 	useEffect(() => {
-		const el = ref.current;
 		if (!el || typeof ResizeObserver !== "function") return;
 		const observer = new ResizeObserver(() => {
 			const box = el.getBoundingClientRect();
@@ -70,7 +71,7 @@ export function useBoxSize(
 		});
 		observer.observe(el);
 		return () => observer.disconnect();
-	}, [ref]);
+	}, [el]);
 	return size;
 }
 
@@ -78,10 +79,11 @@ export function useBoxSize(
  * Drag to pan, pinch (and optionally the wheel) to zoom an SVG map drawn with
  * the viewBox `shown`. `onView` updates the view `shown` is fitted from; the
  * fit only grows a view around its centre, so pans and zooms carry over.
- * Listeners are native so the wheel and touch can cancel scrolling.
+ * Listeners are native so the wheel and touch can cancel scrolling; they move
+ * to a new element when the map's element is replaced.
  */
 export function usePanZoom(
-	ref: RefObject<Element | null>,
+	el: Element | null,
 	shown: MapView,
 	onView: (update: (view: MapView) => MapView) => void,
 	{ minWidth, maxWidth, wheel = true, touchOnly = false }: PanZoomOptions,
@@ -91,7 +93,6 @@ export function usePanZoom(
 	shownRef.current = shown;
 
 	useEffect(() => {
-		const el = ref.current;
 		if (!el) return;
 		const clampZoom = (v: MapView, factor: number, mx: number, my: number) => {
 			const width = v[2] * factor;
@@ -168,5 +169,5 @@ export function usePanZoom(
 			el.removeEventListener("pointerup", up);
 			el.removeEventListener("pointercancel", up);
 		};
-	}, [ref, onView, minWidth, maxWidth, wheel, touchOnly]);
+	}, [el, onView, minWidth, maxWidth, wheel, touchOnly]);
 }
