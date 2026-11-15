@@ -1,6 +1,11 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import {
+	type Deps,
+	handle,
+	NonceGuard,
+} from "../../../packages/local/src/voyput-local";
 import { aiSetupNeeded, createAiClient } from "../src/ai/client";
 import {
 	checkLocalHealth,
@@ -26,38 +31,76 @@ const local = {
 	localEngine: "claude" as const,
 };
 
-interface Call {
-	url: string;
-	headers: Record<string, string>;
-	body: Record<string, unknown> | null;
-}
-
-/** A fetch that records calls and answers with `respond`. */
-function fakeFetch(respond: (url: string) => Response | Promise<Response>) {
-	const calls: Call[] = [];
-	const fetchImpl: typeof fetch = async (input, init) => {
-		const url = String(input);
-		calls.push({
-			url,
-			headers: (init?.headers ?? {}) as Record<string, string>,
-			body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
-		});
-		return respond(url);
-	};
-	return { calls, fetchImpl };
-}
-
 const json = (body: unknown, status = 200) =>
 	new Response(JSON.stringify(body), { status });
 const encodeImage = async () => "data:image/jpeg;base64,eA==";
 
-describe("local AI client", () => {
-	it("posts the prompt, image and engine to 127.0.0.1 with the token header", async () => {
-		const { calls, fetchImpl } = fakeFetch(() =>
-			json({ text: '{"stamps":[]}', engine: "claude" }),
+interface Call {
+	url: string;
+	headers: Record<string, string>;
+	body: string;
+}
+
+/**
+ * A fetch backed by the real voyput-local request handler (no sockets, no CLI),
+ * so the app's WebCrypto signatures meet the script's verifier.
+ */
+function localServer({
+	token = local.localToken,
+	runner = { run: async () => '{"stamps":[]}' },
+	tamper = (body: string) => body,
+}: {
+	token?: string;
+	runner?: Deps["runner"];
+	tamper?: (body: string) => string;
+} = {}) {
+	const deps: Deps = {
+		token,
+		port: 5000,
+		engines: ["claude", "codex"],
+		runner,
+		nonces: new NonceGuard(),
+		busy: () => false,
+	};
+	const calls: Call[] = [];
+	const fetchImpl: typeof fetch = async (input, init) => {
+		const url = new URL(String(input));
+		const headers: Record<string, string> = {};
+		for (const [key, value] of Object.entries(init?.headers ?? {}))
+			headers[key.toLowerCase()] = String(value);
+		const body = typeof init?.body === "string" ? init.body : "";
+		calls.push({ url: url.href, headers, body });
+		const response = await handle(
+			{
+				method: init?.method ?? "GET",
+				path: url.pathname,
+				body,
+				headers: {
+					...headers,
+					host: url.host,
+					origin: "http://localhost:5173",
+					"content-length": String(new TextEncoder().encode(body).length),
+				},
+			},
+			deps,
+			Date.now(),
 		);
+		return new Response(tamper(response.body), {
+			status: response.status,
+			headers: response.headers,
+		});
+	};
+	return { calls, fetchImpl };
+}
+
+const sent = (calls: Call[]) =>
+	calls.map((call) => JSON.stringify(call)).join("\n");
+
+describe("local AI client", () => {
+	it("proves the server, then posts the prompt and image signed, never the token", async () => {
+		const server = localServer();
 		const answer = await createLocalClient({
-			fetchImpl,
+			fetchImpl: server.fetchImpl,
 			encodeImage,
 		}).askAboutImage(local, question);
 		expect(answer).toEqual({
@@ -65,17 +108,57 @@ describe("local AI client", () => {
 			cost: null,
 			model: "local/claude",
 		});
-		expect(calls[0]?.url).toBe("http://127.0.0.1:5000/extract");
-		expect(calls[0]?.headers["X-Voyput-Token"]).toBe("tok-abcdefgh");
-		expect(calls[0]?.body).toEqual({
+		expect(server.calls.map((call) => call.url)).toEqual([
+			"http://127.0.0.1:5000/health",
+			"http://127.0.0.1:5000/extract",
+		]);
+		expect(server.calls[1]?.headers["x-voyput-auth"]).toMatch(/^v2\./);
+		expect(JSON.parse(server.calls[1]?.body ?? "")).toEqual({
 			engine: "claude",
 			system: "read stamps",
 			text: "Photo filename: a.jpg",
 			image: "data:image/jpeg;base64,eA==",
 		});
+		expect(sent(server.calls)).not.toContain(local.localToken);
 	});
 
-	it("says when voyput-local is not running or refuses the token", async () => {
+	it("sends no photo to a server that cannot prove it knows the token", async () => {
+		const calls: string[] = [];
+		const impostor = createLocalClient({
+			encodeImage,
+			fetchImpl: async (input) => {
+				calls.push(String(input));
+				return json({
+					app: "voyput-local",
+					version: "2",
+					engines: ["claude"],
+					maxJobs: 3,
+					proof: "made-up",
+				});
+			},
+		});
+		await expect(impostor.askAboutImage(local, question)).rejects.toThrow(
+			"cannot prove it is your voyput-local. Nothing was sent.",
+		);
+		expect(calls).toEqual(["http://127.0.0.1:5000/health"]);
+		expect(await impostor.localHealth?.(local)).toEqual({
+			state: "unverified",
+		});
+	});
+
+	it("drops an answer whose proof does not match", async () => {
+		const server = localServer({
+			tamper: (body) => body.replace('"engine":"claude"', '"engine":"codex"'),
+		});
+		await expect(
+			createLocalClient({
+				fetchImpl: server.fetchImpl,
+				encodeImage,
+			}).askAboutImage(local, question),
+		).rejects.toThrow("did not prove");
+	});
+
+	it("says when voyput-local is not running, refuses the token or fails", async () => {
 		const down = createLocalClient({
 			encodeImage,
 			fetchImpl: () => Promise.reject(new TypeError("Failed to fetch")),
@@ -83,35 +166,37 @@ describe("local AI client", () => {
 		await expect(down.askAboutImage(local, question)).rejects.toThrow(
 			"voyput-local is not running on 127.0.0.1:5000",
 		);
-		const refused = createLocalClient({
-			encodeImage,
-			fetchImpl: async () => json({ error: "wrong token" }, 401),
+		const other = localServer({ token: "someone-elses-token" });
+		await expect(
+			createLocalClient({
+				fetchImpl: other.fetchImpl,
+				encodeImage,
+			}).askAboutImage(local, question),
+		).rejects.toThrow(/pair again/);
+		expect(other.calls).toHaveLength(1);
+		const failing = localServer({
+			runner: { run: () => Promise.reject(new Error("claude exited")) },
 		});
-		await expect(refused.askAboutImage(local, question)).rejects.toThrow(
-			/pair again/,
-		);
-		const failed = createLocalClient({
-			encodeImage,
-			fetchImpl: async () => json({ error: "codex exited with code 1" }, 502),
-		});
-		await expect(failed.askAboutImage(local, question)).rejects.toThrow(
-			"voyput-local error 502: codex exited with code 1",
-		);
+		await expect(
+			createLocalClient({
+				fetchImpl: failing.fetchImpl,
+				encodeImage,
+			}).askAboutImage(local, question),
+		).rejects.toThrow("voyput-local error 502: claude exited");
 	});
 
 	it("reads the health states: found, wrong token, not running", async () => {
-		const found = fakeFetch(() =>
-			json({ app: "voyput-local", version: "1", engines: ["codex", "gpt"] }),
-		);
-		expect(await checkLocalHealth(local, found.fetchImpl)).toEqual({
+		expect(await checkLocalHealth(local, localServer().fetchImpl)).toEqual({
 			state: "found",
-			version: "1",
-			engines: ["codex"],
+			version: "2",
+			engines: ["claude", "codex"],
+			maxJobs: 3,
 		});
-		expect(found.calls[0]?.url).toBe("http://127.0.0.1:5000/health");
-		expect(found.calls[0]?.headers["X-Voyput-Token"]).toBe("tok-abcdefgh");
 		expect(
-			await checkLocalHealth(local, async () => json({ error: "x" }, 401)),
+			await checkLocalHealth(
+				local,
+				localServer({ token: "someone-elses-token" }).fetchImpl,
+			),
 		).toEqual({ state: "wrong-token" });
 		expect(
 			await checkLocalHealth(local, () =>
@@ -123,13 +208,17 @@ describe("local AI client", () => {
 
 describe("provider switch", () => {
 	it("sends calls to the provider chosen in settings", async () => {
-		const { calls, fetchImpl } = fakeFetch((url) =>
-			url.startsWith("http://127.0.0.1")
-				? json({ text: "{}", engine: "claude" })
+		const server = localServer();
+		const hosts: string[] = [];
+		const fetchImpl: typeof fetch = async (input, init) => {
+			const url = new URL(String(input));
+			hosts.push(url.host);
+			return url.hostname === "127.0.0.1"
+				? server.fetchImpl(input, init)
 				: json({
 						choices: [{ finish_reason: "stop", message: { content: "{}" } }],
-					}),
-		);
+					});
+		};
 		const ai = createAiClient({ fetchImpl, encodeImage });
 		await ai.askAboutImage(local, question);
 		await ai.askAboutImage(
@@ -140,7 +229,8 @@ describe("provider switch", () => {
 			{ openRouterKey: "sk", model: "m", reasoningEffort: "low" },
 			question,
 		);
-		expect(calls.map((call) => new URL(call.url).host)).toEqual([
+		expect(hosts).toEqual([
+			"127.0.0.1:5000",
 			"127.0.0.1:5000",
 			"openrouter.ai",
 			"openrouter.ai",
@@ -169,10 +259,11 @@ describe("provider switch", () => {
 		expect(localCommands("https://voyput.app.offcall.link", 47615)).toEqual({
 			download:
 				"curl -fsSL https://voyput.app.offcall.link/voyput-local.mjs -o voyput-local.mjs && node voyput-local.mjs",
-			clone: "node packages/local/src/voyput-local.ts",
+			clone:
+				"node --experimental-strip-types packages/local/src/voyput-local.ts",
 		});
 		expect(localCommands("http://x", 5000).clone).toBe(
-			"node packages/local/src/voyput-local.ts --port 5000",
+			"node --experimental-strip-types packages/local/src/voyput-local.ts --port 5000",
 		);
 	});
 });
@@ -196,8 +287,9 @@ describe("Settings AI card", () => {
 		window.history.replaceState(null, "", "/settings#local=tok-abcdefgh");
 		const ai = withHealth(() => ({
 			state: "found",
-			version: "1",
+			version: "2",
 			engines: ["codex"],
+			maxJobs: 3,
 		}));
 		renderApp("/settings", { ai });
 		expect(
@@ -206,7 +298,7 @@ describe("Settings AI card", () => {
 		expect((screen.getByLabelText(/^Local/) as HTMLInputElement).checked).toBe(
 			true,
 		);
-		expect(await screen.findByText(/Found · v1 · Codex CLI/)).toBeTruthy();
+		expect(await screen.findByText(/Found · v2 · Codex CLI/)).toBeTruthy();
 		expect(window.location.hash).toBe("");
 		expect(ai.asked).toContain("tok-abcdefgh");
 		await waitFor(() =>
@@ -222,18 +314,20 @@ describe("Settings AI card", () => {
 			),
 		).toBeTruthy();
 		expect(
-			screen.getByRole("option", { name: "Claude Code (not found)" }),
+			screen.getByRole("option", { name: "Claude Code (not available)" }),
 		).toBeTruthy();
 		window.history.replaceState(null, "", "/");
 	});
 
-	it("shows Wrong token and Not running", async () => {
+	it("shows Wrong token, Not running and an unproven server", async () => {
 		const user = userEvent.setup();
 		renderApp("/settings", {
 			ai: withHealth((token) =>
 				token === "good-token"
 					? { state: "not-running" }
-					: { state: "wrong-token" },
+					: token === "fake-server"
+						? { state: "unverified" }
+						: { state: "wrong-token" },
 			),
 		});
 		await user.click(await screen.findByLabelText(/^Local/));
@@ -244,6 +338,12 @@ describe("Settings AI card", () => {
 		await user.clear(field);
 		await user.type(field, "good-token");
 		expect(await screen.findByText("Not running")).toBeTruthy();
+		await user.clear(field);
+		await user.type(field, "fake-server");
+		expect(await screen.findByText("Not your voyput-local")).toBeTruthy();
+		expect(screen.getByRole("alert").textContent).toMatch(
+			/no photo will be sent/,
+		);
 	});
 
 	it("keeps the OpenRouter fields under OpenRouter", async () => {

@@ -195,8 +195,8 @@ function OpenRouterFields() {
 type HealthView = LocalHealth | { state: "checking" } | { state: "unpaired" };
 
 const ENGINE_LABELS: Record<LocalEngine, string> = {
-	auto: "Auto (Codex if found, else Claude Code)",
-	codex: "Codex CLI",
+	auto: "Auto (Claude Code if found, else Codex)",
+	codex: "Codex CLI (only with --codex)",
 	claude: "Claude Code",
 };
 
@@ -209,6 +209,12 @@ function HealthBadge({ health }: { health: HealthView }) {
 					{health.engines.length
 						? health.engines.map((engine) => ENGINE_LABELS[engine]).join(", ")
 						: "no CLI found"}
+				</Badge>
+			);
+		case "unverified":
+			return (
+				<Badge tone="bad" dot>
+					Not your voyput-local
 				</Badge>
 			);
 		case "wrong-token":
@@ -309,13 +315,16 @@ function LocalFields() {
 				OpenRouter.
 			</Notice>
 			<CommandLine
-				label="Run in a terminal (Node 22 or newer)"
+				label="Run in a terminal (Node 22.12 or newer)"
 				command={commands.download}
 			/>
 			<CommandLine label="Or, in a clone of voyput" command={commands.clone} />
 			<p className="vp-field-description">
 				It prints a pairing link: open it, or paste the token below. It needs
-				the Codex CLI or Claude Code installed and logged in.
+				Claude Code installed and logged in. Codex CLI is off unless you add{" "}
+				<code>--codex</code>: it runs without a shell, but keeps a few tools
+				that cannot be turned off, so it is less confined than Claude Code,
+				which gets no tools at all.
 			</p>
 			<div className="ai-status" aria-live="polite">
 				<span className="vp-field-label">Status</span>
@@ -335,12 +344,19 @@ function LocalFields() {
 					printed, or paste its token.
 				</p>
 			) : null}
+			{health.state === "unverified" ? (
+				<p className="vp-field-description" role="alert">
+					Something answers on 127.0.0.1:{localPort} but cannot prove it knows
+					your token, so no photo will be sent to it. Stop it and start
+					voyput-local.
+				</p>
+			) : null}
 			<TextField
 				label="Pairing token"
 				type="password"
 				value={settings.localToken}
 				onChange={(token) => update({ localToken: token.trim() })}
-				description="Stored in this browser only. voyput-local answers only requests that carry it."
+				description="Stored in this browser only and never sent: each request is signed with it, and voyput-local must prove it knows it before a photo is sent."
 			/>
 			<div className="ai-local-row">
 				<label className="vp-field">
@@ -356,7 +372,7 @@ function LocalFields() {
 							<option key={engine} value={engine}>
 								{ENGINE_LABELS[engine]}
 								{found && engine !== "auto" && !found.includes(engine)
-									? " (not found)"
+									? " (not available)"
 									: ""}
 							</option>
 						))}

@@ -1,39 +1,55 @@
 /**
- * voyput-local: reads passport stamps for the voyput app with the Codex CLI or
- * Claude Code CLI already installed and logged in on this computer.
+ * voyput-local: reads passport stamps for the voyput app with the Claude Code
+ * CLI (or, opt-in, the Codex CLI) already installed and logged in here.
  *
- * One file, Node >= 22 built-ins only. The site serves it as JavaScript
- * (types stripped at build time); from a clone, run this .ts file with Node.
+ * One file, Node >= 22.12 built-ins only. The site serves it as JavaScript
+ * (types stripped at build time); from a clone, run this .ts file with
+ * `node --experimental-strip-types`.
  *
- *   node voyput-local.mjs [--port 47615] [--new-token]
+ *   node voyput-local.mjs [--port 47615] [--codex] [--new-token]
  *
- * It listens on 127.0.0.1 only and answers only requests that carry the pairing
- * token it prints. The image goes to the CLI's own provider (OpenAI for Codex,
- * Anthropic for Claude Code) under your account; nothing goes to voyput.
+ * It listens on 127.0.0.1 only. The pairing token it prints never travels:
+ * each request carries an HMAC made with it, and each answer proves the
+ * server knows it too. The image goes to the CLI's own provider (Anthropic or
+ * OpenAI) under your account; nothing goes to voyput.
  * See docs/adr/0026-local-ai-engine.md.
  */
-import { spawn } from "node:child_process";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { type ChildProcess, spawn } from "node:child_process";
+import {
+	createHash,
+	createHmac,
+	randomBytes,
+	timingSafeEqual,
+} from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-export const VERSION = "1";
+export const VERSION = "2";
 export const DEFAULT_PORT = 47615;
 export const SITE_ORIGIN = "https://voyput.app.offcall.link";
-export const TOKEN_HEADER = "x-voyput-token";
+export const AUTH_HEADER = "x-voyput-auth";
 export const MAX_BODY_BYTES = 30 * 1024 * 1024;
-export const JOB_TIMEOUT_MS = 10 * 60_000;
-/** CLI runs at once; more requests wait in line. */
-export const MAX_JOBS = 2;
+/** Bytes of request bodies held in memory at once, over all uploads. */
+export const MAX_BUFFERED_BYTES = 64 * 1024 * 1024;
+/** From the request's arrival to the answer, queue time included. */
+export const JOB_DEADLINE_MS = 10 * 60_000;
+/** CLI runs at once; matches the app's Extract concurrency (3). */
+export const MAX_JOBS = 3;
+/** Requests that may wait for a free run; more get 503. */
+export const MAX_WAITING = 6;
+/** How far a request's timestamp may be from this clock. */
+export const MAX_SKEW_MS = 60_000;
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
+const TEMP_PREFIX = "voyput-local-";
 
 export type Engine = "codex" | "claude";
-export const ENGINES: readonly Engine[] = ["codex", "claude"];
+/** "auto" order: Claude Code runs with no tools at all, so it comes first. */
+export const ENGINES: readonly Engine[] = ["claude", "codex"];
 export type MediaType = "image/jpeg" | "image/png";
 
 export interface ExtractJob {
@@ -45,22 +61,37 @@ export interface ExtractJob {
 
 /** Runs one job through a CLI and returns the model's final text. */
 export interface Runner {
-	run(job: ExtractJob): Promise<string>;
+	run(job: ExtractJob, signal: AbortSignal, deadline: number): Promise<string>;
+}
+
+/** Remembers request nonces until their timestamp is too old to be accepted. */
+export class NonceGuard {
+	private readonly seen = new Map<string, number>();
+	/** False when the nonce was already used. */
+	use(nonce: string, now: number): boolean {
+		for (const [key, expires] of this.seen)
+			if (expires < now) this.seen.delete(key);
+		if (this.seen.has(nonce)) return false;
+		this.seen.set(nonce, now + 2 * MAX_SKEW_MS);
+		return true;
+	}
 }
 
 export interface Deps {
 	token: string;
 	port: number;
-	/** Engines found on PATH, in "auto" order. */
+	/** Engines that may run, in "auto" order. */
 	engines: readonly Engine[];
 	runner: Runner;
+	nonces: NonceGuard;
+	/** True when no request may wait for a run any more. */
+	busy: () => boolean;
 }
 
-export interface PlainRequest {
+export interface HeadRequest {
 	method: string;
 	path: string;
 	headers: Record<string, string | undefined>;
-	body: string;
 }
 
 export interface PlainResponse {
@@ -69,8 +100,34 @@ export interface PlainResponse {
 	body: string;
 }
 
+/** A request whose headers passed every check; its body is still unread. */
+export interface Admitted {
+	nonce: string;
+	bodyHash: string;
+	cors: Record<string, string>;
+}
+
 const isObject = (value: unknown): value is Record<string, unknown> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
+
+export const sha256Hex = (data: string | Buffer) =>
+	createHash("sha256").update(data).digest("hex");
+
+const hmac = (token: string, lines: readonly string[]) =>
+	createHmac("sha256", token).update(lines.join("\n")).digest("base64url");
+
+/** What the app signs for each request (same text in `apps/web/src/ai/local.ts`). */
+export const requestLines = (
+	method: string,
+	path: string,
+	timestamp: string,
+	nonce: string,
+	bodyHash: string,
+) => ["voyput-local/2 request", method, path, timestamp, nonce, bodyHash];
+
+/** Proof that this server knows the token, bound to the request nonce and the answer. */
+export const responseProof = (token: string, nonce: string, content: string) =>
+	hmac(token, ["voyput-local/2 response", nonce, sha256Hex(content)]);
 
 /** The public site, and any localhost port for a dev server or a clone. */
 export function isAllowedOrigin(origin: string): boolean {
@@ -83,11 +140,34 @@ export function isAllowedHost(host: string | undefined, port: number): boolean {
 	return host === `127.0.0.1:${port}` || host === `localhost:${port}`;
 }
 
-/** Constant-time comparison of the given token with the expected one. */
-export function tokenMatches(expected: string, given: string | undefined) {
-	if (!given) return false;
-	const digest = (value: string) => createHash("sha256").update(value).digest();
-	return timingSafeEqual(digest(expected), digest(given));
+const safeEqual = (a: string, b: string) => {
+	const left = Buffer.from(a);
+	const right = Buffer.from(b);
+	return left.length === right.length && timingSafeEqual(left, right);
+};
+
+const AUTH =
+	/^v2\.(\d{1,16})\.([A-Za-z0-9_-]{16,64})\.([0-9a-f]{64})\.([A-Za-z0-9_-]{43})$/;
+
+/** Checks an `x-voyput-auth` header: format, age, MAC, then marks the nonce used. */
+export function verifyAuth(
+	header: string | undefined,
+	method: string,
+	path: string,
+	deps: Pick<Deps, "token" | "nonces">,
+	now: number,
+): { nonce: string; bodyHash: string } | null {
+	const match = header ? AUTH.exec(header) : null;
+	if (!match) return null;
+	const [, timestamp = "", nonce = "", bodyHash = "", mac = ""] = match;
+	if (Math.abs(now - Number(timestamp)) > MAX_SKEW_MS) return null;
+	const expected = hmac(
+		deps.token,
+		requestLines(method, path, timestamp, nonce, bodyHash),
+	);
+	if (!safeEqual(expected, mac)) return null;
+	if (!deps.nonces.use(nonce, now)) return null;
+	return { nonce, bodyHash };
 }
 
 const json = (
@@ -101,12 +181,67 @@ const json = (
 });
 
 const corsHeaders = (origin: string | undefined): Record<string, string> =>
-	origin
-		? {
-				"access-control-allow-origin": origin,
-				vary: "Origin",
-			}
-		: {};
+	origin ? { "access-control-allow-origin": origin, vary: "Origin" } : {};
+
+const ROUTES = new Set(["GET /health", "POST /extract"]);
+
+/**
+ * Everything decided from the headers alone, before any body byte is read:
+ * host, origin, preflight, route, MAC, replay, size and queue room.
+ */
+export function admit(
+	request: HeadRequest,
+	deps: Deps,
+	now: number,
+): { response: PlainResponse } | Admitted {
+	const { headers } = request;
+	if (!isAllowedHost(headers.host, deps.port))
+		return { response: json(403, { error: "wrong host" }) };
+	const origin = headers.origin;
+	if (origin !== undefined && !isAllowedOrigin(origin))
+		return { response: json(403, { error: "origin not allowed" }) };
+	const cors = corsHeaders(origin);
+
+	if (request.method === "OPTIONS") {
+		const preflight: Record<string, string> = {
+			...cors,
+			"access-control-allow-methods": "GET, POST",
+			"access-control-allow-headers": `content-type, ${AUTH_HEADER}`,
+			"access-control-max-age": "600",
+		};
+		// Private Network Access preflight (Chromium).
+		if (headers["access-control-request-private-network"] === "true")
+			preflight["access-control-allow-private-network"] = "true";
+		return { response: { status: 204, headers: preflight, body: "" } };
+	}
+	if (!ROUTES.has(`${request.method} ${request.path}`))
+		return { response: json(404, { error: "not found" }, cors) };
+
+	const auth = verifyAuth(
+		headers[AUTH_HEADER],
+		request.method,
+		request.path,
+		deps,
+		now,
+	);
+	if (!auth)
+		return {
+			response: json(401, { error: "not signed with the pairing token" }, cors),
+		};
+
+	if (request.method === "POST") {
+		const length = Number(headers["content-length"]);
+		if (!Number.isInteger(length) || length < 0)
+			return { response: json(411, { error: "content-length needed" }, cors) };
+		if (length > MAX_BODY_BYTES)
+			return { response: json(413, { error: "body too large" }, cors) };
+		if (deps.busy())
+			return {
+				response: json(503, { error: "busy: too many photos waiting" }, cors),
+			};
+	}
+	return { ...auth, cors };
+}
 
 const DATA_URL = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=]+)$/;
 
@@ -141,8 +276,10 @@ export function parseExtractBody(
 			status: 503,
 			error:
 				wanted === "auto"
-					? "no engine found: install Codex CLI or Claude Code and log in"
-					: `${wanted} was not found on PATH when voyput-local started`,
+					? "no engine found: install Claude Code (or Codex CLI and start with --codex) and log in"
+					: wanted === "codex"
+						? "Codex is off: start voyput-local with --codex (see Settings)"
+						: "claude was not found on PATH when voyput-local started",
 		};
 	return {
 		job: {
@@ -157,71 +294,116 @@ export function parseExtractBody(
 	};
 }
 
-/** Every HTTP answer of the server, without sockets. */
-export async function handle(
-	request: PlainRequest,
+/** Answers an admitted request once its body is read. */
+export async function respond(
+	request: HeadRequest & { body: string },
+	admitted: Admitted,
 	deps: Deps,
+	signal: AbortSignal,
+	deadline: number,
 ): Promise<PlainResponse> {
-	if (!isAllowedHost(request.headers.host, deps.port))
-		return json(403, { error: "wrong host" });
-	const origin = request.headers.origin;
-	if (origin !== undefined && !isAllowedOrigin(origin))
-		return json(403, { error: "origin not allowed" });
-	const cors = corsHeaders(origin);
-
-	if (request.method === "OPTIONS") {
-		const headers: Record<string, string> = {
-			...cors,
-			"access-control-allow-methods": "GET, POST",
-			"access-control-allow-headers": `content-type, ${TOKEN_HEADER}`,
-			"access-control-max-age": "600",
-		};
-		// Private Network Access preflight (Chromium).
-		if (request.headers["access-control-request-private-network"] === "true")
-			headers["access-control-allow-private-network"] = "true";
-		return { status: 204, headers, body: "" };
-	}
-
-	if (!tokenMatches(deps.token, request.headers[TOKEN_HEADER]))
-		return json(401, { error: "wrong or missing pairing token" }, cors);
-
-	if (request.method === "GET" && request.path === "/health")
+	const { cors, nonce } = admitted;
+	if (sha256Hex(request.body) !== admitted.bodyHash)
+		return json(400, { error: "body does not match its signature" }, cors);
+	if (request.path === "/health")
 		return json(
 			200,
-			{ app: "voyput-local", version: VERSION, engines: deps.engines },
+			{
+				app: "voyput-local",
+				version: VERSION,
+				engines: deps.engines,
+				maxJobs: MAX_JOBS,
+				proof: responseProof(deps.token, nonce, "health"),
+			},
 			cors,
 		);
-
-	if (request.method === "POST" && request.path === "/extract") {
-		const parsed = parseExtractBody(request.body, deps.engines);
-		if ("error" in parsed)
-			return json(parsed.status, { error: parsed.error }, cors);
-		try {
-			const text = await deps.runner.run(parsed.job);
-			return json(200, { text, engine: parsed.job.engine }, cors);
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			return json(502, { error: message, engine: parsed.job.engine }, cors);
-		}
+	const parsed = parseExtractBody(request.body, deps.engines);
+	if ("error" in parsed)
+		return json(parsed.status, { error: parsed.error }, cors);
+	const { engine } = parsed.job;
+	try {
+		const text = await deps.runner.run(parsed.job, signal, deadline);
+		return json(
+			200,
+			{
+				text,
+				engine,
+				proof: responseProof(deps.token, nonce, `${engine}\n${text}`),
+			},
+			cors,
+		);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return json(502, { error: message, engine }, cors);
 	}
-	return json(404, { error: "not found" }, cors);
 }
 
-/** Lets at most `limit` jobs run at once; the rest wait in order. */
-export function limitJobs(runner: Runner, limit: number): Runner {
+/** `admit` then `respond`, for callers that already hold the body. */
+export async function handle(
+	request: HeadRequest & { body: string },
+	deps: Deps,
+	now: number,
+	signal: AbortSignal = new AbortController().signal,
+): Promise<PlainResponse> {
+	const admitted = admit(request, deps, now);
+	if ("response" in admitted) return admitted.response;
+	return respond(request, admitted, deps, signal, now + JOB_DEADLINE_MS);
+}
+
+const aborted = (reason: string) =>
+	Object.assign(new Error(reason), { name: "AbortError" });
+
+/**
+ * Lets at most `limit` jobs run at once; up to `maxWaiting` wait in order.
+ * A waiting job leaves the line when its client goes away or its deadline passes.
+ */
+export function limitJobs(
+	runner: Runner,
+	limit: number,
+	maxWaiting: number,
+	now: () => number = Date.now,
+): Runner & { busy(): boolean } {
 	let running = 0;
-	const waiting: (() => void)[] = [];
+	const waiting: { start: () => void }[] = [];
+	const next = () => {
+		while (running < limit && waiting.length) waiting.shift()?.start();
+	};
 	return {
-		async run(job) {
-			if (running >= limit)
-				await new Promise<void>((resolve) => waiting.push(resolve));
-			running++;
-			try {
-				return await runner.run(job);
-			} finally {
-				running--;
-				waiting.shift()?.();
-			}
+		busy: () => running >= limit && waiting.length >= maxWaiting,
+		run(job, signal, deadline) {
+			return new Promise<string>((resolve, reject) => {
+				const timer = setTimeout(
+					() => leave("deadline passed while waiting for a free run"),
+					Math.max(0, deadline - now()),
+				);
+				const entry = {
+					start: () => {
+						clearTimeout(timer);
+						signal.removeEventListener("abort", onAbort);
+						if (signal.aborted) return reject(aborted("client went away"));
+						running++;
+						runner
+							.run(job, signal, deadline)
+							.then(resolve, reject)
+							.finally(() => {
+								running--;
+								next();
+							});
+					},
+				};
+				const leave = (reason: string) => {
+					const index = waiting.indexOf(entry);
+					if (index < 0) return;
+					waiting.splice(index, 1);
+					clearTimeout(timer);
+					signal.removeEventListener("abort", onAbort);
+					reject(aborted(reason));
+				};
+				const onAbort = () => leave("client went away");
+				signal.addEventListener("abort", onAbort);
+				waiting.push(entry);
+				next();
+			});
 		},
 	};
 }
@@ -243,9 +425,13 @@ export const jobFiles = (dir: string, mediaType: MediaType) => ({
 });
 
 /**
- * `codex exec`, verified against codex-cli 0.169.0 `codex exec --help`:
- * read-only sandbox, no git check, no session files, no user config or rules,
- * the temp dir as working root, the image attached, the prompt on stdin.
+ * `codex exec`, verified against codex-cli 0.169.0 (`codex exec --help`,
+ * `codex features list`, `codex debug prompt-input`): read-only sandbox, no
+ * shell tool, no image viewer tool, no web search, no git check, no session
+ * files, no user config or rules, the temp dir as working root, the image
+ * attached, the prompt on stdin. Codex still offers a filesystem-less
+ * JavaScript `exec`, `apply_patch` (blocked by the read-only sandbox) and
+ * sub-agent tools that no flag turns off, so Codex is opt-in (`--codex`).
  */
 export function codexCommand(dir: string, job: ExtractJob): Command {
 	const files = jobFiles(dir, job.image.mediaType);
@@ -255,6 +441,12 @@ export function codexCommand(dir: string, job: ExtractJob): Command {
 			"exec",
 			"--sandbox",
 			"read-only",
+			"--disable",
+			"shell_tool",
+			"--disable",
+			"view_image",
+			"-c",
+			'web_search="disabled"',
 			"--skip-git-repo-check",
 			"--ephemeral",
 			"--ignore-user-config",
@@ -360,16 +552,90 @@ export function findOnPath(
 	return null;
 }
 
+/**
+ * The only variables the CLIs get: where programs and their config and login
+ * live, locale, temp, proxies and certificates, and their own API keys.
+ */
+const CHILD_ENV = [
+	"PATH",
+	"Path",
+	"PATHEXT",
+	"HOME",
+	"USER",
+	"LOGNAME",
+	"LANG",
+	"LC_ALL",
+	"LC_CTYPE",
+	"TMPDIR",
+	"TEMP",
+	"TMP",
+	"XDG_CONFIG_HOME",
+	"XDG_DATA_HOME",
+	"XDG_CACHE_HOME",
+	"XDG_RUNTIME_DIR",
+	"DBUS_SESSION_BUS_ADDRESS",
+	"SystemRoot",
+	"SYSTEMROOT",
+	"ComSpec",
+	"USERPROFILE",
+	"APPDATA",
+	"LOCALAPPDATA",
+	"HOMEDRIVE",
+	"HOMEPATH",
+	"CODEX_HOME",
+	"OPENAI_API_KEY",
+	"CODEX_API_KEY",
+	"CLAUDE_CONFIG_DIR",
+	"ANTHROPIC_API_KEY",
+	"CLAUDE_CODE_OAUTH_TOKEN",
+	"HTTPS_PROXY",
+	"HTTP_PROXY",
+	"NO_PROXY",
+	"https_proxy",
+	"http_proxy",
+	"no_proxy",
+	"SSL_CERT_FILE",
+	"SSL_CERT_DIR",
+	"NODE_EXTRA_CA_CERTS",
+];
+
+export function childEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+	const picked: NodeJS.ProcessEnv = {};
+	for (const key of CHILD_ENV)
+		if (env[key] !== undefined) picked[key] = env[key];
+	return picked;
+}
+
 const lastLine = (text: string) =>
 	text.trim().split("\n").pop()?.slice(0, 500) ?? "";
 
 /** Windows needs a shell for .cmd shims; quote every argument for cmd.exe. */
 const quoteForCmd = (arg: string) => `"${arg.replace(/"/g, '""')}"`;
 
+/** Kills a CLI and everything it started. */
+function killTree(child: ChildProcess) {
+	if (child.pid === undefined || child.exitCode !== null) return;
+	try {
+		if (process.platform === "win32")
+			spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+				windowsHide: true,
+			});
+		// Detached: the child leads its own process group.
+		else process.kill(-child.pid, "SIGKILL");
+	} catch {
+		child.kill("SIGKILL");
+	}
+}
+
+/** Jobs running now: their CLI process and temp dir, for shutdown. */
+const active = new Map<string, ChildProcess | null>();
+
 function runProcess(
 	path: string,
 	command: Command,
 	cwd: string,
+	signal: AbortSignal,
+	deadline: number,
 ): Promise<string> {
 	const windows = process.platform === "win32";
 	return new Promise((resolve, reject) => {
@@ -378,28 +644,41 @@ function runProcess(
 			windows ? command.args.map(quoteForCmd) : command.args,
 			{
 				cwd,
+				env: childEnv(process.env),
 				shell: windows,
+				detached: !windows,
 				stdio: ["pipe", "pipe", "pipe"],
-				timeout: JOB_TIMEOUT_MS,
-				killSignal: "SIGKILL",
 				windowsHide: true,
 			},
 		);
+		active.set(cwd, child);
+		let stopped = "";
+		const stop = (reason: string) => {
+			stopped = reason;
+			killTree(child);
+		};
+		const timer = setTimeout(
+			() => stop("timed out"),
+			Math.max(0, deadline - Date.now()),
+		);
+		const onAbort = () => stop("cancelled: the client went away");
+		signal.addEventListener("abort", onAbort);
 		let stdout = "";
 		let stderr = "";
-		child.stdout.on("data", (chunk: Buffer) => {
+		child.stdout?.on("data", (chunk: Buffer) => {
 			if (stdout.length < MAX_OUTPUT_BYTES) stdout += chunk.toString();
 		});
-		child.stderr.on("data", (chunk: Buffer) => {
+		child.stderr?.on("data", (chunk: Buffer) => {
 			if (stderr.length < MAX_OUTPUT_BYTES) stderr += chunk.toString();
 		});
 		child.on("error", reject);
-		child.on("close", (code, signal) => {
-			if (signal)
+		child.on("close", (code, killed) => {
+			clearTimeout(timer);
+			signal.removeEventListener("abort", onAbort);
+			active.set(cwd, null);
+			if (stopped || killed)
 				reject(
-					new Error(
-						`${command.program} was stopped (${signal}); it may have timed out`,
-					),
+					new Error(`${command.program} ${stopped || `stopped (${killed})`}`),
 				);
 			else if (code !== 0)
 				reject(
@@ -409,18 +688,23 @@ function runProcess(
 				);
 			else resolve(stdout);
 		});
-		child.stdin.on("error", () => {});
-		child.stdin.end(command.stdin);
+		child.stdin?.on("error", () => {});
+		child.stdin?.end(command.stdin);
+		if (signal.aborted) onAbort();
 	});
 }
 
 /** Runs the CLIs for real: one temp dir per job, deleted afterwards. */
 export function cliRunner(paths: Partial<Record<Engine, string>>): Runner {
 	return {
-		async run(job) {
+		async run(job, signal, deadline) {
 			const path = paths[job.engine];
 			if (!path) throw new Error(`${job.engine} is not available`);
-			const dir = await mkdtemp(join(tmpdir(), "voyput-local-"));
+			// The pid in the name lets a later start remove dirs of a crashed run.
+			const dir = await mkdtemp(
+				join(tmpdir(), `${TEMP_PREFIX}${process.pid}-`),
+			);
+			active.set(dir, null);
 			try {
 				const files = jobFiles(dir, job.image.mediaType);
 				await writeFile(files.image, job.image.data, { mode: 0o600 });
@@ -429,16 +713,55 @@ export function cliRunner(paths: Partial<Record<Engine, string>>): Runner {
 					job.engine === "codex"
 						? codexCommand(dir, job)
 						: claudeCommand(dir, job);
-				const stdout = await runProcess(path, command, dir);
+				const stdout = await runProcess(path, command, dir, signal, deadline);
 				if (!command.answerFile) return claudeAnswer(stdout);
 				const answer = await readFile(command.answerFile, "utf8");
 				if (!answer.trim()) throw new Error("codex returned no text");
 				return answer;
 			} finally {
 				await rm(dir, { recursive: true, force: true });
+				active.delete(dir);
 			}
 		},
 	};
+}
+
+/** The pid in a temp dir name of ours, or null. */
+export function tempDirPid(name: string): number | null {
+	const match = new RegExp(`^${TEMP_PREFIX}(\\d+)-`).exec(name);
+	return match?.[1] ? Number(match[1]) : null;
+}
+
+const isAlive = (pid: number) => {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (error) {
+		return (error as NodeJS.ErrnoException).code === "EPERM";
+	}
+};
+
+/** Removes temp dirs (with their photos) left by runs that crashed. */
+async function removeStaleDirs() {
+	const base = tmpdir();
+	for (const name of await readdir(base).catch(() => [])) {
+		const pid = tempDirPid(name);
+		if (pid === null || pid === process.pid || isAlive(pid)) continue;
+		await rm(join(base, name), { recursive: true, force: true }).catch(
+			() => {},
+		);
+	}
+}
+
+/** Kills running CLIs and deletes every temp dir, then exits. */
+async function shutdown(code: number) {
+	for (const child of active.values()) if (child) killTree(child);
+	await Promise.all(
+		[...active.keys()].map((dir) =>
+			rm(dir, { recursive: true, force: true }).catch(() => {}),
+		),
+	);
+	process.exit(code);
 }
 
 /** The token is kept so the app stays paired across restarts. */
@@ -462,36 +785,47 @@ export function pairingLink(token: string, port: number): string {
 	return `${SITE_ORIGIN}/settings#local=${token}${portPart}`;
 }
 
-const HELP = `voyput-local ${VERSION}: read passport stamps for voyput with your Codex or Claude Code CLI.
+const HELP = `voyput-local ${VERSION}: read passport stamps for voyput with your Claude Code or Codex CLI.
 
-Usage: node voyput-local.mjs [--port <n>] [--new-token]
+Usage: node voyput-local.mjs [--port <n>] [--codex] [--new-token]
 
   --port <n>     Port on 127.0.0.1 (default ${DEFAULT_PORT}).
+  --codex        Also offer the Codex CLI. Codex keeps a few tools that cannot be
+                 turned off (see docs/adr/0026-local-ai-engine.md); Claude Code
+                 runs with none.
   --new-token    Forget the stored pairing token and make a new one.
   --help         Show this text.
 `;
 
-function readBody(request: IncomingMessage): Promise<string | null> {
-	return new Promise((resolve, reject) => {
-		const declared = Number(request.headers["content-length"] ?? 0);
-		if (declared > MAX_BODY_BYTES) {
-			resolve(null);
-			request.resume();
-			return;
-		}
+/** Bytes of request bodies in memory now, over all uploads. */
+let buffered = 0;
+
+function readBody(
+	request: IncomingMessage,
+	length: number,
+): Promise<string | null> {
+	if (buffered + length > MAX_BUFFERED_BYTES) {
+		request.resume();
+		return Promise.resolve(null);
+	}
+	buffered += length;
+	return new Promise<string | null>((resolve) => {
 		const chunks: Buffer[] = [];
 		let size = 0;
 		request.on("data", (chunk: Buffer) => {
 			size += chunk.length;
-			if (size > MAX_BODY_BYTES) {
-				resolve(null);
+			if (size > length) {
 				request.destroy();
+				resolve(null);
 				return;
 			}
 			chunks.push(chunk);
 		});
 		request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-		request.on("error", reject);
+		request.on("error", () => resolve(null));
+		request.on("close", () => resolve(null));
+	}).finally(() => {
+		buffered -= length;
 	});
 }
 
@@ -502,10 +836,11 @@ const headerMap = (request: IncomingMessage) => {
 	return headers;
 };
 
-function main() {
+async function main() {
 	const { values } = parseArgs({
 		options: {
 			port: { type: "string" },
+			codex: { type: "boolean" },
 			"new-token": { type: "boolean" },
 			help: { type: "boolean" },
 		},
@@ -519,50 +854,71 @@ function main() {
 		process.stderr.write(`--port must be 1-65535, got ${values.port}\n`);
 		process.exit(2);
 	}
+	await removeStaleDirs();
 	const paths: Partial<Record<Engine, string>> = {};
 	for (const engine of ENGINES) {
 		const path = findOnPath(engine, process.env, process.platform);
 		if (path) paths[engine] = path;
 	}
+	const codexOff = Boolean(paths.codex) && values.codex !== true;
+	if (codexOff) delete paths.codex;
 	const engines = ENGINES.filter((engine) => paths[engine]);
 	const token = loadToken(values["new-token"] === true);
+	const runner = limitJobs(cliRunner(paths), MAX_JOBS, MAX_WAITING);
 	const deps: Deps = {
 		token,
 		port,
 		engines,
-		runner: limitJobs(cliRunner(paths), MAX_JOBS),
+		runner,
+		nonces: new NonceGuard(),
+		busy: runner.busy,
 	};
 
 	const server = createServer(async (request, response) => {
 		const started = Date.now();
-		const path = (request.url ?? "/").split("?")[0] ?? "/";
+		const head: HeadRequest = {
+			method: request.method ?? "GET",
+			path: (request.url ?? "/").split("?")[0] ?? "/",
+			headers: headerMap(request),
+		};
+		const controller = new AbortController();
+		response.on("close", () => {
+			if (!response.writableFinished) controller.abort();
+		});
 		let result: PlainResponse;
-		const body = await readBody(request).catch(() => null);
-		if (body === null)
-			result = {
-				status: 413,
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ error: "body too large" }),
-			};
-		else
-			result = await handle(
-				{
-					method: request.method ?? "GET",
-					path,
-					headers: headerMap(request),
-					body,
-				},
-				deps,
-			);
-		response.writeHead(result.status, result.headers);
-		response.end(result.body);
+		const admitted = admit(head, deps, started);
+		if ("response" in admitted) {
+			result = admitted.response;
+			request.resume();
+		} else {
+			const length = Number(request.headers["content-length"] ?? 0);
+			const body = await readBody(request, length);
+			result =
+				body === null
+					? {
+							status: 503,
+							headers: { ...admitted.cors, "content-type": "application/json" },
+							body: JSON.stringify({ error: "upload refused or cut off" }),
+						}
+					: await respond(
+							{ ...head, body },
+							admitted,
+							deps,
+							controller.signal,
+							started + JOB_DEADLINE_MS,
+						);
+		}
+		if (!response.destroyed) {
+			response.writeHead(result.status, result.headers);
+			response.end(result.body);
+		}
 		// Never log bodies: they hold passport photos and model answers.
 		const seconds = ((Date.now() - started) / 1000).toFixed(1);
 		process.stdout.write(
-			`${request.method} ${path} ${result.status} ${seconds}s\n`,
+			`${head.method} ${head.path} ${result.status} ${seconds}s\n`,
 		);
 	});
-	server.requestTimeout = JOB_TIMEOUT_MS + 60_000;
+	server.requestTimeout = JOB_DEADLINE_MS + 60_000;
 	server.on("error", (error: NodeJS.ErrnoException) => {
 		process.stderr.write(
 			error.code === "EADDRINUSE"
@@ -571,18 +927,28 @@ function main() {
 		);
 		process.exit(1);
 	});
+	for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const)
+		process.on(signal, () => {
+			server.close();
+			void shutdown(0);
+		});
 	server.listen(port, "127.0.0.1", () => {
 		process.stdout.write(
 			[
 				`voyput-local ${VERSION} on http://127.0.0.1:${port} (this computer only)`,
-				`Engines: ${engines.length ? engines.join(", ") : "none found. Install Codex CLI or Claude Code, log in, restart."}`,
+				`Engines: ${engines.length ? engines.join(", ") : "none found. Install Claude Code (or Codex CLI, with --codex), log in, restart."}`,
+				...(codexOff
+					? [
+							"Codex CLI found but off: it keeps a few tools that cannot be turned off. Start with --codex to use it.",
+						]
+					: []),
 				"",
 				"Pair voyput with this server: open",
 				`  ${pairingLink(token, port)}`,
 				`or paste this token in Settings → AI → Local: ${token}`,
 				"",
-				"Photos go only to the CLI's own provider (OpenAI or Anthropic) under your account.",
-				"Ctrl+C stops.",
+				"Photos go only to the CLI's own provider (Anthropic or OpenAI) under your account.",
+				"Ctrl+C stops and deletes any photo still in a temp folder.",
 				"",
 			].join("\n"),
 		);
@@ -590,4 +956,4 @@ function main() {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
-	main();
+	void main();
