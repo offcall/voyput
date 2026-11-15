@@ -120,9 +120,11 @@ export function ReviewPage() {
 	};
 	/** `replace` swaps the URL in place, for a link that already added a history entry. */
 	const openStamp = (stamp: Stamp, replace = false) => {
+		// The card scrolls itself into view; the router must not jump back to the top.
 		void navigate({
 			search: { tab: "photos", photo: stamp.photoId },
 			replace,
+			resetScroll: false,
 		});
 		setExpanded((e) => ({ ...e, [stamp.id]: true }));
 		setFocus((f) => ({ stampId: stamp.id, seq: (f?.seq ?? 0) + 1 }));
@@ -147,42 +149,43 @@ export function ReviewPage() {
 	const currentPhoto =
 		photos.find((photo) => photo.id === currentId) ?? photos[0];
 	const view = ui?.filter ?? DEFAULT_UI_STATE.filter;
+	const queue = buildQueue(photoIds, stampsOf);
+	/** The stamp opened from the queue or the timeline, if it is on the page shown. */
+	const focusOnPage =
+		focus &&
+		currentPhoto &&
+		byPhoto.get(currentPhoto.id)?.some((i) => i.stamp.id === focus.stampId)
+			? focus.stampId
+			: null;
+	/**
+	 * Opens the next stamp needing attention after `stampId` (or from the page start);
+	 * the stamp `fold` (by default the one left) folds away.
+	 */
+	const goNext = (stampId: string | null, fold = stampId) => {
+		if (!currentPhoto) return;
+		const next = nextInQueue(photoIds, stampsOf, {
+			photoId: currentPhoto.id,
+			stampId,
+		});
+		if (!next) return;
+		// Queue mode: the stamp left behind folds away.
+		if (fold) setExpanded((e) => ({ ...e, [fold]: false }));
+		openStamp(next.stamp);
+	};
 
 	return (
 		<div className="review-page">
 			{records.data && history.data && ui && currentPhoto ? (
 				<QueueBar
-					queue={buildQueue(photoIds, stampsOf)}
-					current={
-						focus &&
-						byPhoto
-							.get(currentPhoto.id)
-							?.some((i) => i.stamp.id === focus.stampId)
-							? focus.stampId
-							: null
-					}
+					queue={queue}
+					current={focusOnPage}
 					photoName={currentPhoto.name}
 					view={view}
 					viewCount={(key) =>
 						photoIds.filter((id) => pageInView(stampsOf(id), key)).length
 					}
 					onView={(filter) => updateUi({ filter })}
-					onNext={() => {
-						const next = nextInQueue(photoIds, stampsOf, {
-							photoId: currentPhoto.id,
-							stampId:
-								focus &&
-								byPhoto
-									.get(currentPhoto.id)
-									?.some((i) => i.stamp.id === focus.stampId)
-									? focus.stampId
-									: null,
-						});
-						if (!next) return;
-						// Queue mode: the stamp left behind folds away.
-						if (focus) setExpanded((e) => ({ ...e, [focus.stampId]: false }));
-						openStamp(next.stamp);
-					}}
+					onNext={() => goNext(focusOnPage, focus?.stampId ?? null)}
 				/>
 			) : null}
 			{error ? (
@@ -232,6 +235,7 @@ export function ReviewPage() {
 									setExpanded={setExpanded}
 									validations={validations}
 									setValidations={setValidations}
+									onNext={queue.length > 0 ? goNext : undefined}
 								/>
 							),
 						},
@@ -306,9 +310,14 @@ function QueueBar({
 				{queue.length === 0 ? (
 					<strong>All checked ✓</strong>
 				) : position >= 0 ? (
-					<strong>
-						To check {position + 1} / {queue.length}
-					</strong>
+					<>
+						<strong className="review-queue-long">
+							To check {position + 1} / {queue.length}
+						</strong>
+						<strong className="review-queue-short" aria-hidden="true">
+							{position + 1} / {queue.length}
+						</strong>
+					</>
 				) : (
 					<strong>{queue.length} to check</strong>
 				)}{" "}

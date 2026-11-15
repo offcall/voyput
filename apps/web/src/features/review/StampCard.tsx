@@ -120,6 +120,7 @@ export function StampCard({
 	onDelete,
 	onDismiss,
 	onValidate,
+	onNext,
 }: {
 	item: CheckedStamp;
 	number: number;
@@ -143,6 +144,8 @@ export function StampCard({
 	onDismiss: (kind: NoteKind, dismissed: boolean) => void;
 	/** Missing when no AI key is set. */
 	onValidate: (() => void) | undefined;
+	/** The queue's Next from this stamp; shown beside the main action on phones only. Missing when nothing is left. */
+	onNext?: (() => void) | undefined;
 }) {
 	const { stamp, check } = item;
 	const level = severity(item);
@@ -424,10 +427,18 @@ export function StampCard({
 								}
 							/>
 						</div>
-						<ReviewedControl
-							reviewed={stamp.reviewed}
-							onChange={(reviewed) => onEdit({ reviewed })}
-						/>
+						{/* On phones this row sticks to the bottom of the screen while the stamp is open. */}
+						<div className="review-stamp-main">
+							<ReviewedControl
+								reviewed={stamp.reviewed}
+								onChange={(reviewed) => onEdit({ reviewed })}
+							/>
+							{onNext ? (
+								<Button className="review-stamp-next" onClick={onNext}>
+									Next →
+								</Button>
+							) : null}
+						</div>
 					</div>
 				</div>
 			) : null}

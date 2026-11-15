@@ -1420,3 +1420,293 @@
 .review-strip-part[data-match] {
 	background: color-mix(in srgb, var(--review-country) 45%, var(--vp-surface));
 }
+
+/* ---------- Touch, phones and tablets ---------- */
+
+/* The phone-only Next beside "Mark reviewed"; on wide screens the row is the old footer end. */
+.review-stamp-main {
+	display: contents;
+}
+.review-stamp-next.vp-button,
+.review-queue-short {
+	display: none;
+}
+.review-hint-touch {
+	display: none;
+}
+/* One finger scrolls the page over a fitted photo; zoomed, it pans the photo. */
+.review-viewer-frame {
+	touch-action: pan-y;
+}
+.review-viewer-frame[data-zoomed] {
+	touch-action: none;
+}
+@media (pointer: coarse) {
+	.review-hint-mouse,
+	.review-tool-step.vp-button {
+		display: none;
+	}
+	.review-hint-touch {
+		display: inline;
+	}
+}
+
+/* Narrow screens have the shell's top bar and bottom tab bar (see `.vp-shell` in the kit). */
+@media (max-width: 860px) {
+	.review-page {
+		/* Measured: the top bar is 50px, the tab bar 70px plus the safe area. */
+		--review-top: 50px;
+		--review-bottom: calc(70px + env(safe-area-inset-bottom));
+		--review-pane-top: calc(var(--review-top) + 68px);
+	}
+	/* 16px inputs: iOS does not zoom into them on focus. */
+	.review-page .vp-input,
+	.review-fields .vp-input,
+	.review-queue-view .vp-input {
+		font-size: 16px;
+		min-height: 44px;
+	}
+
+	/* The queue: one compact row that stays under the top bar. */
+	.review-queue {
+		position: sticky;
+		top: var(--review-top);
+		z-index: 15;
+		flex-wrap: nowrap;
+		gap: 8px;
+		margin: 0 calc(-1 * var(--vp-space-2)) 0;
+		padding: 6px 6px 6px 12px;
+		box-shadow: 0 8px 16px -8px rgb(0 0 0 / 0.35);
+	}
+	/* The count never shrinks; the page filter gives way. */
+	.review-queue-text {
+		flex: 0 0 auto;
+	}
+	.review-queue-view {
+		flex: 1 1 11rem;
+		min-width: 0;
+		max-width: 16rem;
+		margin-left: auto;
+	}
+	.review-queue-view .vp-input {
+		width: 100%;
+		padding-right: 26px;
+		text-overflow: ellipsis;
+	}
+	.review-queue .vp-button {
+		flex: none;
+		min-height: 44px;
+	}
+	@media (max-width: 560px) {
+		.review-queue-text .review-muted {
+			display: none;
+		}
+	}
+	/* "1 / 12" beside "Needs attention"; the words stay for screen readers. */
+	@media (max-width: 400px) {
+		.review-queue-long {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+		}
+		.review-queue-short {
+			display: inline;
+		}
+	}
+	.review-page .vp-tab {
+		min-height: 40px;
+		padding: 4px 16px;
+	}
+
+	/* Page strip: thumbnails that snap, the next one peeking in. */
+	.review-strip-list {
+		scroll-snap-type: x mandatory;
+		overscroll-behavior-x: contain;
+		scrollbar-width: none;
+	}
+	.review-strip-list > li {
+		flex: none;
+		scroll-snap-align: start;
+	}
+	.review-photo-row {
+		width: 168px;
+		min-height: 58px;
+	}
+
+	/* The photo as wide as the page, as tall as it needs. */
+	.review-photo-pane {
+		padding: 0;
+		gap: 8px;
+		background: none;
+		border: none;
+		box-shadow: none;
+	}
+	.review-viewer-frame {
+		height: auto;
+		aspect-ratio: var(--review-photo-ratio, 3 / 4);
+		max-height: calc(100dvh - var(--review-pane-top) - var(--review-bottom));
+		min-height: 200px;
+	}
+	.review-tool.vp-button {
+		min-width: 44px;
+		height: 44px;
+	}
+	.review-viewer-tools {
+		padding: 2px;
+	}
+
+	/* Stamp cards fit 360px. */
+	.review-stamp-toggle {
+		min-height: 44px;
+		gap: 6px;
+		padding: 6px;
+	}
+	.review-notes {
+		padding: 0 12px 10px;
+	}
+	.review-stamp-body {
+		padding: 12px 12px 0;
+	}
+	.review-fields {
+		gap: 8px;
+	}
+	/* Warnings: text first, their buttons on one line under it. */
+	.review-note {
+		flex-direction: column;
+		gap: 6px;
+	}
+	.review-note-actions {
+		justify-content: flex-start;
+	}
+	.review-note-fix,
+	.review-note-hide,
+	.review-link {
+		position: relative;
+		padding-block: 4px;
+	}
+	/* Small buttons, 44px to the finger. */
+	.review-note-fix::after,
+	.review-note-hide::after,
+	.review-link::after {
+		content: "";
+		position: absolute;
+		inset: -8px -4px;
+	}
+	.review-pan-row .vp-button {
+		min-width: 44px;
+		min-height: 44px;
+	}
+	.review-pan-track .review-strip {
+		height: 32px;
+	}
+	.review-delete {
+		min-height: 44px;
+	}
+
+	/* The end of an opened stamp: tools, then "Mark reviewed" and Next stuck to the bottom. */
+	.review-stamp-footer {
+		display: contents;
+	}
+	.review-stamp-tools {
+		flex: none;
+		flex-wrap: wrap;
+		align-items: center;
+		padding-top: 12px;
+		border-top: 1px solid var(--vp-border);
+	}
+	.review-stamp-main {
+		position: sticky;
+		bottom: var(--review-bottom);
+		z-index: 5;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 0 -12px;
+		padding: 10px 12px;
+		background: var(--vp-surface);
+		border-top: 1px solid var(--vp-border);
+		border-radius: 0 0 var(--vp-radius-lg) var(--vp-radius-lg);
+		box-shadow: 0 -10px 16px -12px rgb(0 0 0 / 0.4);
+	}
+	.review-stamp-main .review-mark.vp-button {
+		flex: 1;
+		min-height: 48px;
+		margin: 0;
+	}
+	.review-stamp-main .review-reviewed {
+		flex: 1;
+		min-height: 48px;
+		margin: 0;
+	}
+	.review-stamp-next.vp-button {
+		display: inline-flex;
+		flex: none;
+		min-height: 48px;
+	}
+
+	/* Timeline tab: the four numbers in one short row, markers 44px to the finger. */
+	.review-stats {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 6px;
+	}
+	.review-stats > div {
+		padding: 8px;
+		gap: 4px;
+	}
+	.review-stats dt {
+		font-size: 9.5px;
+		letter-spacing: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.review-stats dd {
+		font-size: 20px;
+	}
+	.review-band-card {
+		padding: 12px;
+	}
+	.review-band-window .vp-input {
+		padding-right: 26px;
+	}
+	.review-pin::before {
+		content: "";
+		position: absolute;
+		inset: -13px;
+	}
+
+	.review-toast {
+		bottom: calc(var(--review-bottom) + 76px);
+		max-width: calc(100% - 24px);
+		box-sizing: border-box;
+	}
+}
+
+/* Phones on their side: the photo beside the stamps, the photo pane in view. */
+@media (max-width: 960px) and (orientation: landscape) and (max-height: 600px) {
+	.review-split {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+	}
+	.review-photo-pane {
+		position: sticky;
+		top: var(--review-pane-top, 12px);
+		max-height: calc(
+			100dvh -
+			var(--review-pane-top, 12px) -
+			var(--review-bottom, 12px)
+		);
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
+	.review-viewer-frame {
+		aspect-ratio: auto;
+		height: calc(
+			100dvh -
+			var(--review-pane-top, 12px) -
+			var(--review-bottom, 12px) -
+			40px
+		);
+		min-height: 160px;
+	}
+}

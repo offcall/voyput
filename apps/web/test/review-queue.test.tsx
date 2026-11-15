@@ -171,6 +171,25 @@ describe("review queue", () => {
 		).toBe("/collect/trips");
 	});
 
+	it("moves on from an opened stamp with its own Next, beside Mark reviewed", async () => {
+		const db = await seed();
+		const user = userEvent.setup();
+		renderApp("/collect/review", { db });
+		const queue = within(
+			await screen.findByRole("region", { name: "Review queue" }),
+		);
+		// s2 is unreviewed, so its card is open with the main action and Next.
+		const open = within(
+			await screen.findByRole("article", { name: "Stamp 2" }),
+		);
+		expect(open.getByRole("button", { name: "Mark reviewed" })).toBeTruthy();
+		await user.click(open.getByRole("button", { name: "Next →" }));
+		expect(
+			await screen.findByRole("heading", { name: /page-2\.png/ }),
+		).toBeTruthy();
+		await queue.findByText("To check 2 / 2");
+	});
+
 	it("shows pages through one select that remembers its choice", async () => {
 		const db = await seed();
 		const user = userEvent.setup();

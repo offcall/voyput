@@ -1,6 +1,7 @@
 import { rotateBy } from "@voyput/core";
 import { Button } from "@voyput/ui";
 import {
+	type CSSProperties,
 	type PointerEvent,
 	useEffect,
 	useLayoutEffect,
@@ -19,6 +20,19 @@ interface View {
 	y: number;
 }
 const FITTED: View = { scale: 1, x: 0, y: 0 };
+/** Two taps closer than this in time and space are a double tap. */
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_PX = 30;
+
+interface Point {
+	x: number;
+	y: number;
+}
+const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+const middle = (a: Point, b: Point): Point => ({
+	x: (a.x + b.x) / 2,
+	y: (a.y + b.y) / 2,
+});
 
 /** The page photo, fitted to its frame and never cropped; zoom, pan and rotate. */
 export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
@@ -29,6 +43,17 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 	const [frame, setFrame] = useState({ w: 0, h: 0 });
 	const [view, setView] = useState<View>(FITTED);
 	const drag = useRef<{ x: number; y: number } | null>(null);
+	/** Fingers on the photo, in px from the frame centre. */
+	const pointers = useRef(new Map<number, Point>());
+	/** A two-finger pinch: where it started and the view then. */
+	const pinch = useRef<{ distance: number; mid: Point; view: View } | null>(
+		null,
+	);
+	/** Where the last single finger went down; a tap ends near it. */
+	const tapStart = useRef<Point | null>(null);
+	const lastTap = useRef<{ at: Point; time: number } | null>(null);
+	/** When a double tap last zoomed, so the browser's own dblclick after it is ignored. */
+	const touchZoomed = useRef(-Infinity);
 
 	useEffect(() => {
 		const next = URL.createObjectURL(photo.blob);
@@ -76,22 +101,104 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 	const rotate = (degrees: 90 | -90) =>
 		void setPhotoRotation(db, photo.id, rotateBy(photo.rotation, degrees));
 
+	/** Zooms to `scale` keeping the point `at` (px from the frame centre) still. */
+	const zoomAt = (current: View, scale: number, at: Point): View => {
+		const next = Math.min(MAX_SCALE, Math.max(1, scale));
+		const k = next / current.scale;
+		return clamp({
+			scale: next,
+			x: at.x - (at.x - current.x) * k,
+			y: at.y - (at.y - current.y) * k,
+		});
+	};
+	/** A pointer position in px from the frame centre. */
+	const fromCentre = (event: PointerEvent<HTMLDivElement>): Point => {
+		const box = event.currentTarget.getBoundingClientRect();
+		return {
+			x: event.clientX - box.left - box.width / 2,
+			y: event.clientY - box.top - box.height / 2,
+		};
+	};
+
 	const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-		if (view.scale <= 1) return;
+		pointers.current.set(event.pointerId, fromCentre(event));
+		tapStart.current = pointers.current.size === 1 ? fromCentre(event) : null;
+		if (pointers.current.size === 2) {
+			// A second finger: pinch from here, no pan.
+			drag.current = null;
+			const [a, b] = [...pointers.current.values()];
+			if (a && b)
+				pinch.current = { distance: distance(a, b), mid: middle(a, b), view };
+			return;
+		}
+		if (pointers.current.size > 2 || view.scale <= 1) return;
 		event.currentTarget.setPointerCapture?.(event.pointerId);
 		drag.current = { x: event.clientX, y: event.clientY };
 	};
 	const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-		const start = drag.current;
-		if (!start) return;
+		if (pointers.current.has(event.pointerId))
+			pointers.current.set(event.pointerId, fromCentre(event));
+		const start = pinch.current;
+		if (start) {
+			const [a, b] = [...pointers.current.values()];
+			if (!a || !b || start.distance === 0) return;
+			// The photo point under the fingers' first middle follows their middle now.
+			const scaled = zoomAt(
+				start.view,
+				(start.view.scale * distance(a, b)) / start.distance,
+				start.mid,
+			);
+			const mid = middle(a, b);
+			setView(
+				clamp({
+					...scaled,
+					x: scaled.x + mid.x - start.mid.x,
+					y: scaled.y + mid.y - start.mid.y,
+				}),
+			);
+			return;
+		}
+		const last = drag.current;
+		if (!last) return;
 		drag.current = { x: event.clientX, y: event.clientY };
 		setView((current) =>
 			clamp({
 				...current,
-				x: current.x + event.clientX - start.x,
-				y: current.y + event.clientY - start.y,
+				x: current.x + event.clientX - last.x,
+				y: current.y + event.clientY - last.y,
 			}),
 		);
+	};
+	const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+		const at = pointers.current.get(event.pointerId);
+		const wasPinch = pinch.current !== null;
+		pointers.current.delete(event.pointerId);
+		if (pointers.current.size < 2) pinch.current = null;
+		drag.current = null;
+		const start = tapStart.current;
+		tapStart.current = null;
+		if (event.pointerType !== "touch" || wasPinch || !at || !start) return;
+		if (distance(start, at) > DOUBLE_TAP_PX) return;
+		// Double tap: zoom in at the tap, or back to the fitted view.
+		const tap = { at, time: event.timeStamp };
+		const previous = lastTap.current;
+		lastTap.current = tap;
+		if (
+			previous &&
+			tap.time - previous.time < DOUBLE_TAP_MS &&
+			distance(previous.at, at) < DOUBLE_TAP_PX
+		) {
+			lastTap.current = null;
+			touchZoomed.current = tap.time;
+			setView((current) =>
+				current.scale > 1 ? FITTED : zoomAt(current, 2.5, at),
+			);
+		}
+	};
+	const onPointerCancel = (event: PointerEvent<HTMLDivElement>) => {
+		pointers.current.delete(event.pointerId);
+		pinch.current = null;
+		drag.current = null;
 	};
 
 	return (
@@ -101,12 +208,20 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 				ref={frameRef}
 				className="review-viewer-frame"
 				data-zoomed={view.scale > 1 || undefined}
+				style={
+					boxW && boxH
+						? ({ "--review-photo-ratio": `${boxW} / ${boxH}` } as CSSProperties)
+						: undefined
+				}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
-				onPointerUp={() => {
-					drag.current = null;
+				onPointerUp={onPointerUp}
+				onPointerCancel={onPointerCancel}
+				onDoubleClick={(event) => {
+					if (event.timeStamp - touchZoomed.current < 1000) return;
+					if (view.scale > 1) setView(FITTED);
+					else zoom(2.5);
 				}}
-				onDoubleClick={() => (view.scale > 1 ? setView(FITTED) : zoom(2.5))}
 				onWheel={(event) => {
 					if (event.ctrlKey || event.metaKey)
 						zoom(Math.exp(-event.deltaY * 0.01));
@@ -151,14 +266,14 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 				</Button>
 				<span className="review-tool-gap" />
 				<Button
-					className="review-tool"
+					className="review-tool review-tool-step"
 					aria-label="Zoom out"
 					onClick={() => zoom(1 / 1.5)}
 				>
 					−
 				</Button>
 				<Button
-					className="review-tool"
+					className="review-tool review-tool-step"
 					aria-label="Zoom in"
 					onClick={() => zoom(1.5)}
 				>
@@ -173,7 +288,12 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 				</Button>
 			</div>
 			<p className="review-viewer-hint">
-				Double-click or Ctrl + scroll to zoom, drag to pan.
+				<span className="review-hint-mouse">
+					Double-click or Ctrl + scroll to zoom, drag to pan.
+				</span>
+				<span className="review-hint-touch">
+					Pinch or double-tap to zoom, drag to pan.
+				</span>
 			</p>
 		</div>
 	);

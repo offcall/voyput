@@ -1,4 +1,5 @@
 import { type CheckedStamp, photoSeverity } from "@voyput/core";
+import { useEffect, useRef } from "react";
 import type { PhotoRecord } from "../../db/db";
 import { pageInView, type ReviewView } from "./queue";
 import { Thumb } from "./Thumb";
@@ -20,6 +21,21 @@ export function PhotoList({
 	const visible = photos.filter((photo) =>
 		pageInView(stampsOf(photo.id), view),
 	);
+	const listRef = useRef<HTMLUListElement>(null);
+	// The page shown slides into the strip (sideways only, the page does not scroll).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: runs when another page is shown
+	useEffect(() => {
+		const list = listRef.current;
+		const item = list?.querySelector<HTMLElement>("[aria-current='true']");
+		if (!list || !item) return;
+		const box = item.getBoundingClientRect();
+		const frame = list.getBoundingClientRect();
+		if (box.left < frame.left || box.right > frame.right)
+			list.scrollTo?.({
+				left: list.scrollLeft + box.left - frame.left,
+				behavior: "smooth",
+			});
+	}, [currentId]);
 	return (
 		<nav className="review-list" aria-label="Review photos">
 			{visible.length === 0 ? (
@@ -29,7 +45,7 @@ export function PhotoList({
 						: "No pages in this view."}
 				</p>
 			) : (
-				<ul className="review-strip-list">
+				<ul ref={listRef} className="review-strip-list">
 					{visible.map((photo) => {
 						const items = stampsOf(photo.id);
 						const level = photoSeverity(items);

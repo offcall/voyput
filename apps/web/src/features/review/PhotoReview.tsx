@@ -53,6 +53,7 @@ export function PhotoReview({
 	setValidations,
 	rescans,
 	setRescans,
+	onNext,
 }: {
 	records: ReviewRecords;
 	index: PhotoIndex;
@@ -78,6 +79,8 @@ export function PhotoReview({
 	/** Rescan hint and finds per photo id; kept by the page for the same reason. */
 	rescans: Record<string, RescanEntry>;
 	setRescans: Dispatch<SetStateAction<Record<string, RescanEntry>>>;
+	/** Next in the queue from a stamp; missing when nothing is left to check. */
+	onNext: ((stampId: string) => void) | undefined;
 }) {
 	const db = useDb();
 	const ai = useAi();
@@ -274,6 +277,7 @@ export function PhotoReview({
 								void setDismissed(db, item.stamp.id, kind, value)
 							}
 							onValidate={aiReady ? () => void validate(item) : undefined}
+							onNext={onNext ? () => onNext(item.stamp.id) : undefined}
 						/>
 					))}
 				</section>

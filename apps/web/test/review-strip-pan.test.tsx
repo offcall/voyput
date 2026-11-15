@@ -67,6 +67,36 @@ describe("photo location strip sets the stamp date", () => {
 		expect(slider().getAttribute("aria-valuenow")).toBe("-3");
 	});
 
+	it("follows a finger: a touch drag sets the date like a mouse drag", () => {
+		const dates: string[] = [];
+		render(<Harness dates={dates} />);
+		const track = slider();
+		track.getBoundingClientRect = () => ({ width: 220 }) as DOMRect;
+		fireEvent.pointerDown(track, {
+			pointerId: 7,
+			pointerType: "touch",
+			clientX: 200,
+		});
+		fireEvent.pointerMove(track, {
+			pointerId: 7,
+			pointerType: "touch",
+			clientX: 156,
+		});
+		// A second finger elsewhere does not move the strip.
+		fireEvent.pointerMove(track, {
+			pointerId: 8,
+			pointerType: "touch",
+			clientX: 0,
+		});
+		fireEvent.pointerUp(track, {
+			pointerId: 7,
+			pointerType: "touch",
+			clientX: 156,
+		});
+		// 44 px left is 2 days later.
+		expect(dates).toEqual(["2024-03-12"]);
+	});
+
 	it("steps a day with the keys and buttons, a week with Shift, and resets", async () => {
 		const user = userEvent.setup();
 		const dates: string[] = [];
