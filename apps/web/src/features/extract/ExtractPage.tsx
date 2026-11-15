@@ -16,8 +16,6 @@ import {
 	PixelArt,
 	Progress,
 	Stack,
-	Stat,
-	StatGroup,
 } from "@voyput/ui";
 import {
 	useCallback,
@@ -204,6 +202,14 @@ export function ExtractPage() {
 							</Button>
 						</div>
 					</div>
+					{loaded && data.photos.length > 0 ? (
+						<p className="extract-summary">
+							{readCount}/{data.photos.length} photos read ·{" "}
+							<Count n={openChecks.length} tone="warn" /> to check ·{" "}
+							<Count n={failed.length} tone="bad" /> failed ·{" "}
+							<Count n={pendingCount} tone="info" /> not read
+						</p>
+					) : null}
 					{progress ? (
 						<div className="extract-progress">
 							<Progress
@@ -218,32 +224,6 @@ export function ExtractPage() {
 					) : null}
 				</Card>
 			)}
-			{loaded && data.photos.length > 0 ? (
-				<section aria-label="Extraction summary" className="extract-stats">
-					<StatGroup>
-						<Stat
-							label="Read"
-							value={`${readCount}/${data.photos.length}`}
-							hint="photos"
-						/>
-						<Stat
-							label="To check"
-							value={<Count n={openChecks.length} tone="warn" />}
-							hint={openChecks.length === 1 ? "stamp" : "stamps"}
-						/>
-						<Stat
-							label="Failed"
-							value={<Count n={failed.length} tone="bad" />}
-							hint={failed.length === 1 ? "photo" : "photos"}
-						/>
-						<Stat
-							label="Not read"
-							value={<Count n={pendingCount} tone="info" />}
-							hint={pendingCount === 1 ? "photo" : "photos"}
-						/>
-					</StatGroup>
-				</section>
-			) : null}
 			{data.photos.length > 0 ? (
 				<ul aria-label="Photos" className="extract-list">
 					{data.photos.map((photo) => (

@@ -1,4 +1,3 @@
-import type { SpriteName } from "@voyput/ui";
 import type { ReactNode } from "react";
 import { ExtractPage } from "../extract/ExtractPage";
 import { LocationsStep } from "../import/LocationsStep";
@@ -19,8 +18,8 @@ export interface CollectStep {
 	label: string;
 	/** Heading above the step content. */
 	title: string;
+	/** One sentence under the title. */
 	description: string;
-	sprite: SpriteName;
 	render: () => ReactNode;
 }
 
@@ -28,33 +27,27 @@ const DEFINITIONS: Record<StepId, Omit<CollectStep, "id">> = {
 	passports: {
 		label: "Passports",
 		title: "Passports",
-		description:
-			"Stamps are read from photos of your passport pages. No passport at hand? Load the demo.",
-		sprite: "passport",
+		description: "Add each passport, then photos of its stamp pages.",
 		render: () => <PassportsStep />,
 	},
 	locations: {
 		label: "Photo locations",
-		title: "iPhone photo locations",
+		title: "Photo locations",
 		description:
-			"Your photo locations confirm each stamp and fill in the days between them.",
-		sprite: "globe",
+			"Where your iPhone photos were taken: they confirm each stamp and fill in the days between.",
 		render: () => <LocationsStep />,
 	},
 	extract: {
 		label: "Extract",
 		title: "Read the stamps",
 		description:
-			"An AI model reads every stamp on your photos: country, date and direction.",
-		sprite: "stamp",
+			"An AI model reads the country, date and direction of every stamp.",
 		render: () => <ExtractPage />,
 	},
 	review: {
 		label: "Review",
 		title: "Review the stamps",
-		description:
-			"Check each stamp against its photo and your photo location history.",
-		sprite: "star",
+		description: "Check each stamp against its photo and your photo locations.",
 		render: () => <ReviewPage />,
 	},
 	trips: {
@@ -62,12 +55,11 @@ const DEFINITIONS: Record<StepId, Omit<CollectStep, "id">> = {
 		title: "Stays",
 		description:
 			"Your history as one-country stays, from your stamps and photo locations. Edit, split or add stays and approve the ones that are right.",
-		sprite: "suitcase",
 		render: () => <TripsPage />,
 	},
 };
 
-/** The Collect steps in wizard order; the router, the stepper and Back/Next read it. */
+/** The Collect steps in wizard order; the router and the stepper read it. */
 export const COLLECT_STEPS: readonly CollectStep[] = STEP_IDS.map((id) => ({
 	id,
 	...DEFINITIONS[id],
@@ -79,9 +71,9 @@ export function findStep(id: string | undefined): CollectStep | undefined {
 		: undefined;
 }
 
-/** The step to open on `/collect`: the first one not done, or the last when all are. */
+/** The step to open on `/collect`: the first shown one not done, or the last when all are. */
 export function firstUnfinishedStep(plan: Plan): StepId {
-	return plan.next?.id ?? STEP_IDS[STEP_IDS.length - 1] ?? "trips";
+	return plan.next?.id ?? plan.steps[plan.steps.length - 1]?.id ?? "trips";
 }
 
 const compact = new Intl.NumberFormat("en", {

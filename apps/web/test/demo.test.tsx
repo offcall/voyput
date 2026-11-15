@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	gapBetween,
@@ -79,11 +79,22 @@ describe("demo data", () => {
 		const { db } = renderApp("/collect/passports");
 		await seedOwnData(db);
 
+		// Demo data starts from the Sources choice; Passports reports it in a thin banner.
 		await user.click(
-			await screen.findByRole("button", { name: "Load demo data" }),
+			await screen.findByRole("button", { name: /^Sources: .* · change$/ }),
 		);
-		await screen.findByText(
-			"Loaded 5 demo pages, 16 stamps and 2,467 locations · 6 countries · 2016–2019. Plus 10 sample pages with 38 stamps to review.",
+		await user.click(
+			within(await screen.findByRole("dialog")).getByRole("button", {
+				name: "Try with demo data",
+			}),
+		);
+		const banner = within(
+			await screen.findByRole("region", { name: "Demo data" }),
+		);
+		await waitFor(() =>
+			expect(banner.getByRole("status").textContent).toBe(
+				"Demo data loaded. 5 demo pages, 16 stamps and 2,467 locations · 6 countries · 2016–2019. Plus 10 sample pages with 38 stamps to review.",
+			),
 		);
 		await user.click(
 			screen.getByRole("link", { name: /^Step 2: Photo locations/ }),
@@ -122,9 +133,11 @@ describe("demo data", () => {
 		});
 		expect(loaded.locations).toBeGreaterThan(2000);
 
-		await user.click(screen.getByRole("button", { name: "Load demo data" }));
+		await user.click(
+			screen.getByRole("button", { name: "Load demo data again" }),
+		);
 		await user.click(await screen.findByRole("button", { name: "Replace" }));
-		await screen.findByText(/Loaded 5 demo pages/);
+		await screen.findByText(/5 demo pages/);
 		expect(await counts()).toEqual(loaded);
 
 		await user.click(screen.getByRole("button", { name: "Remove demo data" }));

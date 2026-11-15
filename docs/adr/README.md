@@ -27,3 +27,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0021](0021-commons-sample-pages-in-demo.md) | Commons Sample Pages in the Demo | Accepted |
 | [0022](0022-stays-without-home.md) | Stays Without Home | Accepted |
 | [0023](0023-navigation-and-insights.md) | Navigation and Insights | Accepted |
+| [0024](0024-collect-sources.md) | Collect Sources | Accepted |

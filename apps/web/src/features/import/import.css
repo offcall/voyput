@@ -1,25 +1,10 @@
-/* Passports step: passports with their photo grids beside the demo card.
-   Narrow screens stack them, the demo card last. */
+/* Passports step: the demo banner, then passports with their photo grids. */
 
-.import-layout {
-	display: grid;
-	grid-template-columns: minmax(0, 3fr) minmax(280px, 1.4fr);
-	gap: var(--vp-space-4);
-	align-items: start;
-}
 .import-photos {
 	display: grid;
 	gap: var(--vp-space-4);
 	min-width: 0;
 	container-type: inline-size;
-}
-.import-demo-slot {
-	min-width: 0;
-}
-@media (max-width: 960px) {
-	.import-layout {
-		grid-template-columns: minmax(0, 1fr);
-	}
 }
 
 /* Locations step: what is stored on the left, the drop zone and the how-to

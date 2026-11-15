@@ -99,11 +99,10 @@ describe("routing", () => {
 
 	it("changes the path when moving between steps and sections", async () => {
 		const user = userEvent.setup();
-		const { router } = renderApp("/");
-		await waitFor(() =>
-			expect(router.state.location.pathname).toBe("/collect/passports"),
+		const { router } = renderApp("/collect/passports");
+		await user.click(
+			await screen.findByRole("link", { name: /^Step 5: Stays/ }),
 		);
-		await user.click(screen.getByRole("link", { name: /^Step 5: Stays/ }));
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/collect/trips"),
 		);

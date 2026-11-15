@@ -125,12 +125,6 @@ describe("collect wizard", () => {
 	});
 
 	it("opens the first step that is not done", async () => {
-		const empty = renderApp("/");
-		await waitFor(() =>
-			expect(empty.router.state.location.pathname).toBe("/collect/passports"),
-		);
-		empty.unmount();
-
 		const db = freshDb();
 		await seed(db, { photos: 2, ok: 1 });
 		const { router } = renderApp("/collect", { db });
@@ -229,61 +223,53 @@ describe("collect wizard", () => {
 		);
 	});
 
-	it("moves between steps with the stepper and Back / Next", async () => {
-		const user = userEvent.setup();
-		const { router } = renderApp("/collect/passports");
-		await screen.findByRole("navigation", { name: "Step" });
-		const stepNav = () =>
-			within(screen.getByRole("navigation", { name: "Step" }));
-		await user.click(
-			stepNav().getByRole("link", { name: "Next: Photo locations →" }),
-		);
-		await waitFor(() =>
-			expect(router.state.location.pathname).toBe("/collect/locations"),
-		);
-		await user.click(stepNav().getByRole("link", { name: "← Passports" }));
-		await waitFor(() =>
-			expect(router.state.location.pathname).toBe("/collect/passports"),
-		);
-		await user.click(stepLink(5));
-		await waitFor(() =>
-			expect(router.state.location.pathname).toBe("/collect/trips"),
-		);
-		expect(
-			stepNav().getByRole("link", { name: "Open Visualize →" }),
-		).toBeTruthy();
-	});
-
-	it("shows the totals and one next action in the success header", async () => {
+	it("moves between steps with the stepper and the next action", async () => {
 		const db = freshDb();
 		await seed(db, { photos: 1, ok: 1 });
 		await db.stamps.bulkPut([stamp("s1", false), stamp("s2", false)]);
-		renderApp("/collect/passports", { db });
+		const user = userEvent.setup();
+		const { router } = renderApp("/collect/passports", { db });
 
-		const header = (
-			await screen.findByRole("heading", { level: 1, name: "Collect" })
-		).closest("header");
-		if (!header) throw new Error("success header missing");
-		const hero = within(header);
-		await waitFor(() =>
-			expect(
-				hero
-					.getByRole("progressbar", { name: "Collect progress" })
-					.getAttribute("aria-valuenow"),
-			).toBe("3"),
-		);
-		const go = hero.getByRole("link", { name: "Review 2 stamps" });
+		// Elsewhere the one primary button leads to the first step not done.
+		const go = await screen.findByRole("link", { name: "Review 2 stamps →" });
 		expect(go.getAttribute("href")).toBe("/collect/review");
-		const stat = (label: string) =>
-			[...header.querySelectorAll("dt")].find((dt) => dt.textContent === label)
-				?.nextElementSibling?.textContent;
-		// No saved stay yet: countries come from the locations, days wait for stays.
-		expect(stat("Countries")).toBe("1");
-		expect(stat("Days abroad")).toBe("–");
-		expect(stat("To do")).toBe("3");
+		await user.click(go);
+		await waitFor(() =>
+			expect(router.state.location.pathname).toBe("/collect/review"),
+		);
+		// On that step the page holds the action; the bar leads on to the next step.
+		await user.click(
+			await screen.findByRole("link", { name: "Next: Stays →" }),
+		);
+		await waitFor(() =>
+			expect(router.state.location.pathname).toBe("/collect/trips"),
+		);
+		// Stays is its own section: no Collect bar there.
+		expect(
+			screen.queryByRole("navigation", { name: "Collect steps" }),
+		).toBeNull();
+		expect(
+			screen.queryByRole("heading", { level: 1, name: "Collect" }),
+		).toBeNull();
 	});
 
-	it("celebrates when every step is done and leads to Visualize", async () => {
+	it("shows progress once, in one compact bar", async () => {
+		const db = freshDb();
+		await seed(db, { photos: 1, ok: 1 });
+		renderApp("/collect/locations", { db });
+		const bar = (
+			await screen.findByRole("heading", { level: 1, name: "Collect" })
+		).closest("header");
+		if (!bar) throw new Error("Collect bar missing");
+		// Five steps and one next action.
+		await waitFor(() =>
+			expect(within(bar).getAllByRole("link")).toHaveLength(6),
+		);
+		expect(document.querySelectorAll("dt")).toHaveLength(0);
+		expect(screen.queryByRole("progressbar")).toBeNull();
+	});
+
+	it("leads to Insights when every step is done", async () => {
 		const db = freshDb();
 		await seed(db, { photos: 1, ok: 1 });
 		await db.stamps.put(stamp("s1", true));
@@ -299,24 +285,80 @@ describe("collect wizard", () => {
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/collect/trips"),
 		);
-		const done = (await screen.findByText(/All five steps done/)).closest(
-			"[role=status]",
-		);
-		if (!(done instanceof HTMLElement)) throw new Error("no done status");
-		expect(done.textContent).toContain("All five steps done");
-		const tile = [...document.querySelectorAll("dt")].find(
-			(dt) => dt.textContent === "Stays",
-		);
-		expect(tile?.nextElementSibling?.textContent).toBe("4");
+		router.navigate({ to: "/collect/$step", params: { step: "review" } });
 		expect(
-			[...document.querySelectorAll("dt")].some(
-				(dt) => dt.textContent === "Trips",
-			),
-		).toBe(false);
-		expect(
-			within(done)
-				.getByRole("link", { name: "Open Visualize" })
-				.getAttribute("href"),
+			(
+				await screen.findByRole("link", { name: "See your insights →" })
+			).getAttribute("href"),
 		).toBe("/visualize");
+	});
+});
+
+describe("collect sources", () => {
+	beforeEach(() => stubObjectUrls());
+
+	const stepNames = () =>
+		stepper()
+			.getAllByRole("link")
+			.map(
+				(link) =>
+					/^Step \d+: ([^,]+)/.exec(link.getAttribute("aria-label") ?? "")?.[1],
+			);
+
+	it("asks what the user has on the first visit, hides the steps it does not need and keeps the choice", async () => {
+		const db = freshDb();
+		const user = userEvent.setup();
+		const first = renderApp("/", { db });
+		await screen.findByRole("heading", { level: 1, name: "What do you have?" });
+		expect(first.router.state.location.pathname).toBe("/collect");
+
+		await user.click(screen.getByRole("button", { name: /^Photos only/ }));
+		await waitFor(() =>
+			expect(first.router.state.location.pathname).toBe("/collect/locations"),
+		);
+		await waitFor(() =>
+			expect(stepNames()).toEqual(["Photo locations", "Stays"]),
+		);
+		expect((await db.kv.get("collect:sources"))?.value).toBe("photos");
+		first.unmount();
+
+		// Back again: no question, straight to the first step the choice needs.
+		const again = renderApp("/collect", { db });
+		await waitFor(() =>
+			expect(again.router.state.location.pathname).toBe("/collect/locations"),
+		);
+		await waitFor(() =>
+			expect(stepNames()).toEqual(["Photo locations", "Stays"]),
+		);
+
+		// Data wins over the choice: a stamp brings the passport steps back.
+		await seed(db, { photos: 1, locations: 0 });
+		await db.stamps.put(stamp("s1", false));
+		await waitFor(() =>
+			expect(stepNames()).toEqual([
+				"Passports",
+				"Photo locations",
+				"Extract",
+				"Review",
+				"Stays",
+			]),
+		);
+	});
+
+	it("changes the sources from the Collect bar", async () => {
+		const db = freshDb();
+		await db.kv.put({ key: "collect:sources", value: "passport" });
+		const user = userEvent.setup();
+		renderApp("/collect/passports", { db });
+		await waitFor(() =>
+			expect(stepNames()).toEqual(["Passports", "Extract", "Review", "Stays"]),
+		);
+		await user.click(
+			screen.getByRole("button", { name: "Sources: Passport only · change" }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		await user.click(within(dialog).getByRole("button", { name: /^Both/ }));
+		await waitFor(() => expect(stepNames()).toHaveLength(5));
+		expect((await db.kv.get("collect:sources"))?.value).toBe("both");
 	});
 });

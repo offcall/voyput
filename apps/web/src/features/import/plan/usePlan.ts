@@ -5,6 +5,7 @@ import { localToday } from "../../trips/format";
 import { BIRTH_COUNTRY_KEY, BIRTH_KEY } from "../../trips/tripStore";
 import { useLiveQuery } from "../photos/useLiveQuery";
 import { buildPlan, type Plan, type PlanStay } from "./planProgress";
+import { isSources, SOURCES_KEY } from "./sources";
 
 /** The Collect plan, kept up to date with the database. */
 export function usePlan(): Plan | undefined {
@@ -25,6 +26,7 @@ export function usePlan(): Plan | undefined {
 				stored,
 				birthCountry,
 				birth,
+				sources,
 			] = await Promise.all([
 				db.passports.count(),
 				db.photos.count(),
@@ -45,6 +47,7 @@ export function usePlan(): Plan | undefined {
 				db.stays.toArray(),
 				db.kv.get(BIRTH_COUNTRY_KEY),
 				db.kv.get(BIRTH_KEY),
+				db.kv.get(SOURCES_KEY),
 			]);
 			const born =
 				typeof birth?.value === "string" && isIsoDate(birth.value)
@@ -61,6 +64,7 @@ export function usePlan(): Plan | undefined {
 			// A failed photo whose stamps the user added and reviewed by hand is handled.
 			const recovered = failedIds.filter((id) => recoveredIds.has(id)).length;
 			return buildPlan({
+				sources: isSources(sources?.value) ? sources.value : null,
 				passports,
 				photos,
 				locations,

@@ -16,10 +16,7 @@ export function PhotoImport() {
 
 	return (
 		<>
-			<Card
-				title="Passport photos"
-				description="Add each passport, then photos of its stamp pages."
-			>
+			<Card>
 				<Stack>
 					{error ? (
 						<Notice tone="bad" role="alert">

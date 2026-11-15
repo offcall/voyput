@@ -112,10 +112,7 @@ export function CsvImport({
 	};
 
 	return (
-		<Card
-			title="iPhone photo locations (CSV)"
-			description="Where your photos were taken, from the Apple Photos library."
-		>
+		<Card>
 			<div className="import-csv">
 				<section
 					id={STORED_LOCATIONS_ID}

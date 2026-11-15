@@ -50,29 +50,13 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.extract-stats .vp-stats {
-	grid-template-columns: repeat(4, minmax(0, 1fr));
+.extract-summary {
+	margin: var(--vp-space-3) 0 0;
+	font-size: var(--vp-text-sm);
+	color: var(--vp-muted);
 }
-@media (max-width: 560px) {
-	.extract-stats .vp-stats {
-		gap: var(--vp-space-2);
-	}
-	.extract-stats .vp-stat {
-		padding: var(--vp-space-2) 10px;
-	}
-	.extract-stats .vp-stat-label {
-		font-size: 10px;
-		white-space: nowrap;
-	}
-	.extract-stats .vp-stat-value {
-		font-size: 18px;
-	}
-	.extract-stats .vp-stat-hint {
-		display: none;
-	}
-}
-.extract-stats .vp-stat {
-	background: var(--vp-surface);
+.extract-count[data-tone] {
+	font-weight: 700;
 }
 .extract-count[data-tone="warn"] {
 	color: var(--vp-warn);

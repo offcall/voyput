@@ -13,8 +13,12 @@ export function isStepId(value: unknown): value is StepId {
 	return (STEP_IDS as readonly unknown[]).includes(value);
 }
 
+import type { Sources } from "./sources";
+
 /** What the plan is built from; all of it is read from the database. */
 export interface PlanInput {
+	/** The sources chosen on Collect, or null/missing before a choice. */
+	sources?: Sources | null;
 	passports: number;
 	photos: number;
 	/** Location rows stored (CSV and demo). */
@@ -57,7 +61,12 @@ export interface PlanStep {
 }
 
 export interface Plan {
+	/** The steps shown for the chosen sources, in wizard order. */
 	steps: PlanStep[];
+	/** The sources chosen on Collect, or null before a choice. */
+	sources: Sources | null;
+	/** Any passport, photo, location, stamp or stay stored. */
+	hasData: boolean;
 	doneCount: number;
 	/** First step not done yet, or null when all are done. */
 	next: PlanStep | null;
@@ -102,7 +111,29 @@ export function daysCovered(
 	return total;
 }
 
-/** The five Collect steps, each done or not, and the counters for the success header. */
+/**
+ * The steps the chosen sources need: photos only skips the passport steps, passport
+ * only skips the photo locations. Stored data wins over the choice: stamps or
+ * passport photos show the passport steps, locations show their step.
+ */
+export function visibleSteps(input: PlanInput): StepId[] {
+	const sources = input.sources ?? null;
+	const passport =
+		sources !== "photos" ||
+		input.passports > 0 ||
+		input.photos > 0 ||
+		input.stamps > 0;
+	const locations = sources !== "passport" || input.locations > 0;
+	return STEP_IDS.filter((id) =>
+		id === "locations"
+			? locations
+			: id === "passports" || id === "extract" || id === "review"
+				? passport
+				: true,
+	);
+}
+
+/** The Collect steps for the chosen sources, each done or not, and the counters. */
 export function buildPlan(input: PlanInput): Plan {
 	const stayCount = input.stays.length;
 	const toExtract = Math.max(0, input.photos - input.extracted);
@@ -120,7 +151,8 @@ export function buildPlan(input: PlanInput): Plan {
 		review: input.problems > 0,
 		trips: false,
 	};
-	const steps: PlanStep[] = STEP_IDS.map((id) => ({
+	const shown = visibleSteps(input);
+	const steps: PlanStep[] = shown.map((id) => ({
 		id,
 		done: done[id],
 		state: done[id] ? "done" : attention[id] ? "attention" : "todo",
@@ -132,10 +164,18 @@ export function buildPlan(input: PlanInput): Plan {
 	const countries =
 		stayCount > 0 ? fromStays : new Set(input.locationCountries);
 	const emptySteps = (["passports", "locations", "trips"] as const).filter(
-		(id) => !done[id],
+		(id) => shown.includes(id) && !done[id],
 	).length;
 	return {
 		steps,
+		sources: input.sources ?? null,
+		hasData:
+			input.passports +
+				input.photos +
+				input.locations +
+				input.stamps +
+				stayCount >
+			0,
 		doneCount: steps.filter((step) => step.done).length,
 		next: steps.find((step) => !step.done) ?? null,
 		input,

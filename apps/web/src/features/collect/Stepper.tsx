@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { Plan, StepId, StepState } from "../import/plan/planProgress";
-import { COLLECT_STEPS, stepCount } from "./steps";
+import { findStep, stepCount } from "./steps";
 
 const STATE_TEXT: Record<StepState, string> = {
 	done: "done",
@@ -9,8 +9,9 @@ const STATE_TEXT: Record<StepState, string> = {
 };
 
 /**
- * The five Collect steps as links: done, needs attention or to do, with a count each.
- * The open step is the router's active link (`aria-current="page"`). Scrolls sideways on narrow screens.
+ * The Collect steps for the chosen sources as one row of links: a dot (done, needs
+ * attention or to do), the name and a short status. The open step is highlighted
+ * (`aria-current="page"`). Scrolls sideways on narrow screens.
  */
 export function Stepper({
 	plan,
@@ -22,37 +23,36 @@ export function Stepper({
 	return (
 		<nav className="collect-stepper" aria-label="Collect steps">
 			<ol>
-				{COLLECT_STEPS.map((step, index) => {
-					const state =
-						plan?.steps.find((s) => s.id === step.id)?.state ?? "todo";
-					const count = plan ? stepCount(step.id, plan) : null;
-					const isCurrent = step.id === current;
+				{(plan?.steps ?? []).map(({ id, state }, index) => {
+					const step = findStep(id);
+					if (!step || !plan) return null;
+					const count = stepCount(id, plan);
+					const isCurrent = id === current;
 					return (
 						<li
-							key={step.id}
+							key={id}
 							data-state={state}
 							data-current={isCurrent ? "" : undefined}
 							ref={isCurrent ? keepInView : undefined}
 						>
 							<Link
 								to="/collect/$step"
-								params={{ step: step.id }}
+								params={{ step: id }}
 								className="collect-stepper-link"
 								aria-label={`Step ${index + 1}: ${step.label}, ${STATE_TEXT[state]}${count ? `, ${count}` : ""}`}
 							>
 								<span className="collect-stepper-mark" aria-hidden="true">
-									{state === "done"
-										? "✓"
-										: state === "attention"
-											? "!"
-											: index + 1}
+									{state === "done" ? "✓" : state === "attention" ? "!" : ""}
 								</span>
-								<span className="collect-stepper-text" aria-hidden="true">
-									<span className="collect-stepper-label">{step.label}</span>
-									<span className="collect-stepper-count">
+								<span className="collect-stepper-label" aria-hidden="true">
+									{step.label}
+								</span>
+								{/* The dot says done or to do; a status only where it matters. */}
+								{!isCurrent && state !== "attention" ? null : (
+									<span className="collect-stepper-count" aria-hidden="true">
 										{count ?? STATE_TEXT[state]}
 									</span>
-								</span>
+								)}
 							</Link>
 						</li>
 					);

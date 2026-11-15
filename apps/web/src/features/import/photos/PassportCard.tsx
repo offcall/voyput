@@ -1,5 +1,5 @@
 import { type Passport, SUPPORTED_PHOTO_TYPES } from "@voyput/core";
-import { Button, Card, Dialog, Dropzone, Notice } from "@voyput/ui";
+import { Button, Card, Dialog, Dropzone, Menu, Notice } from "@voyput/ui";
 import { useCallback, useState } from "react";
 import { useDb } from "../../../db/DbContext";
 import type { PhotoRecord } from "../../../db/db";
@@ -58,18 +58,17 @@ export function PassportCard({ passport }: { passport: Passport }) {
 			title={passport.name}
 			description={`${validity} · ${photoCount} ${photoCount === 1 ? "photo" : "photos"}`}
 			actions={
-				<>
-					<Button size="sm" onClick={() => setEditing(true)}>
-						Edit
-					</Button>
-					<Button
-						size="sm"
-						variant="danger"
-						onClick={() => setConfirmingDelete(true)}
-					>
-						Delete
-					</Button>
-				</>
+				<Menu
+					label={`More for ${passport.name}`}
+					items={[
+						{ label: "Edit", onSelect: () => setEditing(true) },
+						{
+							label: "Delete",
+							tone: "danger",
+							onSelect: () => setConfirmingDelete(true),
+						},
+					]}
+				/>
 			}
 		>
 			<div className="import-messages">

@@ -28,6 +28,31 @@ const EMPTY: PlanInput = {
 };
 
 describe("plan progress", () => {
+	it("shows only the steps the chosen sources need, unless data is already there", () => {
+		const ids = (input: PlanInput) => buildPlan(input).steps.map((s) => s.id);
+		expect(ids({ ...EMPTY, sources: "photos" })).toEqual([
+			"locations",
+			"trips",
+		]);
+		expect(ids({ ...EMPTY, sources: "passport" })).toEqual([
+			"passports",
+			"extract",
+			"review",
+			"trips",
+		]);
+		expect(ids({ ...EMPTY, sources: "both" })).toHaveLength(5);
+		expect(ids(EMPTY)).toHaveLength(5);
+		expect(ids({ ...EMPTY, sources: "photos", stamps: 1 })).toHaveLength(5);
+		expect(ids({ ...EMPTY, sources: "passport", locations: 3 })).toHaveLength(
+			5,
+		);
+		// Hidden steps leave the next step and the open items alone.
+		const photos = buildPlan({ ...EMPTY, sources: "photos" });
+		expect(photos.next?.id).toBe("locations");
+		expect(photos.toDo).toBe(2);
+		expect(photos.hasData).toBe(false);
+	});
+
 	it("counts overlapping days once, start and end included", () => {
 		expect(
 			daysCovered([

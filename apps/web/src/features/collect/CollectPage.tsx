@@ -1,11 +1,14 @@
-import { Link, Navigate, useRouterState } from "@tanstack/react-router";
-import { PixelArt, Stack } from "@voyput/ui";
+import { Navigate, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Stack } from "@voyput/ui";
+import type { ReactNode } from "react";
+import { useDb } from "../../db/DbContext";
+import { DemoActionsProvider, useDemoActions } from "../demo/DemoActions";
 import { DemoLoadedProvider } from "../import/demoLoaded";
-import type { Plan } from "../import/plan/planProgress";
+import { saveSources } from "../import/plan/sources";
 import { usePlan } from "../import/plan/usePlan";
-import { Stepper } from "./Stepper";
-import { SuccessHeader } from "./SuccessHeader";
-import { COLLECT_STEPS, type CollectStep, firstUnfinishedStep } from "./steps";
+import { CollectBar, SourcesControl } from "./CollectBar";
+import { SourcesChoice } from "./SourcesChoice";
+import { COLLECT_STEPS, firstUnfinishedStep } from "./steps";
 import "./collect.css";
 
 /** The step id in a path (`/collect/trips/abc` → `trips`), if any. */
@@ -14,98 +17,117 @@ export function stepIdOf(pathname: string): string | undefined {
 }
 
 /**
- * The `/collect` layout: the success header, the stepper, one step and Back/Next.
- * It renders the step itself (no outlet), so a step such as Trips stays mounted
- * while its own part of the URL (`/collect/trips/<id>`) changes.
+ * The `/collect` layout: the Collect bar and one step. It renders the step itself
+ * (no outlet), so a step such as Stays stays mounted while its own part of the URL
+ * (`/collect/trips/<id>`) changes. Stays is its own section: no Collect bar there.
  */
 export function CollectPage() {
+	return (
+		<DemoLoadedProvider>
+			<DemoActionsProvider>
+				<CollectContent />
+			</DemoActionsProvider>
+		</DemoLoadedProvider>
+	);
+}
+
+function CollectContent() {
 	const plan = usePlan();
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
-	const index = COLLECT_STEPS.findIndex(
-		(step) => step.id === stepIdOf(pathname),
-	);
-	const step = COLLECT_STEPS[index];
+	const step = COLLECT_STEPS.find((s) => s.id === stepIdOf(pathname));
 
-	// `/collect` itself opens the first step that is not done, once the plan is read.
-	// Only there: while leaving Collect this layout still renders for another path.
-	if (!step)
-		return plan && /^\/collect\/?$/.test(pathname) ? (
+	if (!step) {
+		// Only `/collect` itself: while leaving Collect this layout still renders for another path.
+		if (!plan || !/^\/collect\/?$/.test(pathname)) return null;
+		// First visit, nothing stored and nothing chosen: ask what the user has.
+		if (!plan.sources && !plan.hasData) return <FirstVisit />;
+		return (
 			<Navigate
 				to="/collect/$step"
 				params={{ step: firstUnfinishedStep(plan) }}
 				replace
 			/>
-		) : null;
+		);
+	}
+
+	if (step.id === "trips") return <>{step.render()}</>;
 
 	return (
-		<DemoLoadedProvider>
-			<Stack>
-				<SuccessHeader plan={plan} current={step.id} />
-				<Stepper plan={plan} current={step.id} />
-				<section className="collect-step" aria-labelledby="collect-step-title">
-					<header className="collect-step-head">
-						<PixelArt name={step.sprite} scale={2} />
-						<div>
-							<h2 id="collect-step-title">{step.title}</h2>
-							<p>{step.description}</p>
-						</div>
-					</header>
-					{step.render()}
-				</section>
-				<StepNav
-					previous={COLLECT_STEPS[index - 1]}
-					next={COLLECT_STEPS[index + 1]}
-					plan={plan}
-				/>
-			</Stack>
-		</DemoLoadedProvider>
+		<Stack>
+			<CollectBar plan={plan} current={step.id} />
+			<StepSection
+				title={step.title}
+				description={step.description}
+				aside={plan ? <SourcesControl plan={plan} /> : null}
+			>
+				{step.render()}
+			</StepSection>
+		</Stack>
 	);
 }
 
-/** Back and Next under the step; after the last step Next leads to Visualize. */
-function StepNav({
-	previous,
-	next,
-	plan,
+function StepSection({
+	title,
+	description,
+	aside,
+	children,
 }: {
-	previous: CollectStep | undefined;
-	next: CollectStep | undefined;
-	plan: Plan | undefined;
+	title: string;
+	description: string;
+	/** Quiet controls at the right of the title. */
+	aside: ReactNode;
+	children: ReactNode;
 }) {
 	return (
-		<nav className="collect-step-nav" aria-label="Step">
-			{previous ? (
-				<Link
-					to="/collect/$step"
-					params={{ step: previous.id }}
-					className="vp-button"
-					data-variant="secondary"
-				>
-					← {previous.label}
-				</Link>
-			) : (
-				<span />
-			)}
-			{next ? (
-				<Link
-					to="/collect/$step"
-					params={{ step: next.id }}
-					className="vp-button"
-					data-variant="primary"
-				>
-					Next: {next.label} →
-				</Link>
-			) : (
-				<Link
-					to="/visualize"
-					className="vp-button"
-					data-variant={plan?.next ? "secondary" : "primary"}
-				>
-					Open Visualize →
-				</Link>
-			)}
-		</nav>
+		<section className="collect-step" aria-labelledby="collect-step-title">
+			<header className="collect-step-head">
+				<div>
+					<h2 id="collect-step-title">{title}</h2>
+					<p>{description}</p>
+				</div>
+				{aside}
+			</header>
+			{children}
+		</section>
+	);
+}
+
+/** `/collect` before anything is stored: the Sources choice, then the first step it needs. */
+function FirstVisit() {
+	const db = useDb();
+	const navigate = useNavigate();
+	const demo = useDemoActions();
+	return (
+		<section className="collect-first" aria-labelledby="collect-first-title">
+			<h1 id="collect-first-title" className="collect-first-title">
+				What do you have?
+			</h1>
+			<p className="collect-muted">
+				Start with one source and add the other later. Everything stays in this
+				browser.
+			</p>
+			<SourcesChoice
+				current={null}
+				onChosen={(sources) =>
+					void navigate({
+						to: "/collect/$step",
+						params: { step: sources === "photos" ? "locations" : "passports" },
+					})
+				}
+				demoBusy={demo.state.kind === "busy"}
+				onDemo={async () => {
+					await saveSources(db, "both");
+					if (await demo.load())
+						void navigate({ to: "/collect/$step", params: { step: "review" } });
+				}}
+			/>
+			{demo.state.kind === "error" ? (
+				<p role="alert" className="collect-sources-error">
+					{demo.state.message}
+				</p>
+			) : null}
+		</section>
 	);
 }

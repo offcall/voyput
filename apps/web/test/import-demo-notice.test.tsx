@@ -21,10 +21,13 @@ describe("location card after a demo load", () => {
 		const step = (name: RegExp) => screen.getByRole("link", { name });
 
 		await user.click(
-			await screen.findByRole("button", { name: "Load demo data" }),
+			await screen.findByRole("button", { name: /^Sources: .* · change$/ }),
 		);
-		await screen.findByText(/Loaded 5 demo pages/);
-		// The demo card is on the passports step; the locations step reports the load.
+		await user.click(
+			await screen.findByRole("button", { name: "Try with demo data" }),
+		);
+		await screen.findByText(/5 demo pages/);
+		// The demo banner is on the passports step; the locations step reports the load.
 		await user.click(step(/^Step 2: Photo locations/));
 		await screen.findByText(DEMO_NOTICE);
 

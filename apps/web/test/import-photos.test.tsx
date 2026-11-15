@@ -79,7 +79,8 @@ describe("import passport photos", () => {
 		await user.click(screen.getByRole("button", { name: "Rotate page-1.jpg" }));
 		await user.click(screen.getByRole("button", { name: "Delete page-1.jpg" }));
 		await user.click(await screen.findByRole("button", { name: "Cancel" }));
-		await user.click(screen.getByRole("button", { name: "Edit" }));
+		await user.click(screen.getByRole("button", { name: "More for Trip" }));
+		await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
 		await user.click(await screen.findByRole("button", { name: "Save" }));
 		expect(router.state.location.pathname).toBe("/collect/passports");
 
@@ -107,7 +108,8 @@ describe("import passport photos", () => {
 		await screen.findByText(/valid \? – 2030-01-01/);
 		expect((await db.passports.toArray())[0]?.validTo).toBe("2030-01-01");
 
-		await user.click(screen.getByRole("button", { name: "Edit" }));
+		await user.click(screen.getByRole("button", { name: "More for Dated" }));
+		await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
 		const dialog = await screen.findByRole("dialog");
 		expect(
 			within(dialog).getByText("Validity dates (optional)").closest("details")
@@ -150,7 +152,8 @@ describe("import passport photos", () => {
 			kept?.id,
 		]);
 
-		await user.click(screen.getByRole("button", { name: "Delete" }));
+		await user.click(screen.getByRole("button", { name: "More for Old" }));
+		await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 		await user.click(
 			await screen.findByRole("button", { name: "Delete passport" }),
 		);

@@ -1,24 +1,13 @@
-import { DemoLoader } from "../demo/DemoLoader";
-import { useDemoLoaded } from "./demoLoaded";
+import { DemoBanner } from "../demo/DemoBanner";
 import { PhotoImport } from "./photos/PhotoImport";
 import "./import.css";
 
-/** Collect step 1: passports with their page photos, and the demo loader beside them. */
+/** Collect step 1: passports with their page photos, under a thin demo banner. */
 export function PassportsStep() {
-	const { setDemoLoaded } = useDemoLoaded();
 	return (
-		<div className="import-layout">
-			<div className="import-photos">
-				<PhotoImport />
-			</div>
-			<div className="import-demo-slot">
-				<DemoLoader
-					onLoaded={(summary) =>
-						setDemoLoaded({ summary: summary.locationSummary })
-					}
-					onRemoved={() => setDemoLoaded(null)}
-				/>
-			</div>
+		<div className="import-photos">
+			<DemoBanner />
+			<PhotoImport />
 		</div>
 	);
 }
