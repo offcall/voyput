@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 /** What the toast says after a change, an undo or a redo, and what its button does. */
 export interface ToastMessage {
-	/** Changes on every message, so the timer starts again. */
+	/** Changes on every message: the timer starts again. */
 	id: number;
 	text: string;
 	action: "undo" | "redo";
@@ -22,10 +22,14 @@ export function UndoToast({
 	onAction: (action: "undo" | "redo") => void;
 	onClose: () => void;
 }) {
+	// Stays mounted across messages, so a click on Undo is never lost to a
+	// change that lands first (a field saving on blur); each message restarts the timer.
+	const { id } = message;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a new message restarts the timer
 	useEffect(() => {
 		const timer = setTimeout(onClose, TOAST_MS);
 		return () => clearTimeout(timer);
-	}, [onClose]);
+	}, [id, onClose]);
 	return (
 		<div className="vp-stays-toast" role="status">
 			<span>{message.text}</span>

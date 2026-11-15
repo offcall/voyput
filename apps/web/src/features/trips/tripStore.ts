@@ -137,16 +137,40 @@ export async function loadBirth(db: VoyputDb): Promise<Birth> {
 	return birthOf(birthCountry?.value, birth?.value);
 }
 
+/** The birth setting and the stored history it shaped: what a Settings change replaces. */
+export interface BirthSnapshot extends Birth {
+	stays: TravelStay[];
+}
+
 /**
  * Saves the birth setting from Settings. A stored history gets its stay since
  * birth added, moved or removed, as on the Stays step; a suggestion picks the
- * setting up when it is built.
+ * setting up when it is built. Returns what was there before, for Undo.
  */
-export async function changeBirth(db: VoyputDb, birth: Birth): Promise<void> {
-	await db.transaction("rw", db.kv, db.stays, async () => {
-		await saveBirth(db, birth);
+export async function changeBirth(
+	db: VoyputDb,
+	birth: Birth,
+): Promise<BirthSnapshot> {
+	return db.transaction("rw", db.kv, db.stays, async () => {
+		const before = await loadBirth(db);
 		const stored = sortStays(await db.stays.toArray());
+		await saveBirth(db, birth);
 		if (stored.length > 0) await saveStays(db, withBirthStay(stored, birth));
+		return { ...before, stays: stored };
+	});
+}
+
+/** Puts a birth setting and its history back as they were; returns what it replaced, for Redo. */
+export async function restoreBirth(
+	db: VoyputDb,
+	snapshot: BirthSnapshot,
+): Promise<BirthSnapshot> {
+	return db.transaction("rw", db.kv, db.stays, async () => {
+		const before = await loadBirth(db);
+		const stored = sortStays(await db.stays.toArray());
+		await saveBirth(db, snapshot);
+		await saveStays(db, snapshot.stays);
+		return { ...before, stays: stored };
 	});
 }
 

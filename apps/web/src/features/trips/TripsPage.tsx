@@ -582,7 +582,6 @@ export function TripsPage() {
 			</div>
 			{toast ? (
 				<UndoToast
-					key={toast.id}
 					message={toast}
 					onAction={(action) => (action === "undo" ? undo() : redo())}
 					onClose={closeToast}

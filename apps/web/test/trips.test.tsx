@@ -251,6 +251,27 @@ describe("trips", () => {
 		await waitFor(async () => expect(await db.stays.count()).toBe(4));
 	});
 
+	it("keeps the toast's Undo when a field saves on blur as it is clicked", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-toast-blur");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		const japan = await open(user, 4, "Japan");
+		await user.click(japan.getByRole("button", { name: "Transit" }));
+		expect(screen.getByRole("status").textContent).toContain("Changed Japan");
+		await user.type(japan.getByDisplayValue("Tokyo, Kyoto"), ", Nara");
+		// The click blurs Place first, which saves it; Undo then takes that back.
+		await user.click(toastButton("Undo"));
+		await waitFor(async () =>
+			expect((await storedStays(db))[3]).toMatchObject({
+				place: "Tokyo, Kyoto",
+				kind: "transit",
+			}),
+		);
+		expect(screen.getByRole("status").textContent).toContain("Undone");
+	});
+
 	it("edits a stay's dates in the panel and shows its hints there", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-detail");
@@ -339,6 +360,47 @@ describe("trips", () => {
 		await waitFor(async () => expect(await db.stays.count()).toBe(5));
 		renderApp("/collect/trips", { db });
 		expect((await row(1, "Moldova")).textContent).toContain("1 Jan → 1 Mar");
+	});
+
+	it("undoes an approved stay since birth removed in Settings, with its approval", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-birth-undo");
+		await seed(db);
+		await setBirth(user, db, "MD", "1997-05-21");
+		const first = renderApp("/collect/trips", { db });
+		expect((await row(1, "Moldova")).textContent).toContain("21 May 1997");
+		// Storing the history; the stay since birth stays a suggestion that follows the setting.
+		await user.click(screen.getByRole("button", { name: /^✓ Approve \d/ }));
+		await waitFor(async () => expect(await db.stays.count()).toBe(6));
+		first.unmount();
+		const [birthStay] = await storedStays(db);
+		if (!birthStay?.sinceBirth || birthStay.edited)
+			throw new Error("no birth stay");
+		await db.stays.update(birthStay.id, { approved: true });
+
+		renderApp("/settings", { db });
+		fireEvent.change(await screen.findByLabelText("Birth date"), {
+			target: { value: "" },
+		});
+		await waitFor(async () => expect(await db.stays.count()).toBe(5));
+		expect(screen.getByRole("status").textContent).toContain(
+			"Cleared birth date",
+		);
+		await user.click(toastButton("Undo"));
+		await waitFor(async () =>
+			expect((await storedStays(db))[0]).toMatchObject({
+				countryCode: "MD",
+				sinceBirth: true,
+				approved: true,
+			}),
+		);
+		expect((await db.kv.get("trips:birth"))?.value).toBe("1997-05-21");
+		expect(screen.getByLabelText<HTMLInputElement>("Birth date").value).toBe(
+			"1997-05-21",
+		);
+		await user.click(toastButton("Redo"));
+		await waitFor(async () => expect(await db.stays.count()).toBe(5));
+		expect(await db.kv.get("trips:birth")).toBeUndefined();
 	});
 
 	it("leaves a stay since birth the user edited when the birth setting changes", async () => {
