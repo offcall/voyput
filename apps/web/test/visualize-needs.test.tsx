@@ -182,4 +182,34 @@ describe("insights placeholders and hints", () => {
 		expect(await screen.findByText("Days abroad")).toBeTruthy();
 		expect(hints()).toHaveLength(0);
 	});
+
+	it("shows the photo charts when photos are there but no stay has known days", async () => {
+		const db = await seed("needs-undated", { locations: true, trips: false });
+		// A saved stay without an arrival and no birth date: nothing to draw.
+		await db.stays.put({
+			id: "undated",
+			countryCode: "MD",
+			place: "",
+			kind: "stay",
+			arrival: { date: null, source: "estimated", method: "unknown" },
+			departure: { date: null, source: "estimated", method: "unknown" },
+			stampIds: [],
+			photoIds: [],
+			approved: true,
+		});
+		const stats = renderApp("/insights/stats", { db });
+		expect(
+			await screen.findByRole("table", { name: /Countries by photos/ }),
+		).toBeTruthy();
+		expect(main().getAllByText("Drawn from stays.").length).toBeGreaterThan(0);
+		expect(screen.queryByText("No stays yet")).toBeNull();
+		expect(screen.queryByRole("button", { name: /^Filter/ })).toBeNull();
+		stats.unmount();
+
+		renderApp("/insights/calendar", { db });
+		expect(
+			await screen.findByRole("img", { name: "Photos per month" }),
+		).toBeTruthy();
+		expect(screen.queryByText("Nothing matches this filter")).toBeNull();
+	});
 });

@@ -259,4 +259,31 @@ describe("insights stats and filter", () => {
 		await user.click(active().getByRole("button", { name: "Clear all" }));
 		expect(kpis()).toEqual(ALL);
 	});
+
+	it("keeps the filter when switching to Journey, which plays only the filtered stays", async () => {
+		const user = userEvent.setup();
+		const { chip } = await openExplore();
+		await user.click(chip("Region", "Asia"));
+		const nav = within(screen.getByRole("navigation", { name: "Sections" }));
+		await user.click(nav.getByRole("link", { name: "Journey" }));
+		expect(
+			await screen.findByRole("img", { name: "Route player map" }),
+		).toBeTruthy();
+		expect(screen.getByRole("button", { name: /^Filter · 1/ })).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: "Remove filter: Asia" }),
+		).toBeTruthy();
+		const caption = () =>
+			document.querySelector(".vp-route-stop-trip")?.textContent ?? "";
+		// The first stay played is the first Asian one, not Romania.
+		await waitFor(() => expect(caption()).toMatch(/^Stay 1\/\d+ · Japan/));
+		const total = () => Number(/^Stay \d+\/(\d+)/.exec(caption())?.[1]);
+		const filteredTotal = total();
+
+		await user.click(
+			screen.getByRole("button", { name: "Remove filter: Asia" }),
+		);
+		await waitFor(() => expect(caption()).toMatch(/^Stay 1\/\d+ · Romania/));
+		expect(total()).toBeGreaterThan(filteredTotal);
+	});
 });

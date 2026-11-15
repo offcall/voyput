@@ -1,6 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { collectTarget } from "../src/app/Layout";
+import { buildPlan } from "../src/features/import/plan/planProgress";
 import { INSIGHT_VIEWS } from "../src/features/visualize/views";
 import { renderApp } from "./renderApp";
 
@@ -131,5 +133,43 @@ describe("collect, stays and insights navigation", () => {
 		await user.click(screen.getByRole("link", { name: "Settings" }));
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
 		expect(current(collectLink())).toBeNull();
+	});
+
+	it("never sends Collect to the Stays step", async () => {
+		const user = userEvent.setup();
+		const { router } = renderApp("/collect/trips");
+		await waitFor(() => expect(current(staysLink())).toBe("page"));
+		await user.click(nav().getByRole("link", { name: "Insights" }));
+		await waitFor(() =>
+			expect(router.state.location.pathname).toMatch(/^\/insights\//),
+		);
+		await user.click(collectLink());
+		await waitFor(() =>
+			expect(router.state.location.pathname).toMatch(/^\/collect\/[a-z]+$/),
+		);
+		expect(router.state.location.pathname).not.toBe("/collect/trips");
+	});
+
+	it("picks a source step for Collect: remembered, first unfinished, or the last one", () => {
+		const done = buildPlan({
+			passports: 1,
+			photos: 1,
+			locations: 1,
+			locationCountries: ["RO"],
+			extracted: 1,
+			failed: 0,
+			stamps: 1,
+			toReview: 0,
+			problems: 0,
+			stays: [],
+			birthCountry: null,
+		});
+		expect(done.next?.id).toBe("trips");
+		expect(collectTarget("review", done)).toBe("review");
+		expect(collectTarget("trips", done)).toBe("review");
+		expect(collectTarget(null, done)).toBe("review");
+		expect(collectTarget(null, undefined)).toBe("passports");
+		const empty = buildPlan({ ...done.input, passports: 0, photos: 0 });
+		expect(collectTarget(null, empty)).toBe("passports");
 	});
 });

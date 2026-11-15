@@ -8,7 +8,6 @@ import {
 	filterStays,
 	groupByCountry,
 	type LocationRow,
-	splitRowsByRanges,
 	staysRange,
 	summarizeStays,
 	type VizData,
@@ -17,8 +16,10 @@ import {
 import { PageHeader, Stack } from "@voyput/ui";
 import { type ReactNode, useMemo, useState } from "react";
 import { KeepCountryColours } from "../../app/countryColours";
+import { localToday } from "../trips/format";
 import { type StaysData, useStays } from "./data/useStays";
 import { activeFilterChips } from "./filterChips";
+import { photosInStays } from "./filterPhotos";
 import { FilterBar, FilterButton } from "./InsightsFilter";
 import {
 	hintFor,
@@ -45,6 +46,10 @@ export interface InsightsContext {
 	rows: readonly LocationRow[];
 	/** Aggregates of the photos inside the filtered stays (all photos without a filter). */
 	data: VizData;
+	/** The photos `data` is built from. */
+	photos: readonly LocationRow[];
+	/** A filter is set (not the defaults). */
+	isFiltered: boolean;
 	/** World outlines, or `null` until loaded. */
 	world: WorldShapes | null;
 	/** Every stay, stored or suggested. */
@@ -65,21 +70,32 @@ const NO_STAYS: StaysData = {
 	locations: [],
 	birthCountry: null,
 	summary: summarizeStays([]),
+	history: [],
+	birth: null,
 };
 
-/** Data each view cannot draw without. */
+/**
+ * Data each view cannot draw without. Calendar and Stats draw stay sections
+ * and photo sections apart, so either is enough; they still wait for stays.
+ */
 const NEEDS: Record<InsightViewId, readonly VizNeed[]> = {
 	journey: ["stays"],
 	map: ["locations"],
-	calendar: ["stays"],
-	stats: ["stays"],
+	calendar: [],
+	stats: [],
+};
+const WAITS_FOR_STAYS: Record<InsightViewId, boolean> = {
+	journey: true,
+	map: false,
+	calendar: true,
+	stats: true,
 };
 
 /** Countries that keep their own colour; the rest share one neutral tone. */
 const COLOURED_COUNTRIES = 10;
 
 const VIEWS: Record<InsightViewId, (ctx: InsightsContext) => ReactNode> = {
-	journey: (ctx) => <JourneyView stays={ctx.stays} world={ctx.world} />,
+	journey: (ctx) => <JourneyView ctx={ctx} />,
 	map: (ctx) => <MapView ctx={ctx} />,
 	calendar: (ctx) => <CalendarView ctx={ctx} />,
 	stats: (ctx) => <StatsView ctx={ctx} />,
@@ -123,20 +139,22 @@ export function InsightsPage() {
 	}, [allStays, defaults]);
 
 	// Aggregating 30k rows is the expensive part: once per data or filter change.
-	const data = useMemo(() => {
+	const photos = useMemo(() => {
 		if (source.status !== "ready") return null;
-		if (!isFiltered) return buildVizData([source.rows]);
-		// Photos inside the filtered stays; layovers only when transits are asked for.
-		const ranges = filtered
-			.filter((s) => filters.kind === "transit" || s.kind !== "transit")
-			.map((s) => ({ start: s.clipStart, end: s.clipEnd }));
-		return buildVizData(
-			ranges.length > 0 ? splitRowsByRanges(source.rows, ranges) : [],
-		);
-	}, [source, isFiltered, filtered, filters.kind]);
+		if (!isFiltered || stays.status !== "ready") return [source.rows];
+		return photosInStays({
+			rows: source.rows,
+			filtered,
+			history: stays.data.history,
+			filters,
+			birth: stays.data.birth,
+			today: localToday(),
+		});
+	}, [source, stays, isFiltered, filtered, filters]);
+	const data = useMemo(() => (photos ? buildVizData(photos) : null), [photos]);
 
 	const needs = NEEDS[view.id];
-	const needsStays = needs.includes("stays");
+	const needsStays = WAITS_FOR_STAYS[view.id];
 	const header = (actions?: ReactNode) => (
 		<PageHeader
 			title={view.title}
@@ -169,7 +187,8 @@ export function InsightsPage() {
 	if (
 		source.status === "loading" ||
 		(needsStays && stays.status === "loading") ||
-		!data
+		!data ||
+		!photos
 	)
 		return loading;
 
@@ -180,7 +199,9 @@ export function InsightsPage() {
 		storedStays: source.stays.length,
 		stamps: source.stamps,
 	};
-	const missing = missingNeed(needs, have);
+	const missing =
+		missingNeed(needs, have) ??
+		(have.locations === 0 && have.stays === 0 ? "stays" : null);
 	if (missing) {
 		// The placeholder names the stays there are, so it waits for them.
 		if (stays.status === "loading") return loading;
@@ -195,7 +216,7 @@ export function InsightsPage() {
 	const onFilter = (patch: Partial<Filters>) =>
 		setChosen((prev) => ({ ...(prev ?? defaults), ...patch }));
 	const onReset = () => setChosen(null);
-	const canFilter = view.id !== "journey" && staysData.stays.length > 0;
+	const canFilter = staysData.stays.length > 0;
 	const [dataFrom, dataTo] = staysRange(staysData.stays);
 	const scope = `${filtered.length} of ${staysData.stays.length} stays · ${filters.from || dataFrom} – ${filters.to || dataTo}`;
 	const hint = hintFor(view.id, have);
@@ -229,6 +250,8 @@ export function InsightsPage() {
 				{VIEWS[view.id]({
 					rows: source.rows,
 					data,
+					photos: photos.flat(),
+					isFiltered,
 					world,
 					stays: staysData,
 					filtered,

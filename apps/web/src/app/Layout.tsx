@@ -3,7 +3,11 @@ import { AppShell } from "@voyput/ui";
 import { type ReactNode, useEffect, useState } from "react";
 import { stepIdOf } from "../features/collect/CollectPage";
 import { firstUnfinishedStep } from "../features/collect/steps";
-import { isStepId, type StepId } from "../features/import/plan/planProgress";
+import {
+	isStepId,
+	type Plan,
+	type StepId,
+} from "../features/import/plan/planProgress";
 import { usePlan } from "../features/import/plan/usePlan";
 import {
 	FIRST_VIEW,
@@ -54,6 +58,22 @@ function useAreas(pathname: string) {
 	return { area: areaOf(pathname), ...last };
 }
 
+/**
+ * Where the Collect link leads: never the Stays step, which has its own item
+ * and no Collect stepper. The last source step visited, else the first
+ * unfinished one, else the plan's last source step.
+ */
+export function collectTarget(
+	remembered: StepId | null,
+	plan: Plan | undefined,
+): StepId {
+	if (remembered && remembered !== "trips") return remembered;
+	if (!plan) return "passports";
+	const next = firstUnfinishedStep(plan);
+	if (next !== "trips") return next;
+	return plan.steps.filter((s) => s.id !== "trips").at(-1)?.id ?? "passports";
+}
+
 const VIEW_ICONS: Record<InsightViewId, ReactNode> = {
 	journey: icons.journey,
 	map: icons.map,
@@ -68,8 +88,7 @@ export function Layout() {
 		select: (state) => state.location.pathname,
 	});
 	const areas = useAreas(pathname);
-	const collectStep =
-		areas.step ?? (plan ? firstUnfinishedStep(plan) : "passports");
+	const collectStep = collectTarget(areas.step, plan);
 	const inInsights = areas.area === "insights";
 
 	return (

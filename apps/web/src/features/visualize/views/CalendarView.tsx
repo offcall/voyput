@@ -25,7 +25,7 @@ export function NoMatch({ onReset }: { onReset: () => void }) {
 	);
 }
 
-/** Calendar: the stays year by year, one year day by day, and photos per day. */
+/** Calendar: the stays year by year, one year day by day, and photos per day; each part shows when its data is there. */
 export function CalendarView({ ctx }: { ctx: InsightsContext }) {
 	const { filtered: rows, groups, filters, onFilter, stays, data, have } = ctx;
 	const [calendarYear, setCalendarYear] = useState<number | null>(null);
@@ -47,33 +47,39 @@ export function CalendarView({ ctx }: { ctx: InsightsContext }) {
 		setCalendarYear(year);
 	};
 
-	if (rows.length === 0) return <NoMatch onReset={ctx.onReset} />;
+	// Stay sections need drawable stays; the photo calendar only photos.
+	const hasStays = stays.stays.length > 0;
+	if (hasStays && rows.length === 0) return <NoMatch onReset={ctx.onReset} />;
 	return (
 		<div className="vp-explore">
-			<ChartPanel
-				title="Timeline"
-				description="Each stay as a bar; a diamond is a one-day stay. Click a year to zoom in."
-			>
-				<StayTimeline
-					rows={rows}
-					selectedId={selection.selectedStayId}
-					onPick={selection.pickStay}
-					onYear={pickYear}
-				/>
-			</ChartPanel>
-			<ChartPanel
-				title="Days"
-				description="Where you were each day of the year."
-			>
-				<StayCalendar
-					rows={rows}
-					years={years}
-					year={shownYear}
-					onYear={setCalendarYear}
-					selectedId={selection.selectedStayId}
-					onPick={selection.pickStay}
-				/>
-			</ChartPanel>
+			{hasStays ? (
+				<>
+					<ChartPanel
+						title="Timeline"
+						description="Each stay as a bar; a diamond is a one-day stay. Click a year to zoom in."
+					>
+						<StayTimeline
+							rows={rows}
+							selectedId={selection.selectedStayId}
+							onPick={selection.pickStay}
+							onYear={pickYear}
+						/>
+					</ChartPanel>
+					<ChartPanel
+						title="Days"
+						description="Where you were each day of the year."
+					>
+						<StayCalendar
+							rows={rows}
+							years={years}
+							year={shownYear}
+							onYear={setCalendarYear}
+							selectedId={selection.selectedStayId}
+							onPick={selection.pickStay}
+						/>
+					</ChartPanel>
+				</>
+			) : null}
 			{have.locations > 0 ? (
 				<ChartPanel title="Photos" description="Photos per month and per day.">
 					<CalendarChart data={data} />

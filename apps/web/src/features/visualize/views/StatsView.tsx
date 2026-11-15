@@ -64,6 +64,8 @@ function useScrollToHash() {
 	}, [hash]);
 }
 
+const NEEDS_STAYS = <p className="vp-viz-muted">Drawn from stays.</p>;
+
 const NEEDS_PHOTOS = (
 	<p className="vp-viz-muted">Drawn from photo locations.</p>
 );
@@ -89,13 +91,21 @@ export function StatsView({ ctx }: { ctx: InsightsContext }) {
 	const photos = have.locations > 0;
 	const pickYear = (year: number) => onFilter(yearRange(year, stays.stays));
 
-	if (rows.length === 0) return <NoMatch onReset={ctx.onReset} />;
+	// Stay sections need drawable stays, photo sections only photos.
+	const hasStays = stays.stays.length > 0;
+	if (hasStays && rows.length === 0) return <NoMatch onReset={ctx.onReset} />;
 	return (
 		<div className="vp-explore vp-insights-stats">
 			<StatGroup>
-				<Stat label="Countries" value={formatInt(kpis.countries)} />
+				<Stat
+					label="Countries"
+					value={formatInt(hasStays ? kpis.countries : data.countries.length)}
+				/>
 				<Stat label="Stays" value={formatInt(kpis.stays)} />
-				<Stat label="Days abroad" value={formatInt(kpis.daysAbroad)} />
+				<Stat
+					label="Days abroad"
+					value={hasStays ? formatInt(kpis.daysAbroad) : "—"}
+				/>
 				<Stat
 					label="Distance"
 					value={photos ? `${formatInt(data.distances.totalKm)} km` : "—"}
@@ -112,65 +122,71 @@ export function StatsView({ ctx }: { ctx: InsightsContext }) {
 
 			<Section id="countries" title="Countries">
 				<div className="vp-explore-grid">
-					<ChartPanel title="Top countries">
-						<ChipGroup label="Rank by">
-							<Chip
-								selected={rankBy === "days"}
-								onClick={() => setRankBy("days")}
-							>
-								Days
-							</Chip>
-							<Chip
-								selected={rankBy === "visits"}
-								onClick={() => setRankBy("visits")}
-							>
-								Visits
-							</Chip>
-						</ChipGroup>
-						<BarList
-							label="Top countries"
-							unit={rankBy === "days" ? "d" : "×"}
-							bars={groups.map((g) => ({
-								id: g.countryCode,
-								label: g.country,
-								value: g[rankBy],
-								countryCode: g.countryCode,
-							}))}
-							onPick={(bar) =>
-								bar.countryCode && selection.pickCountry(bar.countryCode)
-							}
-						/>
-					</ChartPanel>
-					<ChartPanel
-						title="First visits"
-						description="Countries whose very first stay falls in this selection."
-					>
-						<ul className="vp-insights-flags" aria-label="First visits">
-							{firstVisits(stays.stays, rows).map((r) => (
-								<li key={r.id}>
-									<button
-										type="button"
-										title={`${r.country} · first visit ${r.start}`}
-										aria-label={`${r.country}, first visit ${r.start}`}
-										onClick={() => selection.pickStay(r)}
-									>
-										<span aria-hidden="true">{flagEmoji(r.countryCode)}</span>
-										<span aria-hidden="true">{r.countryCode}</span>
-									</button>
-								</li>
-							))}
-						</ul>
-					</ChartPanel>
-					<ChartPanel
-						title="Visits vs days"
-						description="Countries you came back to, and where you stayed long."
-					>
-						<CountryScatter
-							groups={groups}
-							selected={selection.selectedCountry}
-							onPick={selection.pickCountry}
-						/>
-					</ChartPanel>
+					{hasStays ? (
+						<ChartPanel title="Top countries">
+							<ChipGroup label="Rank by">
+								<Chip
+									selected={rankBy === "days"}
+									onClick={() => setRankBy("days")}
+								>
+									Days
+								</Chip>
+								<Chip
+									selected={rankBy === "visits"}
+									onClick={() => setRankBy("visits")}
+								>
+									Visits
+								</Chip>
+							</ChipGroup>
+							<BarList
+								label="Top countries"
+								unit={rankBy === "days" ? "d" : "×"}
+								bars={groups.map((g) => ({
+									id: g.countryCode,
+									label: g.country,
+									value: g[rankBy],
+									countryCode: g.countryCode,
+								}))}
+								onPick={(bar) =>
+									bar.countryCode && selection.pickCountry(bar.countryCode)
+								}
+							/>
+						</ChartPanel>
+					) : null}
+					{hasStays ? (
+						<ChartPanel
+							title="First visits"
+							description="Countries whose very first stay falls in this selection."
+						>
+							<ul className="vp-insights-flags" aria-label="First visits">
+								{firstVisits(stays.stays, rows).map((r) => (
+									<li key={r.id}>
+										<button
+											type="button"
+											title={`${r.country} · first visit ${r.start}`}
+											aria-label={`${r.country}, first visit ${r.start}`}
+											onClick={() => selection.pickStay(r)}
+										>
+											<span aria-hidden="true">{flagEmoji(r.countryCode)}</span>
+											<span aria-hidden="true">{r.countryCode}</span>
+										</button>
+									</li>
+								))}
+							</ul>
+						</ChartPanel>
+					) : null}
+					{hasStays ? (
+						<ChartPanel
+							title="Visits vs days"
+							description="Countries you came back to, and where you stayed long."
+						>
+							<CountryScatter
+								groups={groups}
+								selected={selection.selectedCountry}
+								onPick={selection.pickCountry}
+							/>
+						</ChartPanel>
+					) : null}
 					<ChartPanel
 						title="Photos by country"
 						description="Where your photos were taken, most first."
@@ -182,12 +198,14 @@ export function StatsView({ ctx }: { ctx: InsightsContext }) {
 
 			<Section id="years" title="Years">
 				<div className="vp-explore-grid">
-					<ChartPanel
-						title="Regions by year"
-						description="How each year's days split across regions. Click a year to filter."
-					>
-						<YearRegions rows={yearRows} onYear={pickYear} />
-					</ChartPanel>
+					{hasStays ? (
+						<ChartPanel
+							title="Regions by year"
+							description="How each year's days split across regions. Click a year to filter."
+						>
+							<YearRegions rows={yearRows} onYear={pickYear} />
+						</ChartPanel>
+					) : null}
 					<ChartPanel
 						title="Countries per year"
 						description="Share of photos by country, one ring per year."
@@ -214,52 +232,58 @@ export function StatsView({ ctx }: { ctx: InsightsContext }) {
 						<SankeyChart data={data} />
 					</ChartPanel>
 				) : null}
-				<ChartPanel
-					title="Stay to stay"
-					description="Country changes from one stay straight into the next."
-				>
-					<BarList
-						label="Routes"
-						unit="×"
-						bars={buildStayRoutes(rows).map((r) => ({
-							id: `${r.from}>${r.to}`,
-							label: r.label,
-							value: r.count,
-						}))}
-					/>
-				</ChartPanel>
+				{hasStays ? (
+					<ChartPanel
+						title="Stay to stay"
+						description="Country changes from one stay straight into the next."
+					>
+						<BarList
+							label="Routes"
+							unit="×"
+							bars={buildStayRoutes(rows).map((r) => ({
+								id: `${r.from}>${r.to}`,
+								label: r.label,
+								value: r.count,
+							}))}
+						/>
+					</ChartPanel>
+				) : null}
 			</Section>
 
 			<Section id="periods" title="Periods">
 				<div className="vp-explore-grid">
-					<ChartPanel
-						title="Longest stays"
-						description="Single stays by days in the range."
-					>
-						<BarList
-							label="Longest stays"
-							unit="d"
-							bars={longestStayBars(rows)}
-							onPick={(bar) => selection.pickStay(bar)}
-						/>
-					</ChartPanel>
-					<ChartPanel
-						title="Rhythm"
-						description="Stays by full length, and how you entered."
-					>
-						<BarList
-							label="Stays by length"
-							unit="stays"
-							keepOrder
-							bars={durationBars(rows)}
-						/>
-						<h3 className="vp-viz-subtitle">Entry</h3>
-						<BarList
-							label="Stays by entry"
-							unit="stays"
-							bars={entryMethodBars(rows)}
-						/>
-					</ChartPanel>
+					{hasStays ? (
+						<ChartPanel
+							title="Longest stays"
+							description="Single stays by days in the range."
+						>
+							<BarList
+								label="Longest stays"
+								unit="d"
+								bars={longestStayBars(rows)}
+								onPick={(bar) => selection.pickStay(bar)}
+							/>
+						</ChartPanel>
+					) : null}
+					{hasStays ? (
+						<ChartPanel
+							title="Rhythm"
+							description="Stays by full length, and how you entered."
+						>
+							<BarList
+								label="Stays by length"
+								unit="stays"
+								keepOrder
+								bars={durationBars(rows)}
+							/>
+							<h3 className="vp-viz-subtitle">Entry</h3>
+							<BarList
+								label="Stays by entry"
+								unit="stays"
+								bars={entryMethodBars(rows)}
+							/>
+						</ChartPanel>
+					) : null}
 				</div>
 				{photos ? (
 					<ChartPanel
@@ -285,24 +309,30 @@ export function StatsView({ ctx }: { ctx: InsightsContext }) {
 			</Section>
 
 			<Section id="records" title="Records">
-				<p className="vp-viz-muted" data-testid="record-facts">
-					{formatInt(kpis.days)} days · {formatInt(kpis.oneDay)} one-day stays ·{" "}
-					{formatInt(kpis.transits)} transits · {formatInt(kpis.estimated)} with
-					estimated dates · longest{" "}
-					{kpis.longest
-						? `${formatInt(kpis.longest.clippedDays)} d (${kpis.longest.country})`
-						: "—"}
-				</p>
-				<ChartPanel
-					title="Every stay"
-					description="Sort by a column, download as CSV."
-				>
-					<StayRecords
-						rows={rows}
-						selectedId={selection.selectedStayId}
-						onPick={selection.pickStay}
-					/>
-				</ChartPanel>
+				{hasStays ? (
+					<>
+						<p className="vp-viz-muted" data-testid="record-facts">
+							{formatInt(kpis.days)} days · {formatInt(kpis.oneDay)} one-day
+							stays · {formatInt(kpis.transits)} transits ·{" "}
+							{formatInt(kpis.estimated)} with estimated dates · longest{" "}
+							{kpis.longest
+								? `${formatInt(kpis.longest.clippedDays)} d (${kpis.longest.country})`
+								: "—"}
+						</p>
+						<ChartPanel
+							title="Every stay"
+							description="Sort by a column, download as CSV."
+						>
+							<StayRecords
+								rows={rows}
+								selectedId={selection.selectedStayId}
+								onPick={selection.pickStay}
+							/>
+						</ChartPanel>
+					</>
+				) : (
+					NEEDS_STAYS
+				)}
 			</Section>
 
 			{selection.detail}

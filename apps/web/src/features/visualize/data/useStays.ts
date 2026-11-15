@@ -4,6 +4,7 @@ import {
 	type Stay,
 	type StaysSummary,
 	summarizeStays,
+	type TravelStay,
 } from "@voyput/core";
 import { useEffect, useState } from "react";
 import { useDb } from "../../../db/DbContext";
@@ -18,6 +19,10 @@ export interface StaysData {
 	/** Birth country set on the Trips step: days elsewhere are abroad. */
 	birthCountry: string | null;
 	summary: StaysSummary;
+	/** The history the stays come from, with each stay's own border days. */
+	history: TravelStay[];
+	/** Birth date, the start of a stay since birth; null while unknown. */
+	birth: string | null;
 }
 
 export type StaysSource =
@@ -34,7 +39,8 @@ export function useStays(): StaysSource {
 		loadTripsData(db)
 			.then((data) => {
 				if (!alive) return;
-				const stays = buildStays(historyOf(data), {
+				const history = historyOf(data);
+				const stays = buildStays(history, {
 					birthCountry: data.birthCountry,
 					birth: data.birth,
 					today: localToday(),
@@ -47,6 +53,8 @@ export function useStays(): StaysSource {
 						locations: data.locations,
 						birthCountry: data.birthCountry,
 						summary: summarizeStays(stays),
+						history,
+						birth: data.birth,
 					},
 				});
 			})
