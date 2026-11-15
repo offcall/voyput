@@ -6,9 +6,11 @@ import {
 } from "../src/features/import/csv/CsvImport";
 
 describe("how to get the photo locations file", () => {
-	it("explains the export script and hides its link while there is no URL", () => {
-		expect(EXPORT_SCRIPT_URL).toBeNull();
-		const { container } = render(<HowToGetFile />);
+	it("explains the export script, which lives in tools/photos-export", () => {
+		expect(EXPORT_SCRIPT_URL).toBe(
+			"https://github.com/offcall/voyput/tree/main/tools/photos-export",
+		);
+		const { container } = render(<HowToGetFile scriptUrl={null} />);
 
 		expect(screen.getByText("uv run export_photo_locations.py")).toBeTruthy();
 		expect(container.textContent).toContain("Full Disk Access");

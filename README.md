@@ -35,5 +35,6 @@ The demo includes 10 real stamp pages from Wikimedia Commons with that model's o
 - `apps/web` — the app: routes, sections in `src/features/`, IndexedDB, AI client.
 - `packages/ui` — shared components and theme, with Storybook.
 - `packages/core` — domain types and pure logic.
+- `tools/photos-export` — a Python script, run with `uv` on a Mac, that exports iPhone photo locations from the Apple Photos library to the CSV the app imports ([ADR 0027](docs/adr/0027-photo-export-script-in-tools.md)).
 
 Decisions are in [`docs/adr/`](docs/adr/README.md).

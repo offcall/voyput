@@ -28,3 +28,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0022](0022-stays-without-home.md) | Stays Without Home | Accepted |
 | [0023](0023-navigation-and-insights.md) | Navigation and Insights | Accepted |
 | [0024](0024-collect-sources.md) | Collect Sources | Accepted |
+| [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Accepted |

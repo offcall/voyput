@@ -171,8 +171,9 @@ function ImportStatus({ state }: { state: ImportState }) {
 	}
 }
 
-/** Where the export script lives; the "Get the script" link stays hidden while this is null. */
-export const EXPORT_SCRIPT_URL: string | null = null;
+/** Where the export script lives (`tools/photos-export`); the "Get the script" link hides when this is null. */
+export const EXPORT_SCRIPT_URL: string | null =
+	"https://github.com/offcall/voyput/tree/main/tools/photos-export";
 
 /** Steps to write photo_locations.csv on a Mac with the export script. */
 export function HowToGetFile({
