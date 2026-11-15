@@ -15,7 +15,7 @@ import {
 	type TravelStay,
 	usableStamps,
 } from "@voyput/core";
-import { Button, Notice, Stack } from "@voyput/ui";
+import { Button, Notice, SkyHeader, Stack } from "@voyput/ui";
 import {
 	type CSSProperties,
 	type ReactNode,
@@ -390,6 +390,7 @@ export function TripsPage() {
 
 	return (
 		<Stack>
+			<SkyHeader title="Stays" art="passport" />
 			<div className="vp-stays-bar" ref={barRef}>
 				<p className="vp-stays-summary" aria-live="polite">
 					<strong>{clear.length} ready</strong>

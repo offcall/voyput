@@ -4,26 +4,37 @@
 
 .collect-bar-frame {
 	container-type: inline-size;
+	background: var(--vp-surface);
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius-lg);
+	overflow: hidden;
+}
+.collect-bar-frame[data-complete] {
+	border-color: var(--vp-border-accent);
+}
+.collect-bar-frame > .vp-sky {
+	border-radius: 0;
+}
+.collect-bar-frame[data-complete] .collect-bar-art {
+	rotate: 0deg;
+	animation: collect-bounce 1.2s steps(2) infinite alternate;
+}
+@keyframes collect-bounce {
+	to {
+		translate: 0 -3px;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.collect-bar-frame[data-complete] .collect-bar-art {
+		animation: none;
+	}
 }
 .collect-bar {
 	display: flex;
 	align-items: center;
 	gap: var(--vp-space-4);
 	padding: var(--vp-space-2) var(--vp-space-4);
-	background: var(--vp-surface);
-	border: 1px solid var(--vp-border);
-	border-radius: var(--vp-radius-lg);
 	min-width: 0;
-}
-.collect-bar-title {
-	margin: 0;
-	font-family: var(--vp-font-pixel);
-	font-size: 15px;
-	font-weight: 400;
-	line-height: 1;
-	letter-spacing: 0.04em;
-	text-transform: uppercase;
-	flex: none;
 }
 .collect-bar .collect-stepper {
 	flex: 1 1 auto;
@@ -47,13 +58,12 @@
 	white-space: nowrap;
 }
 
-/* Narrow: title and action on one line, the steps scroll below them. */
+/* Narrow: the steps scroll on their own line, the action below them. */
 @container (max-width: 1080px) {
 	.collect-bar {
 		flex-wrap: wrap;
 	}
 	.collect-bar .collect-stepper {
-		order: 3;
 		flex-basis: 100%;
 	}
 	.collect-bar-end {
@@ -192,6 +202,7 @@
 	font-size: var(--vp-text-sm);
 }
 .collect-sources {
+	container-type: inline-size;
 	display: grid;
 	gap: var(--vp-space-3);
 }
@@ -244,11 +255,61 @@
 	font-size: var(--vp-text-sm);
 }
 .collect-sources-demo {
-	margin: 0;
-	padding: var(--vp-space-2) var(--vp-space-3);
+	display: flex;
+	align-items: center;
+	gap: var(--vp-space-4);
+	padding: var(--vp-space-3);
 	border: 1px dashed var(--vp-border);
 	border-radius: var(--vp-radius);
 	font-size: var(--vp-text-sm);
+}
+.collect-sources-demo p {
+	margin: 0;
+}
+/* A pixel scene: a plane over the hills, the passport and a stamp. */
+.collect-demo-scene {
+	flex: none;
+	width: 220px;
+}
+.collect-demo-scene .vp-sky-content {
+	padding: 0;
+}
+.collect-demo-scene .vp-pixel-art {
+	position: absolute;
+	filter: drop-shadow(2px 2px 0 rgb(0 0 0 / 0.25));
+}
+.collect-demo-plane {
+	left: 10%;
+	top: 10px;
+}
+.collect-demo-passport {
+	left: 46%;
+	top: 16px;
+	rotate: -6deg;
+}
+.collect-demo-stamp {
+	left: calc(46% + 30px);
+	top: 40px;
+	rotate: 10deg;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.collect-demo-plane {
+		animation: collect-demo-fly 2.4s steps(4) infinite alternate;
+	}
+}
+@keyframes collect-demo-fly {
+	to {
+		translate: 8px -4px;
+	}
+}
+@container (max-width: 520px) {
+	.collect-sources-demo {
+		flex-direction: column;
+		align-items: stretch;
+	}
+	.collect-demo-scene {
+		width: auto;
+	}
 }
 .collect-sources-error {
 	margin: 0;

@@ -14,6 +14,7 @@ export { PageHeader } from "./PageHeader";
 export { Progress } from "./Progress";
 export { PixelArt } from "./pixel/PixelArt";
 export { PixelSky } from "./pixel/PixelSky";
+export { SkyHeader } from "./pixel/SkyHeader";
 export { SPRITE_NAMES, type SpriteName } from "./pixel/sprites";
 export { TwinkleStars } from "./pixel/TwinkleStars";
 export { Stat, StatGroup } from "./Stat";

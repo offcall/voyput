@@ -1,37 +1,40 @@
 import type { ReactNode } from "react";
 import { PALETTE, SPRITES, spritePaths } from "./sprites";
 
-/** Art box in pixels; the SVG fills the banner's width and keeps the hills at the bottom. */
-const W = 320;
-const H = 48;
-
 /** Banded sky, top to bottom, as shares of `--vp-sky-top`. */
 const BANDS = [100, 80, 60, 40, 20, 0];
 
 /** Column heights of a hill layer, stepped every 2 pixels. */
-function hillPath(base: number, waves: [number, number][]) {
+function hillPath(
+	width: number,
+	height: number,
+	base: number,
+	waves: [number, number][],
+) {
 	let d = "";
-	for (let x = 0; x < W; x += 2) {
+	for (let x = 0; x < width; x += 2) {
 		const lift = waves.reduce(
 			(sum, [amp, period]) => sum + amp * Math.sin(x / period),
 			0,
 		);
-		const top = Math.round(H - base - lift);
-		d += `M${x} ${top}h2V${H}h-2z`;
+		const top = Math.round(height - base - lift);
+		d += `M${x} ${top}h2V${height}h-2z`;
 	}
 	return d;
 }
 
-const FAR_HILLS = hillPath(12, [
-	[5, 23],
-	[2, 7],
-]);
-const NEAR_HILLS = hillPath(6, [
-	[3, 17],
-	[1, 5],
-]);
+interface SkyArt {
+	/** Art box in pixels; the SVG fills the sky's width and keeps the hills at the bottom. */
+	width: number;
+	height: number;
+	stars: [number, number][];
+	clouds: { x: number; y: number; slow?: boolean }[];
+	sun: [number, number];
+	farHills: string;
+	nearHills: string;
+}
 
-const STARS: [number, number][] = [
+const BANNER_STARS: [number, number][] = [
 	[14, 4],
 	[38, 11],
 	[62, 3],
@@ -45,12 +48,57 @@ const STARS: [number, number][] = [
 	[303, 6],
 ];
 
-const CLOUDS: { x: number; y: number; slow?: boolean }[] = [
-	{ x: 22, y: 9 },
-	{ x: 104, y: 16, slow: true },
-	{ x: 158, y: 6 },
-	{ x: 262, y: 14, slow: true },
-];
+/** A tall banner: one 320 × 48 scene, scaled to the width. */
+const BANNER: SkyArt = {
+	width: 320,
+	height: 48,
+	stars: BANNER_STARS,
+	clouds: [
+		{ x: 22, y: 9 },
+		{ x: 104, y: 16, slow: true },
+		{ x: 158, y: 6 },
+		{ x: 262, y: 14, slow: true },
+	],
+	sun: [206, 5],
+	farHills: hillPath(320, 48, 12, [
+		[5, 23],
+		[2, 7],
+	]),
+	nearHills: hillPath(320, 48, 6, [
+		[3, 17],
+		[1, 5],
+	]),
+};
+
+/**
+ * A short band behind a title: a wide 640 × 32 scene with low hills, so a band
+ * about 56px high keeps the same chunky pixels as the banner and still shows sky.
+ * Narrow screens see its middle, where the sun is.
+ */
+const BAND: SkyArt = {
+	width: 640,
+	height: 32,
+	stars: [
+		...BANNER_STARS,
+		...BANNER_STARS.map(([x, y]): [number, number] => [x + 320, (y + 5) % 16]),
+	],
+	clouds: [
+		{ x: 40, y: 5 },
+		{ x: 150, y: 10, slow: true },
+		{ x: 268, y: 3 },
+		{ x: 452, y: 8, slow: true },
+		{ x: 560, y: 4 },
+	],
+	sun: [356, 3],
+	farHills: hillPath(640, 32, 5, [
+		[3, 23],
+		[1, 7],
+	]),
+	nearHills: hillPath(640, 32, 2, [
+		[2, 17],
+		[1, 5],
+	]),
+};
 
 const cloud = spritePaths(SPRITES.cloud);
 const sun = spritePaths(SPRITES.sun);
@@ -63,15 +111,22 @@ const sun = spritePaths(SPRITES.sun);
 export function PixelSky({
 	time = "auto",
 	height = 160,
+	variant = "banner",
 	children,
 }: {
 	time?: "auto" | "day" | "night";
 	height?: number;
+	/** `band`: a low, wide scene for a short strip behind a title. */
+	variant?: "banner" | "band";
 	children?: ReactNode;
 }) {
+	const art = variant === "band" ? BAND : BANNER;
+	const W = art.width;
+	const H = art.height;
 	return (
 		<div
 			className="vp-sky"
+			data-variant={variant}
 			data-time={time === "auto" ? undefined : time}
 			style={{ height }}
 		>
@@ -95,7 +150,7 @@ export function PixelSky({
 					/>
 				))}
 				<g className="vp-sky-stars" style={{ fill: "var(--vp-star)" }}>
-					{STARS.map(([x, y], index) => (
+					{art.stars.map(([x, y], index) => (
 						<rect
 							key={`${x}-${y}`}
 							x={x}
@@ -106,7 +161,7 @@ export function PixelSky({
 						/>
 					))}
 				</g>
-				<g transform="translate(206 5)">
+				<g transform={`translate(${art.sun[0]} ${art.sun[1]})`}>
 					{sun.map((path) => (
 						<path
 							key={path.key}
@@ -115,7 +170,7 @@ export function PixelSky({
 						/>
 					))}
 				</g>
-				{CLOUDS.map((c) => (
+				{art.clouds.map((c) => (
 					<g
 						key={c.x}
 						transform={`translate(${c.x} ${c.y})`}
@@ -131,8 +186,8 @@ export function PixelSky({
 						))}
 					</g>
 				))}
-				<path d={FAR_HILLS} style={{ fill: "var(--vp-hill-far)" }} />
-				<path d={NEAR_HILLS} style={{ fill: "var(--vp-hill)" }} />
+				<path d={art.farHills} style={{ fill: "var(--vp-hill-far)" }} />
+				<path d={art.nearHills} style={{ fill: "var(--vp-hill)" }} />
 				<rect
 					x={0}
 					y={H - 2}

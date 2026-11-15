@@ -3,6 +3,7 @@ import { Button } from "../Button";
 import { ChartTip } from "../ChartTip";
 import { PixelArt } from "../pixel/PixelArt";
 import { PixelSky } from "../pixel/PixelSky";
+import { SkyHeader } from "../pixel/SkyHeader";
 import { SPRITE_NAMES } from "../pixel/sprites";
 import { TwinkleStars } from "../pixel/TwinkleStars";
 
@@ -71,6 +72,20 @@ export const SkyDayAndNight: StoryObj = {
 			<PixelSky time="night" height={140}>
 				<Button variant="primary">Load demo data</Button>
 			</PixelSky>
+		</div>
+	),
+};
+
+export const SkyHeaders: StoryObj = {
+	render: () => (
+		<div style={{ display: "grid", gap: 24 }}>
+			<SkyHeader
+				title="Journey"
+				art="plane"
+				description="Your travels replayed in order, stop by stop."
+				actions={<Button size="sm">Filter</Button>}
+			/>
+			<SkyHeader title="Stays" art="passport" />
 		</div>
 	),
 };

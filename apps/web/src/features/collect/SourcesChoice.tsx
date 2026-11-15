@@ -1,4 +1,4 @@
-import { PixelArt, type SpriteName } from "@voyput/ui";
+import { PixelArt, PixelSky, type SpriteName } from "@voyput/ui";
 import { useState } from "react";
 import { useDb } from "../../db/DbContext";
 import {
@@ -85,21 +85,34 @@ export function SourcesChoice({
 					{error}
 				</p>
 			) : null}
-			<p className="collect-sources-demo">
-				No data at hand?{" "}
-				<button
-					type="button"
-					className="collect-link"
-					onClick={onDemo}
-					disabled={demoBusy}
-				>
-					{demoBusy ? "Loading demo data…" : "Try with demo data"}
-				</button>
-				<span className="collect-muted">
-					{" "}
-					· marked as demo and removed with one button
-				</span>
-			</p>
+			<div className="collect-sources-demo">
+				<div className="collect-demo-scene" aria-hidden="true">
+					<PixelSky height={80}>
+						<PixelArt name="plane" scale={2} className="collect-demo-plane" />
+						<PixelArt
+							name="passport"
+							scale={3}
+							className="collect-demo-passport"
+						/>
+						<PixelArt name="stamp" scale={2} className="collect-demo-stamp" />
+					</PixelSky>
+				</div>
+				<p>
+					No data at hand?{" "}
+					<button
+						type="button"
+						className="collect-link"
+						onClick={onDemo}
+						disabled={demoBusy}
+					>
+						{demoBusy ? "Loading demo data…" : "Try with demo data"}
+					</button>
+					<span className="collect-muted">
+						{" "}
+						· marked as demo and removed with one button
+					</span>
+				</p>
+			</div>
 		</div>
 	);
 }

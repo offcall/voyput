@@ -13,7 +13,7 @@ import {
 	type VizData,
 	type WorldShapes,
 } from "@voyput/core";
-import { PageHeader, Stack } from "@voyput/ui";
+import { SkyHeader, type SpriteName, Stack } from "@voyput/ui";
 import { type ReactNode, useMemo, useState } from "react";
 import { KeepCountryColours } from "../../app/countryColours";
 import { localToday } from "../trips/format";
@@ -39,6 +39,14 @@ import { StatsView } from "./views/StatsView";
 import "./visualize.css";
 import "./explore/explore.css";
 import "./insights.css";
+
+/** The sprite on each view's sky band. */
+const VIEW_ART: Record<InsightViewId, SpriteName> = {
+	journey: "plane",
+	map: "globe",
+	calendar: "stamp",
+	stats: "trophy",
+};
 
 /** What a view gets to draw from; the Insights layout loads it once for all views. */
 export interface InsightsContext {
@@ -156,8 +164,9 @@ export function InsightsPage() {
 	const needs = NEEDS[view.id];
 	const needsStays = WAITS_FOR_STAYS[view.id];
 	const header = (actions?: ReactNode) => (
-		<PageHeader
+		<SkyHeader
 			title={view.title}
+			art={VIEW_ART[view.id]}
 			description={view.subtitle}
 			actions={actions}
 		/>

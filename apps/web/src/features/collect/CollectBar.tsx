@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Dialog } from "@voyput/ui";
+import { Dialog, PixelArt, PixelSky } from "@voyput/ui";
 import { useState } from "react";
 import { useDemoActions } from "../demo/DemoActions";
 import type { Plan, StepId } from "../import/plan/planProgress";
@@ -9,8 +9,9 @@ import { Stepper } from "./Stepper";
 import { findStep, nextAction } from "./steps";
 
 /**
- * The top of Collect in one row: the title, the steps for the chosen sources and
- * one next action.
+ * The top of Collect: the title on a pixel sky with a suitcase (a trophy once
+ * every step is done), then one row with the steps for the chosen sources and one
+ * next action.
  */
 export function CollectBar({
 	plan,
@@ -20,9 +21,21 @@ export function CollectBar({
 	current: StepId;
 }) {
 	return (
-		<header className="collect-bar-frame">
+		<header
+			className="collect-bar-frame"
+			data-complete={plan && !plan.next ? "" : undefined}
+		>
+			<PixelSky variant="band" height={56}>
+				<div className="vp-sky-band">
+					<h1>Collect</h1>
+					<PixelArt
+						name={plan && !plan.next ? "trophy" : "suitcase"}
+						scale={3}
+						className="vp-sky-band-art collect-bar-art"
+					/>
+				</div>
+			</PixelSky>
 			<div className="collect-bar">
-				<h1 className="collect-bar-title">Collect</h1>
 				<Stepper plan={plan} current={current} />
 				<div className="collect-bar-end">
 					{plan ? <NextAction plan={plan} current={current} /> : null}

@@ -1247,6 +1247,56 @@ a[aria-current="page"] .vp-nav-count {
 	color: light-dark(var(--vp-pixel-ink), var(--vp-text));
 }
 
+/* A short sky band behind a page title (`SkyHeader`, the Collect bar). */
+.vp-sky-band {
+	display: flex;
+	align-items: center;
+	gap: var(--vp-space-4);
+	height: 100%;
+	padding: 0 var(--vp-space-4);
+	box-sizing: border-box;
+}
+.vp-sky-content:has(> .vp-sky-band) {
+	padding: 0;
+}
+.vp-sky-band h1 {
+	margin: 0;
+	font-family: var(--vp-font-pixel);
+	font-size: 22px;
+	font-weight: 400;
+	line-height: 1;
+	text-shadow: 2px 2px 0 light-dark(rgb(255 255 255 / 0.6), rgb(0 0 0 / 0.5));
+}
+.vp-sky-band-art {
+	margin-left: auto;
+	margin-right: 12%;
+	rotate: -6deg;
+	filter: drop-shadow(2px 2px 0 rgb(0 0 0 / 0.25));
+}
+.vp-sky-header {
+	display: grid;
+	gap: var(--vp-space-2);
+	margin-bottom: var(--vp-space-2);
+}
+.vp-sky-header-body {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--vp-space-3);
+	flex-wrap: wrap;
+}
+.vp-sky-header-body .vp-page-description {
+	margin: 0;
+}
+@media (max-width: 640px) {
+	.vp-sky-band h1 {
+		font-size: 18px;
+	}
+	.vp-sky-band-art {
+		margin-right: 4%;
+	}
+}
+
 @keyframes vp-twinkle {
 	0%,
 	100% {
