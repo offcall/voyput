@@ -266,6 +266,13 @@ describe("filterStays", () => {
 		expect(ids(run({ method: "plane" }))).toEqual(["home:2016-05-21"]);
 	});
 
+	it("keeps only the picked stays", () => {
+		expect(ids(run({ stayIds: ["istanbul:0", "austria:0"] }))).toEqual([
+			"istanbul:0",
+			"austria:0",
+		]);
+	});
+
 	it("applies evidence: manual counts as exact", () => {
 		expect(ids(run({ evidence: "exact" }))).toEqual(["home:2016-05-21"]);
 		expect(ids(run({ evidence: "stamps" }))).toEqual([

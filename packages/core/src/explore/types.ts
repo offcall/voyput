@@ -53,6 +53,8 @@ export interface ExploreFilters {
 	to: string;
 	/** Country codes; empty means all. */
 	countries: string[];
+	/** Single stay ids; empty means all. */
+	stayIds: string[];
 	region: Region | "all";
 	kind: KindFilter;
 	/** Entry method (`TravelMethod`) or `all`. */

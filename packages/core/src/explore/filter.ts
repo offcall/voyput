@@ -19,6 +19,7 @@ export function defaultExploreFilters(stays: readonly Stay[]): ExploreFilters {
 		from,
 		to,
 		countries: [],
+		stayIds: [],
 		region: "all",
 		kind: "all",
 		method: "all",
@@ -97,6 +98,7 @@ export function filterStays(
 		.filter(
 			(s) =>
 				(!f.countries.length || f.countries.includes(s.countryCode)) &&
+				(!f.stayIds.length || f.stayIds.includes(s.id)) &&
 				(f.region === "all" || s.region === f.region) &&
 				(f.kind === "all" || s.kind === f.kind) &&
 				(f.method === "all" || s.entry.method === f.method) &&
