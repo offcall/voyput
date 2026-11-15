@@ -93,112 +93,108 @@ export function Layout() {
 	const inInsights = areas.area === "insights";
 	const touch = useMediaQuery(TOUCH_LAYOUT);
 
-	if (touch)
-		return (
-			<AppShell
-				brand={<Brand />}
-				nav={<TouchTabs plan={plan} areas={areas} collectStep={collectStep} />}
-				footer={<ThemeSwitch mode={theme} onChange={setTheme} />}
-			>
-				{inInsights ? <InsightsSwitch /> : null}
-				<CountryColoursProvider>
-					<Outlet />
-				</CountryColoursProvider>
-			</AppShell>
-		);
-
 	return (
 		<AppShell
 			brand={<Brand />}
 			nav={
-				<>
-					<Link
-						to="/collect/$step"
-						params={{ step: collectStep }}
-						data-area="collect"
-						aria-current={areas.area === "collect" ? "page" : undefined}
-					>
-						<span className="vp-nav-icon">{icons.collect}</span>
-						<span className="vp-nav-label">Collect</span>
-						{plan ? (
-							<span
-								className="vp-nav-count"
-								aria-hidden="true"
-								title={`${plan.doneCount} of ${plan.steps.length} steps done`}
-							>
-								{plan.doneCount}/{plan.steps.length}
-							</span>
-						) : null}
-					</Link>
-					<Link
-						to="/collect/$step"
-						params={{ step: "trips" }}
-						data-area="stays"
-						aria-current={areas.area === "stays" ? "page" : undefined}
-					>
-						<span className="vp-nav-icon">{icons.stays}</span>
-						<span className="vp-nav-label">Stays</span>
-						{plan && plan.stays > 0 ? (
-							<span
-								className="vp-nav-count"
-								aria-hidden="true"
-								title={`${plan.stays} saved stays`}
-							>
-								{plan.stays}
-							</span>
-						) : null}
-					</Link>
-					{inInsights ? (
-						// Inside Insights the views below are the links; this only heads them.
-						<span className="vp-nav-parent vp-nav-desktop">
-							<span className="vp-nav-icon">{icons.insights}</span>
-							<span className="vp-nav-label">Insights</span>
-						</span>
-					) : (
+				touch ? (
+					<TouchTabs plan={plan} areas={areas} collectStep={collectStep} />
+				) : (
+					<>
 						<Link
-							to="/insights/$view"
-							params={{ view: areas.view }}
-							data-area="insights"
+							to="/collect/$step"
+							params={{ step: collectStep }}
+							data-area="collect"
+							aria-current={areas.area === "collect" ? "page" : undefined}
 						>
-							<span className="vp-nav-icon">{icons.insights}</span>
-							<span className="vp-nav-label">Insights</span>
+							<span className="vp-nav-icon">{icons.collect}</span>
+							<span className="vp-nav-label">Collect</span>
+							{plan ? (
+								<span
+									className="vp-nav-count"
+									aria-hidden="true"
+									title={`${plan.doneCount} of ${plan.steps.length} steps done`}
+								>
+									{plan.doneCount}/{plan.steps.length}
+								</span>
+							) : null}
 						</Link>
-					)}
-					{INSIGHT_VIEWS.map((view) => (
 						<Link
-							key={view.id}
-							to="/insights/$view"
-							params={{ view: view.id }}
-							className={
-								inInsights ? "vp-nav-sub" : "vp-nav-sub vp-nav-desktop"
-							}
-							activeProps={{ "aria-current": "page" }}
+							to="/collect/$step"
+							params={{ step: "trips" }}
+							data-area="stays"
+							aria-current={areas.area === "stays" ? "page" : undefined}
 						>
-							<span className="vp-nav-icon">{VIEW_ICONS[view.id]}</span>
-							<span className="vp-nav-label">{view.label}</span>
+							<span className="vp-nav-icon">{icons.stays}</span>
+							<span className="vp-nav-label">Stays</span>
+							{plan && plan.stays > 0 ? (
+								<span
+									className="vp-nav-count"
+									aria-hidden="true"
+									title={`${plan.stays} saved stays`}
+								>
+									{plan.stays}
+								</span>
+							) : null}
 						</Link>
-					))}
-				</>
+						{inInsights ? (
+							// Inside Insights the views below are the links; this only heads them.
+							<span className="vp-nav-parent vp-nav-desktop">
+								<span className="vp-nav-icon">{icons.insights}</span>
+								<span className="vp-nav-label">Insights</span>
+							</span>
+						) : (
+							<Link
+								to="/insights/$view"
+								params={{ view: areas.view }}
+								data-area="insights"
+							>
+								<span className="vp-nav-icon">{icons.insights}</span>
+								<span className="vp-nav-label">Insights</span>
+							</Link>
+						)}
+						{INSIGHT_VIEWS.map((view) => (
+							<Link
+								key={view.id}
+								to="/insights/$view"
+								params={{ view: view.id }}
+								className={
+									inInsights ? "vp-nav-sub" : "vp-nav-sub vp-nav-desktop"
+								}
+								activeProps={{ "aria-current": "page" }}
+							>
+								<span className="vp-nav-icon">{VIEW_ICONS[view.id]}</span>
+								<span className="vp-nav-label">{view.label}</span>
+							</Link>
+						))}
+					</>
+				)
 			}
 			footer={
-				<>
-					<div className="vp-shell-nav">
-						<Link to="/settings" activeProps={{ "aria-current": "page" }}>
-							<span className="vp-nav-icon">{icons.settings}</span>
-							<span className="vp-nav-label">Settings</span>
-						</Link>
-					</div>
+				touch ? (
 					<ThemeSwitch mode={theme} onChange={setTheme} />
-					<p
-						className="vp-local-note"
-						title="Your data never leaves this browser."
-					>
-						{icons.lock}
-						<span>Local only</span>
-					</p>
-				</>
+				) : (
+					<>
+						<div className="vp-shell-nav">
+							<Link to="/settings" activeProps={{ "aria-current": "page" }}>
+								<span className="vp-nav-icon">{icons.settings}</span>
+								<span className="vp-nav-label">Settings</span>
+							</Link>
+						</div>
+						<ThemeSwitch mode={theme} onChange={setTheme} />
+						<p
+							className="vp-local-note"
+							title="Your data never leaves this browser."
+						>
+							{icons.lock}
+							<span>Local only</span>
+						</p>
+					</>
+				)
 			}
 		>
+			{/* Same position on both layouts: crossing 860px must not remount the page. */}
+			{touch && inInsights ? <InsightsSwitch /> : null}
 			<CountryColoursProvider>
 				<Outlet />
 			</CountryColoursProvider>
