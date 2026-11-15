@@ -5,6 +5,7 @@ import { Button } from "../Button";
 import { Card } from "../Card";
 import { Dialog } from "../Dialog";
 import { Dropzone } from "../Dropzone";
+import { Menu } from "../Menu";
 import { Progress } from "../Progress";
 import { StepDots } from "../StepDots";
 import { Tabs } from "../Tabs";
@@ -127,5 +128,17 @@ export const StepDotsExample: StoryObj = {
 			<StepDots count={5} current={2} />
 			<StepDots count={5} current={4} />
 		</div>
+	),
+};
+
+export const MoreMenu: StoryObj = {
+	render: () => (
+		<Menu
+			label="More for Blue passport"
+			items={[
+				{ label: "Edit", onSelect: () => undefined },
+				{ label: "Delete", tone: "danger", onSelect: () => undefined },
+			]}
+		/>
 	),
 };

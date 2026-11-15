@@ -8,6 +8,7 @@ export { Dialog, type DialogProps } from "./Dialog";
 export { Disclosure } from "./Disclosure";
 export { Dropzone, type DropzoneProps } from "./Dropzone";
 export { EmptyState } from "./EmptyState";
+export { Menu, type MenuItem } from "./Menu";
 export { Notice } from "./Notice";
 export { PageHeader } from "./PageHeader";
 export { Progress } from "./Progress";

@@ -637,6 +637,43 @@ select.vp-input {
 	margin-top: var(--vp-space-5);
 }
 
+/* ---------- Menu ---------- */
+
+.vp-menu-trigger {
+	font-size: var(--vp-text-lg);
+	line-height: 1;
+}
+.vp-menu-popup {
+	min-width: 140px;
+	padding: var(--vp-space-1);
+	background: var(--vp-surface);
+	color: var(--vp-text);
+	border: 1px solid var(--vp-border-strong);
+	border-radius: var(--vp-radius);
+	box-shadow: var(--vp-shadow-lg);
+	outline: none;
+	transition: opacity var(--vp-duration) var(--vp-ease);
+}
+.vp-menu-popup[data-starting-style],
+.vp-menu-popup[data-ending-style] {
+	opacity: 0;
+}
+.vp-menu-item {
+	display: block;
+	padding: var(--vp-space-2) var(--vp-space-3);
+	border-radius: var(--vp-radius-sm);
+	font-size: var(--vp-text-sm);
+	cursor: pointer;
+	outline: none;
+	user-select: none;
+}
+.vp-menu-item[data-highlighted] {
+	background: var(--vp-surface-2);
+}
+.vp-menu-item[data-tone="danger"] {
+	color: var(--vp-bad);
+}
+
 /* ---------- App shell ---------- */
 
 .vp-shell {
