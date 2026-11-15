@@ -46,10 +46,26 @@
 		overflow-y: auto;
 	}
 }
-/* Narrower: no summary beside the list; the selected stay opens as a bottom sheet. */
+/* Sheet parts: only the narrow layout below shows them. */
+.vp-trips-backdrop,
+.vp-trips-grabber,
+.vp-trips-sheet-nav {
+	display: none;
+}
+/* Narrower: no summary beside the list; the selected stay opens as a bottom
+   sheet over a backdrop. Its head (drag down to close, sideways or arrows for
+   the stays around it) and its Approve button stay in view while it scrolls. */
 @media (max-width: 1179px) {
 	.vp-trips-pane:not([data-sheet]) {
 		display: none;
+	}
+	.vp-trips-backdrop {
+		display: block;
+		position: fixed;
+		z-index: 39;
+		inset: 0;
+		background: rgb(0 0 0 / 0.45);
+		touch-action: none;
 	}
 	.vp-trips-pane[data-sheet] {
 		position: fixed;
@@ -57,18 +73,105 @@
 		right: 0;
 		bottom: 0;
 		left: 0;
-		max-height: 75vh;
+		max-width: 760px;
+		max-height: calc(100dvh - 40px);
+		margin-inline: auto;
 		overflow-y: auto;
+		overscroll-behavior: contain;
+		border-radius: var(--vp-radius-lg) var(--vp-radius-lg) 0 0;
 		box-shadow: 0 -12px 30px rgb(0 0 0 / 0.35);
 	}
 	.vp-trips-pane[data-sheet] .vp-trips-detail {
+		--vp-sheet-pad: 16px;
+		padding: 0 var(--vp-sheet-pad);
+		border-bottom: 0;
 		border-bottom-left-radius: 0;
 		border-bottom-right-radius: 0;
 	}
-	/* Room to scroll the last rows above the sheet. */
-	.vp-trips-layout[data-open] .vp-stays {
-		margin-bottom: 40vh;
+	.vp-trips-pane[data-sheet] .vp-trips-detail-head {
+		position: sticky;
+		top: 0;
+		z-index: 3;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 2px 4px;
+		margin: 0 calc(-1 * var(--vp-sheet-pad));
+		padding: 6px var(--vp-sheet-pad) 8px;
+		border-bottom: 1px solid var(--vp-border);
+		border-radius: var(--vp-radius-lg) var(--vp-radius-lg) 0 0;
+		background: var(--vp-surface);
+		touch-action: none;
+		cursor: grab;
 	}
+	.vp-trips-grabber {
+		display: flex;
+		flex: 0 0 100%;
+		justify-content: center;
+		padding: 2px 0 4px;
+	}
+	.vp-trips-grabber::before {
+		content: "";
+		width: 40px;
+		height: 4px;
+		border-radius: 2px;
+		background: var(--vp-border-strong);
+	}
+	/* Title beside the arrows and Close; the badges wrap under them. */
+	.vp-trips-pane[data-sheet] .vp-trips-detail-head > div {
+		flex: 1 1 calc(100% - 150px);
+		min-width: 0;
+	}
+	.vp-trips-pane[data-sheet] .vp-trips-detail-title {
+		margin: 0;
+		font-size: 18px;
+		-webkit-line-clamp: 1;
+		line-clamp: 1;
+	}
+	.vp-trips-pane[data-sheet] .vp-stay-badges {
+		display: contents;
+	}
+	.vp-trips-pane[data-sheet] .vp-stay-badges > .vp-badge {
+		order: 3;
+	}
+	.vp-trips-sheet-nav {
+		display: flex;
+	}
+	.vp-trips-pane[data-sheet] .vp-trips-detail-head .vp-button {
+		min-width: 44px;
+		min-height: 44px;
+		font-size: 18px;
+	}
+	/* Approve last, stuck to the bottom of the sheet, full width. */
+	.vp-trips-pane[data-sheet] .vp-stay-panel-actions {
+		display: contents;
+	}
+	.vp-trips-pane[data-sheet] .vp-stay-approve {
+		position: sticky;
+		bottom: 0;
+		z-index: 3;
+		order: 10;
+		margin: 0 calc(-1 * var(--vp-sheet-pad));
+		padding: 10px var(--vp-sheet-pad) calc(10px + env(safe-area-inset-bottom));
+		border-top: 1px solid var(--vp-border);
+		background: var(--vp-surface);
+	}
+	.vp-trips-pane[data-sheet] .vp-stay-approve .vp-button {
+		min-height: 48px;
+	}
+	/* A form opened low in the sheet scrolls clear of the Approve bar. */
+	.vp-trips-pane[data-sheet] .vp-stay-add {
+		scroll-margin-bottom: 90px;
+	}
+	/* Short landscape screens: only Approve stays pinned. */
+	@media (max-height: 500px) {
+		.vp-trips-pane[data-sheet] .vp-trips-detail-head {
+			position: static;
+		}
+	}
+}
+.vp-stay-approve {
+	display: flex;
+	flex-direction: column;
 }
 .vp-trips-empty p {
 	margin: 0 0 8px;
@@ -621,7 +724,8 @@
 .vp-stays-toast {
 	position: fixed;
 	z-index: 50;
-	bottom: 20px;
+	/* --vp-bottom-bar: height of a bottom tab bar, when the shell has one. */
+	bottom: calc(20px + var(--vp-bottom-bar, 0px));
 	left: 50%;
 	transform: translateX(-50%);
 	display: flex;
@@ -753,4 +857,102 @@
 }
 .vp-stays-legacy-row .vp-input {
 	max-width: 220px;
+}
+
+/* Touch screens and phones: thumb-sized targets and 16px fields, so iOS does
+   not zoom into a field on focus. */
+@media (max-width: 860px), (pointer: coarse) {
+	.vp-stays-bar .vp-button,
+	.vp-stay-gap .vp-button,
+	.vp-stay-form-actions .vp-button,
+	.vp-stay-panel-more .vp-button,
+	.vp-stay-edge .vp-button,
+	.vp-stays-legacy .vp-button,
+	.vp-stays-toast .vp-button {
+		min-height: 44px;
+	}
+	.vp-stays-bar .vp-button[data-square] {
+		min-width: 44px;
+	}
+	.vp-stays-year-head button,
+	.vp-stay-kind button,
+	.vp-more-item {
+		min-height: 44px;
+	}
+	.vp-more-item {
+		align-items: center;
+	}
+	.vp-trips-detail .vp-input,
+	.vp-stay-add .vp-input,
+	.vp-stays-legacy .vp-input {
+		box-sizing: border-box;
+		min-height: 44px;
+		font-size: 16px;
+	}
+	/* A larger invisible grip around each timeline handle. */
+	.vp-trips-tl-handle::before {
+		content: "";
+		position: absolute;
+		inset: -10px -12px;
+	}
+}
+
+/* Phones: one compact action bar row, forms one or two columns wide. */
+@media (max-width: 860px) {
+	/* Hidden on screen, still read by screen readers. */
+	.vp-stays-wide {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	.vp-stays-bar {
+		gap: 6px;
+		padding: 6px 8px 6px 12px;
+	}
+	.vp-stays-summary {
+		flex: 1 1 auto;
+	}
+	.vp-stay-add {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+		align-items: end;
+		margin: 8px;
+	}
+	.vp-stay-add[aria-label="Add stay"] > .vp-field:first-child,
+	.vp-stay-form-actions {
+		grid-column: 1 / -1;
+	}
+	.vp-stay-add .vp-input {
+		width: 100%;
+		max-width: none;
+	}
+	.vp-stay-form-actions > .vp-trips-muted {
+		flex-basis: 100%;
+	}
+	.vp-stays-toast {
+		width: max-content;
+		bottom: calc(
+			12px +
+			var(--vp-bottom-bar, 70px + env(safe-area-inset-bottom))
+		);
+	}
+}
+/* Short landscape phones: the action bar scrolls away; year headers stick
+   under the top bar alone. */
+@media (max-width: 860px) and (max-height: 500px) {
+	.vp-stays-bar {
+		position: static;
+	}
+	.vp-stays-year-head {
+		top: 50px;
+	}
+}
+/* With the sheet open (it covers the tab bar), the toast sits above Approve. */
+@media (max-width: 1179px) {
+	.vp-trips-layout[data-open] ~ .vp-stays-toast {
+		bottom: calc(80px + env(safe-area-inset-bottom));
+	}
 }

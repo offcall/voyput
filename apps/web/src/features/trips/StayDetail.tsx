@@ -32,6 +32,7 @@ import {
 import { HINT_ICONS, hintText } from "./hintText";
 import type { PhotoDays } from "./photoDays";
 import { AddStayForm, SplitForm } from "./StayForms";
+import { useSheetSwipe } from "./sheetSwipe";
 
 /** A date set by hand: it no longer comes from a stamp. */
 export function manualEdge(edge: StayEdge, date: string | null): StayEdge {
@@ -158,7 +159,8 @@ type PanelForm = "split" | "add" | null;
 
 /**
  * The selected stay, to the right of the list (a bottom sheet on narrow
- * screens): country, place, edges, days, evidence, hints, and every action.
+ * screens, with arrows and swipes to the stays around it): country, place,
+ * edges, days, evidence, hints, and every action.
  */
 export function StayDetail({
 	stay,
@@ -176,6 +178,8 @@ export function StayDetail({
 	onChange,
 	onDelete,
 	onClose,
+	onPrevious,
+	onNext,
 }: {
 	stay: TravelStay;
 	/** Position in the history, from 1. */
@@ -204,12 +208,20 @@ export function StayDetail({
 	onChange: (stay: TravelStay) => void;
 	onDelete: () => void;
 	onClose: () => void;
+	/** Opens the stay before or after this one; unset at either end. */
+	onPrevious?: (() => void) | undefined;
+	onNext?: (() => void) | undefined;
 }) {
 	const colorOf = useCountryColour();
 	const span = staySpan(stay, birth, today);
 	const days = spanLength(span);
 	const [place, setPlace] = useState(stay.place);
 	const [form, setForm] = useState<PanelForm>(null);
+	const swipe = useSheetSwipe({
+		close: onClose,
+		previous: onPrevious,
+		next: onNext,
+	});
 	const error = hints.some((h) => h.severity === "error");
 	const linked = stamps
 		.filter((s) => stay.stampIds.includes(s.id))
@@ -228,7 +240,8 @@ export function StayDetail({
 			className="vp-card vp-trips-detail"
 			aria-label={`Stay: ${countryName(stay.countryCode)}`}
 		>
-			<header className="vp-trips-detail-head">
+			<header className="vp-trips-detail-head" {...swipe}>
+				<span className="vp-trips-grabber" aria-hidden="true" />
 				<div>
 					<h2 className="vp-trips-detail-title">
 						<span aria-hidden="true">{flagOf(stay.countryCode)}</span>{" "}
@@ -245,6 +258,30 @@ export function StayDetail({
 					<Badge tone={stay.approved ? "good" : "warn"} dot>
 						{stay.approved ? "Approved" : "To approve"}
 					</Badge>
+					<span className="vp-trips-sheet-nav">
+						<Button
+							size="sm"
+							variant="ghost"
+							square
+							aria-label="Previous stay"
+							title="Previous stay (earlier)"
+							disabled={!onPrevious}
+							onClick={onPrevious}
+						>
+							←
+						</Button>
+						<Button
+							size="sm"
+							variant="ghost"
+							square
+							aria-label="Next stay"
+							title="Next stay (later)"
+							disabled={!onNext}
+							onClick={onNext}
+						>
+							→
+						</Button>
+					</span>
 					<Button
 						size="sm"
 						variant="ghost"
@@ -370,20 +407,22 @@ export function StayDetail({
 			<HintLines hints={hints} />
 
 			<div className="vp-stay-panel-actions">
-				<Button
-					variant={stay.approved ? "default" : "primary"}
-					disabled={!stay.approved && error}
-					title={
-						stay.approved
-							? "Review this stay again"
-							: error
-								? "Fix the errors first"
-								: "Approve this stay"
-					}
-					onClick={() => onChange({ ...stay, approved: !stay.approved })}
-				>
-					{stay.approved ? "↩ Reopen" : "✓ Approve"}
-				</Button>
+				<div className="vp-stay-approve">
+					<Button
+						variant={stay.approved ? "default" : "primary"}
+						disabled={!stay.approved && error}
+						title={
+							stay.approved
+								? "Review this stay again"
+								: error
+									? "Fix the errors first"
+									: "Approve this stay"
+						}
+						onClick={() => onChange({ ...stay, approved: !stay.approved })}
+					>
+						{stay.approved ? "↩ Reopen" : "✓ Approve"}
+					</Button>
+				</div>
 				<div className="vp-stay-panel-more">
 					<Button
 						size="sm"

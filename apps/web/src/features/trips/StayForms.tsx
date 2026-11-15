@@ -1,6 +1,6 @@
 import { COUNTRY_CODES, isIsoDate, type NewStay } from "@voyput/core";
 import { Button } from "@voyput/ui";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DateField } from "./DateField";
 import { countryName, flagOf } from "./format";
 
@@ -35,6 +35,19 @@ export function CountrySelect({
 	);
 }
 
+/**
+ * Brings a form that just opened into view: the "+ Add stay" button stays
+ * at the top of the screen while the form opens at the top of the list, and
+ * the split and add forms open low in the phone sheet.
+ */
+function useShownOnOpen() {
+	const ref = useRef<HTMLFormElement>(null);
+	useEffect(() => {
+		ref.current?.scrollIntoView?.({ block: "nearest" });
+	}, []);
+	return ref;
+}
+
 /** Why a new stay cannot be added yet, or null. */
 function addError(add: {
 	countryCode: string;
@@ -62,8 +75,10 @@ export function AddStayForm({
 }) {
 	const [draft, setDraft] = useState(initial);
 	const error = addError(draft);
+	const ref = useShownOnOpen();
 	return (
 		<form
+			ref={ref}
 			className="vp-stay-add"
 			aria-label="Add stay"
 			onSubmit={(e) => {
@@ -120,8 +135,10 @@ export function SplitForm({
 }) {
 	const [date, setDate] = useState(initial);
 	const ok = isIsoDate(date) && valid(date);
+	const ref = useShownOnOpen();
 	return (
 		<form
+			ref={ref}
 			className="vp-stay-add"
 			aria-label="Split stay"
 			onSubmit={(e) => {

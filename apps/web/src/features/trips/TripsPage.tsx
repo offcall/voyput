@@ -392,16 +392,21 @@ export function TripsPage() {
 		<Stack>
 			<SkyHeader title="Stays" art="passport" />
 			<div className="vp-stays-bar" ref={barRef}>
+				{/* On phones only "ready" and errors show; the rest stays for screen readers. */}
 				<p className="vp-stays-summary" aria-live="polite">
 					<strong>{clear.length} ready</strong>
-					<span aria-hidden="true"> · </span>
-					{toCheck} to check
-					<span aria-hidden="true"> · </span>
-					<span data-bad={counts.withErrors > 0 || undefined}>
-						{plural(counts.withErrors, "error")}
+					<span className="vp-stays-wide">
+						<span aria-hidden="true"> · </span>
+						{toCheck} to check
+					</span>
+					<span className={counts.withErrors > 0 ? undefined : "vp-stays-wide"}>
+						<span aria-hidden="true"> · </span>
+						<span data-bad={counts.withErrors > 0 || undefined}>
+							{plural(counts.withErrors, "error")}
+						</span>
 					</span>
 					{counts.approved > 0 ? (
-						<span className="vp-trips-muted">
+						<span className="vp-trips-muted vp-stays-wide">
 							<span aria-hidden="true"> · </span>
 							{counts.approved} approved
 						</span>
@@ -418,7 +423,9 @@ export function TripsPage() {
 						)
 					}
 				>
-					+ Add stay
+					<span>
+						+ Add <span className="vp-stays-wide">stay</span>
+					</span>
 				</Button>
 				<Button
 					size="sm"
@@ -514,6 +521,14 @@ export function TripsPage() {
 						);
 					})}
 				</div>
+				{selected ? (
+					// Behind the bottom sheet on narrow screens: a tap closes it.
+					<div
+						className="vp-trips-backdrop"
+						aria-hidden="true"
+						onClick={() => select(null)}
+					/>
+				) : null}
 				<div className="vp-trips-pane" data-sheet={selected ? true : undefined}>
 					{selected ? (
 						<StayDetail
@@ -556,6 +571,16 @@ export function TripsPage() {
 								);
 							}}
 							onClose={() => select(null)}
+							onPrevious={
+								index > 0
+									? () => select(stays[index - 1]?.id ?? null)
+									: undefined
+							}
+							onNext={
+								index < stays.length - 1
+									? () => select(stays[index + 1]?.id ?? null)
+									: undefined
+							}
 						/>
 					) : stays.length > 0 ? (
 						<div className="vp-trips-empty">

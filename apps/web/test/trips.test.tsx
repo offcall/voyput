@@ -469,6 +469,42 @@ describe("trips", () => {
 		expect((await row(1, "France")).getAttribute("aria-pressed")).toBe("true");
 	});
 
+	it("moves to the stays around the open one with arrows and closes from the backdrop", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-sheet");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		const first = await open(user, 1, "Moldova");
+		expect(
+			first.getByRole<HTMLButtonElement>("button", { name: "Previous stay" })
+				.disabled,
+		).toBe(true);
+		await user.click(first.getByRole("button", { name: "Next stay" }));
+		const romania = within(
+			await screen.findByRole("region", { name: "Stay: Romania" }),
+		);
+		expect(romania.getByText(/1 → 5 Mar 2024/)).toBeTruthy();
+		await user.click(romania.getByRole("button", { name: "Previous stay" }));
+		await screen.findByRole("region", { name: "Stay: Moldova" });
+
+		const last = await open(user, 5, "Moldova");
+		expect(
+			last.getByRole<HTMLButtonElement>("button", { name: "Next stay" })
+				.disabled,
+		).toBe(true);
+		// The Approve button is in the panel whatever the screen width.
+		expect(last.getByRole("button", { name: "✓ Approve" })).toBeTruthy();
+
+		const backdrop = document.querySelector(".vp-trips-backdrop");
+		expect(backdrop).not.toBeNull();
+		await user.click(backdrop as Element);
+		await waitFor(() =>
+			expect(screen.queryByRole("region", { name: /^Stay:/ })).toBeNull(),
+		);
+		expect(document.querySelector(".vp-trips-backdrop")).toBeNull();
+	});
+
 	it("shows days without evidence as a thin gap row and adds a stay in it", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-gap");
