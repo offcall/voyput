@@ -41,9 +41,9 @@ function hovering(
 			props.onPointerEnter(event);
 			enter();
 		},
-		onPointerLeave: () => {
-			props.onPointerLeave();
-			leave();
+		onPointerLeave: (event) => {
+			props.onPointerLeave(event);
+			if (event.pointerType !== "touch") leave();
 		},
 		onFocus: (event) => {
 			props.onFocus(event);

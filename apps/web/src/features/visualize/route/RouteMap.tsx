@@ -2,7 +2,6 @@ import {
 	bubbleRadius,
 	type CountryPalette,
 	type MapView,
-	panView,
 	pointOnRoute,
 	type RevealedGroup,
 	type RoutePosition,
@@ -11,15 +10,13 @@ import {
 	type Waypoint,
 	WORLD_WIDTH,
 	type WorldShapes,
-	zoomView,
 } from "@voyput/core";
 import { PixelArt, TwinkleStars } from "@voyput/ui";
 import { memo, type ReactNode, useEffect, useRef } from "react";
+import { fitAspect, useBoxSize, usePanZoom } from "../charts/usePanZoom";
 
-/** Narrowest and widest view the wheel zooms to, in map units. */
-const MIN_VIEW_WIDTH = 40;
-const MAX_VIEW_WIDTH = WORLD_WIDTH;
-const WHEEL_STEP = 1.2;
+/** Narrowest and widest view the wheel and pinch zoom to, in map units. */
+const ZOOM_LIMITS = { minWidth: 40, maxWidth: WORLD_WIDTH };
 /** The plane sprite is 18 × 9 art pixels; drawn this many full-map units per art pixel. */
 const PLANE_SCALE = 1.5;
 const PLANE_W = 18;
@@ -72,7 +69,7 @@ export interface Bubble extends RevealedGroup {
 /**
  * The route on a night-sky world map: everything flown as one path, the
  * current leg, a bubble per country reached and the pixel plane with its tail.
- * Drag pans, the wheel zooms.
+ * Drag pans, the wheel and a pinch zoom.
  */
 export function RouteMap({
 	world,
@@ -87,6 +84,7 @@ export function RouteMap({
 	colour,
 	view,
 	onView,
+	onAspect,
 	overlay,
 }: {
 	world: WorldShapes | null;
@@ -103,29 +101,19 @@ export function RouteMap({
 	colour: CountryPalette;
 	view: MapView;
 	onView: (update: (view: MapView) => MapView) => void;
+	/** Called with the fit aspect (width / height, at most 2) when the map's size changes. */
+	onAspect?: (aspect: number) => void;
 	overlay?: ReactNode;
 }) {
 	const svgRef = useRef<SVGSVGElement>(null);
-	const drag = useRef<{ x: number; y: number; view: MapView } | null>(null);
+	// The drawn box: `view` grown to the map's own aspect (taller on a phone).
+	const size = useBoxSize(svgRef);
+	const shown = fitAspect(view, size);
+	const aspect = size && size[1] > 0 ? Math.min(size[0] / size[1], 2) : 2;
+	useEffect(() => onAspect?.(aspect), [onAspect, aspect]);
+	usePanZoom(svgRef, shown, onView, ZOOM_LIMITS);
 	// Map units per full-map unit: marks keep their on-screen size when zoomed.
 	const unit = view[2] / WORLD_WIDTH;
-
-	// React's wheel listener is passive; the map needs to stop the page scrolling.
-	useEffect(() => {
-		const svg = svgRef.current;
-		if (!svg) return;
-		const wheel = (event: WheelEvent) => {
-			event.preventDefault();
-			const factor = event.deltaY > 0 ? WHEEL_STEP : 1 / WHEEL_STEP;
-			onView((v) => {
-				const width = v[2] * factor;
-				if (width < MIN_VIEW_WIDTH || width > MAX_VIEW_WIDTH * 1.01) return v;
-				return zoomView(v, factor);
-			});
-		};
-		svg.addEventListener("wheel", wheel, { passive: false });
-		return () => svg.removeEventListener("wheel", wheel);
-	}, [onView]);
 
 	const dot = pointOnRoute(waypoints, position);
 	const trail = dot ? trailPoints(waypoints, position) : [];
@@ -135,34 +123,10 @@ export function RouteMap({
 			<TwinkleStars count={36} seed={23} />
 			<svg
 				ref={svgRef}
-				viewBox={view.map((n) => n.toFixed(1)).join(" ")}
+				viewBox={shown.map((n) => n.toFixed(1)).join(" ")}
 				role="img"
 				aria-label="Route player map"
 				className="vp-viz-svg vp-route-svg"
-				onPointerDown={(event) => {
-					svgRef.current?.setPointerCapture?.(event.pointerId);
-					drag.current = { x: event.clientX, y: event.clientY, view };
-				}}
-				onPointerMove={(event) => {
-					const start = drag.current;
-					const rect = svgRef.current?.getBoundingClientRect();
-					if (!start || !rect) return;
-					onView(() =>
-						panView(
-							start.view,
-							event.clientX - start.x,
-							event.clientY - start.y,
-							rect.width,
-							rect.height,
-						),
-					);
-				}}
-				onPointerUp={() => {
-					drag.current = null;
-				}}
-				onPointerCancel={() => {
-					drag.current = null;
-				}}
 			>
 				<MapBase world={world} reached={reached} colour={colour} unit={unit} />
 				{flownD ? (

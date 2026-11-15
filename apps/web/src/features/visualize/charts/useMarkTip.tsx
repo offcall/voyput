@@ -5,6 +5,7 @@ import {
 	type PointerEvent,
 	type ReactNode,
 	type RefObject,
+	useEffect,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -34,7 +35,8 @@ export interface MarkProps {
 	role?: "img";
 	"aria-label": string;
 	onPointerEnter: (event: PointerEvent<Element>) => void;
-	onPointerLeave: () => void;
+	onPointerLeave: (event: PointerEvent<Element>) => void;
+	onPointerDown: (event: PointerEvent<Element>) => void;
 	onFocus: (event: FocusEvent<Element>) => void;
 	onBlur: () => void;
 	onKeyDown: (event: KeyboardEvent<Element>) => void;
@@ -84,6 +86,19 @@ export function useMarkTip<H extends HTMLElement = HTMLDivElement>(): {
 	};
 	const hide = () => setShown(null);
 
+	// A tip opened by a tap closes on a tap anywhere off the marks.
+	const open = shown !== null;
+	useEffect(() => {
+		if (!open) return;
+		const away = (event: Event) => {
+			const target = event.target;
+			if (target instanceof Element && target.closest(MARK)) return;
+			setShown(null);
+		};
+		document.addEventListener("pointerdown", away);
+		return () => document.removeEventListener("pointerdown", away);
+	}, [open]);
+
 	const onKeyDown = (event: KeyboardEvent<Element>) => {
 		const marks: Element[] = [
 			...(hostRef.current?.querySelectorAll(MARK) ?? []),
@@ -116,7 +131,14 @@ export function useMarkTip<H extends HTMLElement = HTMLDivElement>(): {
 		"aria-label": `${text.label}: ${text.value}`,
 		onPointerEnter: (event) =>
 			show(text, event.clientX, event.clientY, event.clientY),
-		onPointerLeave: hide,
+		// A tap shows the tip until the next tap: touch leaves right after lifting.
+		onPointerLeave: (event) => {
+			if (event.pointerType !== "touch") hide();
+		},
+		onPointerDown: (event) => {
+			if (event.pointerType === "touch")
+				show(text, event.clientX, event.clientY, event.clientY);
+		},
 		onFocus: (event) => {
 			const host = hostRef.current;
 			for (const m of host?.querySelectorAll(MARK) ?? [])

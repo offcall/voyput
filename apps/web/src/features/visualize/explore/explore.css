@@ -648,11 +648,12 @@ button.vp-explore-bar:hover {
 		max-height: 55vh;
 	}
 	.vp-explore-bar {
-		grid-template-columns: 18px minmax(0, 7.5rem) 1fr auto;
+		box-sizing: border-box;
+		grid-template-columns: 18px minmax(0, 7.5rem) minmax(0, 1fr) auto;
 		gap: 6px;
 	}
 	[data-keep-order] > .vp-explore-bar {
-		grid-template-columns: minmax(0, 7.5rem) 1fr auto;
+		grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr) auto;
 	}
 	.vp-explore-calendar {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -667,4 +668,37 @@ button.vp-explore-bar:hover {
 .vp-explore-lane-year:focus-visible {
 	outline: 2px solid var(--vp-accent);
 	outline-offset: 2px;
+}
+
+/* Narrow phones: one month per row, so a day is a thumb-sized cell. */
+@media (max-width: 480px) {
+	.vp-explore-calendar {
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--vp-space-4);
+	}
+	.vp-explore-day {
+		font-size: 13px;
+	}
+	.vp-explore-month h3 {
+		font-size: 14px;
+	}
+}
+
+/* Touch screens: timeline rows, year buttons and bars tall enough for a thumb. */
+@media (pointer: coarse) {
+	.vp-explore-lane-year {
+		min-height: 44px;
+	}
+	.vp-explore-lane-track {
+		height: 44px;
+	}
+	.vp-explore-period {
+		top: 6px;
+		height: 32px;
+	}
+	.vp-explore-chip,
+	.vp-explore-bar,
+	.vp-explore-link {
+		min-height: 44px;
+	}
 }

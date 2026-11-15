@@ -252,6 +252,7 @@ export function InsightsPage() {
 					scope={scope}
 					onChange={onFilter}
 					onReset={onReset}
+					onClose={() => setFilterOpen(false)}
 				/>
 			) : null}
 			{hint ? <InsightsHint hint={hint} /> : null}

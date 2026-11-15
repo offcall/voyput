@@ -1,7 +1,10 @@
 import { buildCountryScatter, type CountryGroup } from "@voyput/core";
 import { useCountryColour } from "../../../app/countryColours";
+import { usePhone } from "../usePhone";
 
-const W = 600;
+/** Drawing width; narrower on phones so the labels keep a readable size. */
+const WIDE = 600;
+const NARROW = 340;
 const H = 320;
 const L = 52;
 const T = 16;
@@ -9,7 +12,6 @@ const R = 24;
 const B = 48;
 /** Tick positions; core gives the values at the same fractions. */
 const STEPS = [0, 0.25, 0.5, 0.75, 1] as const;
-const x = (f: number) => L + f * (W - L - R);
 const y = (f: number) => H - B - f * (H - T - B);
 
 /** Countries by visits (across) and days (up); a click selects the country. */
@@ -23,6 +25,8 @@ export function CountryScatter({
 	onPick: (countryCode: string) => void;
 }) {
 	const colourOf = useCountryColour();
+	const W = usePhone() ? NARROW : WIDE;
+	const x = (f: number) => L + f * (W - L - R);
 	const scatter = buildCountryScatter(groups);
 	return (
 		<div className="vp-viz-scroll">

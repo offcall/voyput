@@ -247,6 +247,31 @@ describe("globe with outlines", () => {
 		expect(tip()).toBeUndefined();
 	});
 
+	it("names a tapped country until the next tap", async () => {
+		const { frame } = recordingContext();
+		const user = userEvent.setup();
+		render(<GlobeChart data={data} world={world} />);
+		await user.click(screen.getByRole("button", { name: "Pause" }));
+		const canvas = screen.getByRole("img", { name: "Globe" });
+		canvas.setPointerCapture = () => {};
+		canvas.focus();
+		await user.keyboard("{ArrowRight}");
+		frame(150);
+		await user.keyboard("{Escape}");
+		const ro = COUNTRY_CENTROIDS.RO;
+		if (!ro) throw new Error("no centroid for RO");
+		const tip = () => document.querySelector(".vp-chart-tip")?.textContent;
+		const tap = (x: number, y: number) => {
+			pointer(canvas, "pointerdown", x, y, "touch");
+			pointer(canvas, "pointerup", x, y, "touch");
+			pointer(canvas, "pointerleave", x, y, "touch");
+		};
+		tap(...at(44, 21, ro));
+		expect(tip()).toBe("Romania2 photos");
+		tap(...at(10, -40, ro));
+		expect(tip()).toBeUndefined();
+	});
+
 	it("turns with a drag and keeps turning a little after letting go", async () => {
 		const { frame, lastSpotX } = recordingContext();
 		const user = userEvent.setup();

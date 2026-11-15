@@ -38,6 +38,8 @@ const SPIN = 0.09;
 const FRICTION = 0.94;
 /** Fastest spin a drag can leave behind, degrees per frame. */
 const MAX_FLING = 4;
+/** A touch that moves less than this many canvas pixels is a tap, not a turn. */
+const TAP_SLOP = 12;
 /** Picks a photo spot within this many canvas pixels of the pointer. */
 const HIT_PX = 9;
 
@@ -503,8 +505,11 @@ export function GlobeChart({
 			dirty = false;
 			drawGlobe(ctx, scene, v, paint, countryColor, hover.current);
 		};
+		// Where a touch went down: lifting it close by is a tap that shows a tip.
+		let pressed: [number, number] | null = null;
 		const down = (e: PointerEvent) => {
 			const [x, y] = local(e);
+			pressed = e.pointerType === "mouse" ? null : [x, y];
 			drag = { x, y, t: e.timeStamp };
 			velocity.current = { lon: 0, lat: 0 };
 			picked.current = null;
@@ -540,13 +545,21 @@ export function GlobeChart({
 			if (drag && e.timeStamp - drag.t > 80)
 				velocity.current = { lon: 0, lat: 0 };
 			drag = null;
+			const v = view.current;
+			if (pressed && v && e.type === "pointerup") {
+				const [x, y] = local(e);
+				if (Math.hypot(x - pressed[0], y - pressed[1]) < TAP_SLOP)
+					showHover(hitTest(scene, v, x, y));
+			}
+			pressed = null;
 		};
 		const enter = () => {
 			inside = true;
 		};
-		const leave = () => {
+		const leave = (e: PointerEvent) => {
 			inside = false;
-			if (drag === null) showHover(null);
+			// A finger leaves as it lifts; a tapped tip stays until the next tap.
+			if (drag === null && e.pointerType !== "touch") showHover(null);
 		};
 		canvas.addEventListener("pointerdown", down);
 		canvas.addEventListener("pointermove", move);
@@ -661,7 +674,8 @@ export function GlobeChart({
 					{paused ? "Rotate" : "Pause"}
 				</Button>{" "}
 				<span id={hintId}>
-					Drag to turn · hover a country or spot · ←/→ steps through countries
+					Drag to turn · hover or tap a country or spot · ←/→ steps through
+					countries
 				</span>
 			</figcaption>
 		</figure>

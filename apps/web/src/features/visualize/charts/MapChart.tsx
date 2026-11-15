@@ -1,15 +1,17 @@
 import {
 	COUNTRY_CENTROIDS,
+	type MapView,
 	projectEquirect,
 	type VizData,
 	WORLD_WIDTH,
 	type WorldShapes,
 } from "@voyput/core";
-import { TwinkleStars } from "@voyput/ui";
-import { useMemo } from "react";
+import { Button, TwinkleStars } from "@voyput/ui";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { formatInt, NoData } from "./format";
 import { useMarkTip } from "./useMarkTip";
+import { fitAspect, useBoxSize, usePanZoom } from "./usePanZoom";
 import { fitView } from "./view";
 
 interface Arc {
@@ -52,6 +54,14 @@ function buildArcs(
 	return arcs;
 }
 
+/** Touch zooms between a city-sized view and the whole world. */
+const ZOOM_LIMITS = {
+	minWidth: 40,
+	maxWidth: WORLD_WIDTH,
+	wheel: false,
+	touchOnly: true,
+};
+
 function countryTip(country: VizData["countries"][number]) {
 	return {
 		label: country.country,
@@ -72,20 +82,44 @@ export function MapChart({
 		() => buildArcs(data.moves, countryColor),
 		[data.moves, countryColor],
 	);
-	const view = useMemo(
-		() => fitView(data.countries.map((c) => c.code)),
-		[data.countries],
+	const svgRef = useRef<SVGSVGElement>(null);
+	const size = useBoxSize(svgRef);
+	// A box taller than 2 : 1 (phones) gets a fit of its own shape, not sky bands.
+	const aspect = size && size[1] > 0 ? size[0] / size[1] : 2;
+	const fitted = useMemo(
+		() =>
+			fitView(
+				data.countries.map((c) => c.code),
+				Math.min(aspect, 2),
+			),
+		[data.countries, aspect],
 	);
+	// Touch drags and pinches move the view; new data fits it again.
+	const [moved, setMoved] = useState<{ from: MapView; view: MapView } | null>(
+		null,
+	);
+	const view = moved?.from === fitted ? moved.view : fitted;
+	const onView = useCallback(
+		(update: (view: MapView) => MapView) =>
+			setMoved((prev) => ({
+				from: fitted,
+				view: update(prev?.from === fitted ? prev.view : fitted),
+			})),
+		[fitted],
+	);
+	const shown = fitAspect(view, size);
+	usePanZoom(svgRef, shown, onView, ZOOM_LIMITS);
 	if (data.countries.length === 0) return <NoData />;
 	// World-box units per screen-ish unit at this zoom, for marks of a fixed size.
 	const unit = view[2] / WORLD_WIDTH;
 	return (
-		<figure className="vp-viz-figure vp-viz-tipped" ref={hostRef}>
+		<figure className="vp-viz-figure vp-viz-tipped vp-viz-flat" ref={hostRef}>
 			<div className="vp-viz-sky">
 				<TwinkleStars count={28} seed={11} />
 				{/* biome-ignore lint/a11y/useSemanticElements: an SVG chart with focusable marks cannot be a fieldset. */}
 				<svg
-					viewBox={view.map((n) => n.toFixed(1)).join(" ")}
+					ref={svgRef}
+					viewBox={shown.map((n) => n.toFixed(1)).join(" ")}
 					role="group"
 					aria-label="Route map"
 					className="vp-viz-svg"
@@ -150,6 +184,15 @@ export function MapChart({
 						})}
 					</g>
 				</svg>
+				{view !== fitted ? (
+					<Button
+						size="sm"
+						className="vp-viz-flat-fit"
+						onClick={() => setMoved(null)}
+					>
+						Fit
+					</Button>
+				) : null}
 			</div>
 			{tip}
 			<figcaption className="vp-viz-muted">

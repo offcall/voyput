@@ -137,3 +137,127 @@
 		top: 52px;
 	}
 }
+
+/* Phones: the filter panel is a bottom sheet over the page and the tab bar. */
+.vp-insights-sheet-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 40;
+	background: rgb(0 0 0 / 0.5);
+}
+.vp-insights-sheet {
+	position: fixed;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 41;
+	display: flex;
+	flex-direction: column;
+	max-height: 85dvh;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 0 0 env(safe-area-inset-bottom);
+	border: 1px solid var(--vp-border-strong);
+	border-bottom: 0;
+	border-radius: var(--vp-radius-lg) var(--vp-radius-lg) 0 0;
+	background: var(--vp-surface);
+	box-shadow: var(--vp-shadow-lg, var(--vp-shadow-sm));
+}
+.vp-insights-sheet:focus {
+	outline: none;
+}
+.vp-insights-sheet-head {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--vp-space-3);
+	padding: var(--vp-space-3) var(--vp-space-4);
+	border-bottom: 1px solid var(--vp-border);
+	background: var(--vp-surface);
+}
+.vp-insights-sheet-head h2 {
+	margin: 0;
+	font-family: var(--vp-font-pixel);
+	font-size: 16px;
+	font-weight: 400;
+}
+.vp-insights-sheet .vp-explore-filters {
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	padding: var(--vp-space-3) var(--vp-space-4) var(--vp-space-4);
+}
+
+/* Touch screens: thumb-sized chips, links and buttons; 16px inputs (no iOS zoom). */
+@media (pointer: coarse) {
+	.vp-insights-chip,
+	.vp-insights-clear {
+		min-height: 44px;
+		padding: 4px 14px;
+		font-size: var(--vp-text-sm);
+	}
+	.vp-insights-sheet-head .vp-button,
+	.vp-insights-page-filter {
+		min-height: 44px;
+	}
+	.vp-explore-filters .vp-input {
+		min-height: 44px;
+		font-size: 16px;
+	}
+	.vp-explore-filters .vp-explore-chip {
+		min-height: 44px;
+		padding: 4px 14px;
+	}
+	.vp-explore-more > summary {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+	}
+	.vp-insights-sections a {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+	}
+}
+
+/* Touch screens: the rest of the Insights controls at thumb size. */
+@media (pointer: coarse) {
+	.vp-viz-panel .vp-button,
+	.vp-insights-flags button,
+	.vp-countries-sort,
+	.vp-moves-year,
+	.vp-insights-more,
+	.vp-insights-stats .vp-tab,
+	.vp-insights-stats th > button {
+		min-height: 44px;
+	}
+	.vp-viz-panel .vp-button,
+	.vp-countries-sort,
+	.vp-insights-stats th > button {
+		min-width: 44px;
+	}
+	.vp-insights-flags {
+		grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+	}
+}
+
+@media (max-width: 600px) {
+	/* Key numbers two per row: "142,949 km" fits a half-width tile. */
+	.vp-insights-stats > .vp-stats .vp-stat-value {
+		font-size: 16px;
+	}
+	/* Year rings two per row. */
+	.vp-insights-stats .vp-viz-donuts {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--vp-space-3);
+	}
+	.vp-insights-stats .vp-viz-donut {
+		box-sizing: border-box;
+		width: 100%;
+		height: auto;
+	}
+}

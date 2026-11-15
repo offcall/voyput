@@ -101,3 +101,12 @@
 		aspect-ratio: 4 / 3;
 	}
 }
+
+/* Touch screens: zoom buttons a thumb can hit. */
+@media (pointer: coarse) {
+	/* Beats the kit's small square `min-width: 28px`. */
+	.vp-heat-zoom .vp-button[data-size] {
+		min-width: 44px;
+		min-height: 44px;
+	}
+}

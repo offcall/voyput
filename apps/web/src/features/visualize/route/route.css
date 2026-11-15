@@ -251,14 +251,106 @@
 		font-size: 8px;
 		line-height: 12px;
 	}
-	.vp-route-scrub {
-		flex-basis: 100%;
-		order: 3;
-	}
 	.vp-route-date {
-		order: 2;
 		font-size: 12px;
 		min-width: 0;
+	}
+
+	/* Map first and tall, the player right under it, settings below. */
+	.vp-route-sky {
+		aspect-ratio: auto;
+		height: clamp(260px, 56dvh, 560px);
+	}
+	.vp-viz-sky > .vp-route-svg {
+		position: absolute;
+		height: 100%;
+	}
+	.vp-route-toolbar {
+		order: 2;
+	}
+	.vp-route > .vp-stats,
+	.vp-route > p {
+		order: 3;
+	}
+	/* Below the map the stop label is a plain line, not over it. */
+	.vp-route-stop {
+		position: static;
+		max-width: none;
+		margin-top: calc(-1 * var(--vp-space-2));
+		padding: 6px 10px;
+		box-shadow: none;
+	}
+	.vp-route-player-phone {
+		flex-direction: column;
+		align-items: stretch;
+		gap: var(--vp-space-2);
+		margin-top: calc(-1 * var(--vp-space-2));
+	}
+	.vp-route-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 0;
+	}
+	.vp-route-row .vp-route-play {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+	.vp-route-row .vp-route-pills {
+		flex-wrap: nowrap;
+	}
+	.vp-route-row .vp-route-scrub {
+		flex: 1 1 auto;
+		min-width: 0;
+	}
+	/* Long pill rows scroll inside themselves instead of wrapping. */
+	.vp-route-toolbar .vp-route-pills {
+		flex-wrap: nowrap;
+		max-width: 100%;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+}
+
+/* Touch screens: thumb-sized pills and selects (16px text: no iOS zoom on focus). */
+@media (pointer: coarse) {
+	.vp-route-pills {
+		padding: 2px;
+	}
+	.vp-route-pill {
+		min-width: 44px;
+		min-height: 44px;
+		padding: 3px 10px;
+		font-size: 13px;
+	}
+	.vp-route-icon {
+		flex: none;
+		border: 1px solid var(--vp-border);
+		background: var(--vp-surface-2);
+		color: var(--vp-text);
+		font-size: 16px;
+	}
+	.vp-route-select select {
+		min-height: 44px;
+		font-size: 16px;
+	}
+	.vp-route-player .vp-button {
+		min-height: 44px;
+	}
+	.vp-route-scrub {
+		height: 44px;
+	}
+}
+
+/* Landscape phones: the map takes the screen height left by the bars. */
+@media (orientation: landscape) and (max-height: 500px) {
+	.vp-route-sky {
+		aspect-ratio: auto;
+		height: max(220px, calc(100dvh - 120px));
+	}
+	.vp-viz-sky > .vp-route-svg {
+		position: absolute;
+		height: 100%;
 	}
 }
 

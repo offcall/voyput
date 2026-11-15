@@ -7,6 +7,7 @@ import {
 } from "@voyput/core";
 import { describe, expect, it } from "vitest";
 import { monthPoints } from "../src/features/visualize/charts/CalendarChart";
+import { fitAspect } from "../src/features/visualize/charts/usePanZoom";
 import { fitLatLon, fitView } from "../src/features/visualize/charts/view";
 
 const row = (
@@ -57,6 +58,31 @@ describe("map view", () => {
 			0,
 			WORLD_WIDTH,
 			WORLD_HEIGHT,
+		]);
+	});
+
+	it("fits a phone's tall map to its own shape", () => {
+		const [x, y, w, h] = fitView(["ES", "FR"], 0.75);
+		expect(w / h).toBeCloseTo(0.75, 6);
+		const [px, py] = projectEquirect(40.0, -3.5);
+		expect(px).toBeGreaterThan(x);
+		expect(px).toBeLessThan(x + w);
+		expect(py).toBeGreaterThan(y);
+		expect(py).toBeLessThan(y + h);
+	});
+
+	it("grows a view around its centre to the box's aspect", () => {
+		expect(fitAspect([100, 50, 200, 100], [400, 200])).toEqual([
+			100, 50, 200, 100,
+		]);
+		expect(fitAspect([100, 50, 200, 100], null)).toEqual([100, 50, 200, 100]);
+		// Taller box: same width, more sky above and below.
+		expect(fitAspect([100, 50, 200, 100], [200, 200])).toEqual([
+			100, 0, 200, 200,
+		]);
+		// Wider box: same height, more on both sides.
+		expect(fitAspect([100, 50, 200, 100], [400, 100])).toEqual([
+			0, 50, 400, 100,
 		]);
 	});
 

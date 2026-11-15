@@ -1,4 +1,10 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { buildVizData, type LocationRow } from "@voyput/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -74,6 +80,22 @@ describe("visualize chart tips", () => {
 		await user.keyboard("{End}");
 		expect(tipText()).toBe("Japan1 photos");
 		await user.tab();
+		expect(tipText()).toBeNull();
+	});
+
+	it("keeps a tapped tip until the next tap off the marks", () => {
+		render(<MapChart data={data} world={null} />);
+		const romania = screen.getByRole("img", { name: "Romania: 2 photos" });
+		fireEvent.pointerDown(romania, { pointerType: "touch" });
+		// Touch leaves the mark as soon as the finger lifts; the tip stays.
+		fireEvent.pointerLeave(romania, { pointerType: "touch" });
+		expect(tipText()).toContain("Romania");
+
+		const moldova = screen.getByRole("img", { name: "Moldova: 1 photos" });
+		fireEvent.pointerDown(moldova, { pointerType: "touch" });
+		expect(tipText()).toContain("Moldova");
+
+		fireEvent.pointerDown(document.body, { pointerType: "touch" });
 		expect(tipText()).toBeNull();
 	});
 

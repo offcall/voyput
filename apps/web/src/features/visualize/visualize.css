@@ -380,3 +380,24 @@
 .vp-viz-line + .vp-viz-scroll {
 	margin-top: var(--vp-space-5);
 }
+
+/* Flat map: a "Fit" corner button once touch moved it; taller on phones. */
+.vp-viz-flat .vp-viz-svg {
+	touch-action: pan-y;
+}
+.vp-viz-flat-fit {
+	position: absolute;
+	top: 8px;
+	right: 8px;
+}
+@media (max-width: 600px) {
+	.vp-viz-flat .vp-viz-sky {
+		height: clamp(240px, 52dvh, 480px);
+	}
+	.vp-viz-flat .vp-viz-sky > .vp-viz-svg {
+		position: absolute;
+		inset: 0;
+		height: 100%;
+		touch-action: none;
+	}
+}

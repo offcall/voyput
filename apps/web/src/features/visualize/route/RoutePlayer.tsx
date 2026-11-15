@@ -30,6 +30,7 @@ import { Button, Stat, StatGroup } from "@voyput/ui";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { fitView } from "../charts/view";
+import { usePhone } from "../usePhone";
 import { type Bubble, RouteMap } from "./RouteMap";
 import {
 	type PlayerMode,
@@ -91,8 +92,8 @@ function bubbleAnchors(
 }
 
 /** The fitted view around the route's countries, as a `MapView`. */
-function fitRoute(waypoints: readonly Waypoint[]): MapView {
-	return fitView([...new Set(waypoints.map((w) => w.countryCode))]);
+function fitRoute(waypoints: readonly Waypoint[], aspect = 2): MapView {
+	return fitView([...new Set(waypoints.map((w) => w.countryCode))], aspect);
 }
 
 function Pills<T extends string | number>({
@@ -135,6 +136,7 @@ export function RoutePlayer({
 	world: WorldShapes | null;
 }) {
 	const reduced = useReducedMotion();
+	const phone = usePhone();
 	const colour = useCountryColour();
 	const nameOf = useCountryNames(stays, locations);
 	const [mode, setMode] = useState<PlayerMode>("journey");
@@ -151,11 +153,13 @@ export function RoutePlayer({
 	const { position } = playback;
 	const legCount = timeline.durations.length;
 
+	// The map's width / height: a phone's tall map gets a fit of its own shape.
+	const [aspect, setAspect] = useState(2);
 	const [view, setView] = useState<MapView>(() => fitRoute(waypoints));
-	const [viewOwner, setViewOwner] = useState(waypoints);
-	if (viewOwner !== waypoints) {
-		setViewOwner(waypoints);
-		setView(fitRoute(waypoints));
+	const [viewOwner, setViewOwner] = useState({ waypoints, aspect });
+	if (viewOwner.waypoints !== waypoints || viewOwner.aspect !== aspect) {
+		setViewOwner({ waypoints, aspect });
+		setView(fitRoute(waypoints, aspect));
 	}
 	const onView = useCallback(
 		(update: (view: MapView) => MapView) => setView(update),
@@ -252,6 +256,120 @@ export function RoutePlayer({
 		</div>
 	) : null;
 
+	const stayButton = (step: -1 | 1, text: string) => {
+		const target = step < 0 ? previousStay : nextStay;
+		return (
+			<button
+				type="button"
+				className="vp-route-pill"
+				aria-label={step < 0 ? "Previous stay" : "Next stay"}
+				disabled={target === null}
+				onClick={() => target !== null && playback.jump(target)}
+			>
+				{text}
+			</button>
+		);
+	};
+	const playButton = (
+		<Button
+			variant="primary"
+			onClick={playback.playing ? playback.pause : playback.play}
+			disabled={legCount === 0}
+			className="vp-route-play"
+		>
+			{playback.playing ? "Pause" : "Play"}
+		</Button>
+	);
+	const scrubber = (
+		<input
+			type="range"
+			className="vp-route-scrub"
+			aria-label="Position on the route"
+			min={0}
+			max={legCount}
+			step="any"
+			value={at}
+			aria-valuetext={today ? formatDay(today) : undefined}
+			disabled={legCount === 0}
+			onChange={(event) => playback.seek(Number(event.target.value))}
+		/>
+	);
+	const date = today ? (
+		<time className="vp-route-date" dateTime={today}>
+			{formatDay(today)}
+		</time>
+	) : null;
+	const nextSpeed =
+		SPEEDS[
+			(SPEEDS.indexOf(playback.speed as (typeof SPEEDS)[number]) + 1) %
+				SPEEDS.length
+		] ?? 1;
+
+	// Phones: two thumb rows under the map; the same controls, the speed as one button.
+	const phoneControls = (
+		<div className="vp-route-player vp-route-player-phone">
+			<div className="vp-route-row">
+				{playButton}
+				{mode === "photos" ? null : (
+					// biome-ignore lint/a11y/useSemanticElements: a group of buttons, not a form fieldset.
+					<div className="vp-route-pills" role="group" aria-label="Stays">
+						{stayButton(-1, "‹")}
+						{stayButton(1, "›")}
+					</div>
+				)}
+				<button
+					type="button"
+					className="vp-route-pill vp-route-icon"
+					aria-label="Restart"
+					disabled={legCount === 0}
+					onClick={playback.restart}
+				>
+					↺
+				</button>
+				<button
+					type="button"
+					className="vp-route-pill vp-route-icon"
+					aria-label={`Speed ${playback.speed}×, change to ${nextSpeed}×`}
+					onClick={() => playback.setSpeed(nextSpeed)}
+				>
+					{playback.speed}×
+				</button>
+			</div>
+			<div className="vp-route-row">
+				{scrubber}
+				{date}
+			</div>
+		</div>
+	);
+
+	const desktopControls = (
+		<div className="vp-route-player">
+			{playButton}
+			<Button
+				variant="secondary"
+				onClick={playback.restart}
+				disabled={legCount === 0}
+			>
+				Restart
+			</Button>
+			{mode === "photos" ? null : (
+				// biome-ignore lint/a11y/useSemanticElements: a group of buttons, not a form fieldset.
+				<div className="vp-route-pills" role="group" aria-label="Stays">
+					{stayButton(-1, "< Stay")}
+					{stayButton(1, "Stay >")}
+				</div>
+			)}
+			{scrubber}
+			{date}
+			<Pills<number>
+				label="Speed"
+				options={SPEEDS.map((s) => ({ value: s, label: `${s}×` }))}
+				value={playback.speed}
+				onChange={playback.setSpeed}
+			/>
+		</div>
+	);
+
 	return (
 		<div className="vp-route">
 			<div className="vp-route-toolbar">
@@ -290,7 +408,7 @@ export function RoutePlayer({
 						type="button"
 						className="vp-route-pill"
 						aria-label="Fit the route"
-						onClick={() => setView(fitRoute(waypoints))}
+						onClick={() => setView(fitRoute(waypoints, aspect))}
 					>
 						Fit
 					</button>
@@ -340,74 +458,12 @@ export function RoutePlayer({
 						colour={colour}
 						view={view}
 						onView={onView}
-						overlay={stopLabel}
+						onAspect={setAspect}
+						overlay={phone ? null : stopLabel}
 					/>
+					{phone ? stopLabel : null}
 
-					<div className="vp-route-player">
-						<Button
-							variant="primary"
-							onClick={playback.playing ? playback.pause : playback.play}
-							disabled={legCount === 0}
-							className="vp-route-play"
-						>
-							{playback.playing ? "Pause" : "Play"}
-						</Button>
-						<Button
-							variant="secondary"
-							onClick={playback.restart}
-							disabled={legCount === 0}
-						>
-							Restart
-						</Button>
-						{mode === "photos" ? null : (
-							// biome-ignore lint/a11y/useSemanticElements: a group of buttons, not a form fieldset.
-							<div className="vp-route-pills" role="group" aria-label="Stays">
-								<button
-									type="button"
-									className="vp-route-pill"
-									aria-label="Previous stay"
-									disabled={previousStay === null}
-									onClick={() =>
-										previousStay !== null && playback.jump(previousStay)
-									}
-								>
-									&lt; Stay
-								</button>
-								<button
-									type="button"
-									className="vp-route-pill"
-									aria-label="Next stay"
-									disabled={nextStay === null}
-									onClick={() => nextStay !== null && playback.jump(nextStay)}
-								>
-									Stay &gt;
-								</button>
-							</div>
-						)}
-						<input
-							type="range"
-							className="vp-route-scrub"
-							aria-label="Position on the route"
-							min={0}
-							max={legCount}
-							step="any"
-							value={at}
-							aria-valuetext={today ? formatDay(today) : undefined}
-							disabled={legCount === 0}
-							onChange={(event) => playback.seek(Number(event.target.value))}
-						/>
-						{today ? (
-							<time className="vp-route-date" dateTime={today}>
-								{formatDay(today)}
-							</time>
-						) : null}
-						<Pills<number>
-							label="Speed"
-							options={SPEEDS.map((s) => ({ value: s, label: `${s}×` }))}
-							value={playback.speed}
-							onChange={playback.setSpeed}
-						/>
-					</div>
+					{phone ? phoneControls : desktopControls}
 
 					<StatGroup>
 						<Stat
@@ -427,8 +483,8 @@ export function RoutePlayer({
 							: mode === "photos"
 								? `${waypoints.length.toLocaleString("en-US")} stops from ${route.photos.toLocaleString("en-US")} photos, grouped within ${DEFAULT_CLUSTER_RADIUS_KM * 1000} m.`
 								: "One stop per stay, at the country's centre; lines are the order of stays, not real paths."}{" "}
-						Long flights take longer than short hops. Drag to pan, scroll to
-						zoom.
+						Long flights take longer than short hops. Drag to pan, scroll or
+						pinch to zoom.
 						{route.skipped > 0
 							? ` ${route.skipped} ${route.skipped === 1 ? "stay has" : "stays have"} no place on the map.`
 							: ""}
