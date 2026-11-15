@@ -19,7 +19,8 @@ npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/d
 
 ## Navigation
 
-- **Collect** (`/collect/<step>`): one wizard — passports, photo locations, extract, review — under one compact bar of steps with the next action. On first visit it asks which sources you have (photos, passport or both) and shows only those steps ([ADR 0024](docs/adr/0024-collect-sources.md)). `/` opens the first source step that is not done. Old URLs (`/import`, `/review?photo=…`, `/trips/<id>`, …) redirect. See [ADR 0016](docs/adr/0016-collect-wizard.md).
+- **Home** (`/`): what voyput is, what stays in the browser and what goes to the AI, a start choice and "Continue" for returning users ([ADR 0025](docs/adr/0025-home-page.md)).
+- **Collect** (`/collect/<step>`): one wizard — passports, photo locations, extract, review — under one compact bar of steps with the next action. On first visit it asks which sources you have (photos, passport or both) and shows only those steps ([ADR 0024](docs/adr/0024-collect-sources.md)). `/collect` opens the first source step that is not done. Old URLs (`/import`, `/review?photo=…`, `/trips/<id>`, …) redirect. See [ADR 0016](docs/adr/0016-collect-wizard.md).
 - **Stays** (`/collect/trips/<stay id>`): the history as one-country stays, grouped by year, edited in a side panel.
 - **Insights** (`/insights/<view>`): four views — Journey, Map, Calendar, Stats — with one shared filter; old `/visualize/<tab>` URLs redirect ([ADR 0023](docs/adr/0023-navigation-and-insights.md)).
 - **Settings** (`/settings`).
