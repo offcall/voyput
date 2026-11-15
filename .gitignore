@@ -5,3 +5,7 @@ dist/
 coverage/
 storybook-static/
 *.tsbuildinfo
+
+# README GIF recording (scripts/readme-gif): frames and the flag font cache
+scripts/readme-gif/.out/
+scripts/readme-gif/.cache/
