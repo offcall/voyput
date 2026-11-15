@@ -7,6 +7,7 @@ import { Dialog } from "../Dialog";
 import { Dropzone } from "../Dropzone";
 import { Menu } from "../Menu";
 import { Progress } from "../Progress";
+import { Sheet } from "../Sheet";
 import { StepDots } from "../StepDots";
 import { Tabs } from "../Tabs";
 import { TextField } from "../TextField";
@@ -116,6 +117,37 @@ export const DialogExample: StoryObj = {
 				>
 					<p>Its photos and stamps go too.</p>
 				</Dialog>
+			</>
+		);
+	},
+};
+
+export const SheetExample: StoryObj = {
+	parameters: { viewport: { defaultViewport: "mobile1" } },
+	render: function Render() {
+		const [open, setOpen] = useState(false);
+		return (
+			<>
+				<Button onClick={() => setOpen(true)}>Open sheet</Button>
+				<Sheet
+					open={open}
+					onOpenChange={setOpen}
+					title="Filter"
+					description="Swipe down, press Escape or tap outside to close."
+					actions={
+						<>
+							<Button onClick={() => setOpen(false)}>Cancel</Button>
+							<Button variant="primary" onClick={() => setOpen(false)}>
+								Apply
+							</Button>
+						</>
+					}
+				>
+					{Array.from({ length: 30 }, (_, i) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: a fixed demo list.
+						<p key={i}>Row {i + 1}: the body scrolls inside the sheet.</p>
+					))}
+				</Sheet>
 			</>
 		);
 	},

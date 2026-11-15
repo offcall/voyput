@@ -17,6 +17,7 @@ export { PixelSky } from "./pixel/PixelSky";
 export { SkyHeader } from "./pixel/SkyHeader";
 export { SPRITE_NAMES, type SpriteName } from "./pixel/sprites";
 export { TwinkleStars } from "./pixel/TwinkleStars";
+export { Sheet, type SheetProps } from "./Sheet";
 export { Stat, StatGroup } from "./Stat";
 export { StepDots } from "./StepDots";
 export { type TabItem, Tabs } from "./Tabs";

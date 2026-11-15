@@ -637,6 +637,122 @@ select.vp-input {
 	margin-top: var(--vp-space-5);
 }
 
+/* ---------- Sheet ---------- */
+
+/* A bottom sheet (Base UI Drawer): swipe down to close. The popup is a column:
+   handle, head, a body that scrolls, actions pinned under it. */
+.vp-sheet-backdrop {
+	position: fixed;
+	inset: 0;
+	min-height: 100dvh;
+	background: var(--vp-overlay);
+	opacity: calc(1 - var(--drawer-swipe-progress, 0));
+	transition: opacity 320ms var(--vp-ease);
+}
+.vp-sheet-backdrop[data-starting-style],
+.vp-sheet-backdrop[data-ending-style] {
+	opacity: 0;
+}
+.vp-sheet-backdrop[data-swiping] {
+	transition-duration: 0ms;
+}
+.vp-sheet-viewport {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+}
+.vp-sheet-popup {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	width: min(560px, 100%);
+	max-height: 85dvh;
+	padding: var(--vp-space-2) var(--vp-space-4)
+		calc(var(--vp-space-4) + env(safe-area-inset-bottom, 0px));
+	padding-left: calc(var(--vp-space-4) + env(safe-area-inset-left, 0px));
+	padding-right: calc(var(--vp-space-4) + env(safe-area-inset-right, 0px));
+	background: var(--vp-surface);
+	color: var(--vp-text);
+	border: 1px solid var(--vp-border-strong);
+	border-bottom: none;
+	border-top: 4px solid var(--vp-accent);
+	border-radius: var(--vp-radius-lg) var(--vp-radius-lg) 0 0;
+	box-shadow: var(--vp-shadow-lg);
+	outline: none;
+	overscroll-behavior: contain;
+	transform: translateY(var(--drawer-swipe-movement-y, 0px));
+	transition: transform 320ms var(--vp-ease);
+}
+.vp-sheet-popup[data-starting-style],
+.vp-sheet-popup[data-ending-style] {
+	transform: translateY(100%);
+}
+.vp-sheet-popup[data-swiping] {
+	transition-duration: 0ms;
+	user-select: none;
+}
+.vp-sheet-handle {
+	flex: none;
+	width: 40px;
+	height: 4px;
+	margin: 2px auto var(--vp-space-2);
+	border-radius: 2px;
+	background: var(--vp-border-strong);
+}
+.vp-sheet-head {
+	flex: none;
+	display: flex;
+	align-items: flex-start;
+	gap: var(--vp-space-2);
+	margin-bottom: var(--vp-space-3);
+}
+.vp-sheet-heading {
+	flex: 1;
+	min-width: 0;
+	padding-top: 6px;
+}
+.vp-sheet-title {
+	margin: 0;
+	font-family: var(--vp-font-pixel);
+	font-size: 16px;
+	font-weight: 400;
+	line-height: 1.4;
+}
+.vp-sheet-description {
+	margin: 2px 0 0;
+	color: var(--vp-muted);
+	font-size: var(--vp-text-sm);
+}
+.vp-sheet-close {
+	flex: none;
+	margin: -2px -6px 0 0;
+}
+.vp-sheet-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+.vp-sheet-actions {
+	flex: none;
+	display: flex;
+	gap: var(--vp-space-2);
+	padding-top: var(--vp-space-3);
+	margin-top: var(--vp-space-2);
+	border-top: 1px solid var(--vp-border);
+}
+.vp-sheet-actions > * {
+	flex: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+	.vp-sheet-popup,
+	.vp-sheet-backdrop {
+		transition-duration: 0ms;
+	}
+}
+
 /* ---------- Menu ---------- */
 
 .vp-menu-trigger {
