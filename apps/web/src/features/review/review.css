@@ -1454,9 +1454,9 @@
 /* Narrow screens have the shell's top bar and bottom tab bar (see `.vp-shell` in the kit). */
 @media (max-width: 860px) {
 	.review-page {
-		/* Measured: the top bar is 50px, the tab bar 70px plus the safe area. */
-		--review-top: 50px;
-		--review-bottom: calc(70px + env(safe-area-inset-bottom));
+		/* The shell's bars, from the kit's tokens. */
+		--review-top: var(--vp-topbar-h);
+		--review-bottom: calc(var(--vp-tabbar-h) + env(safe-area-inset-bottom));
 		--review-pane-top: calc(var(--review-top) + 68px);
 	}
 	/* 16px inputs: iOS does not zoom into them on focus. */

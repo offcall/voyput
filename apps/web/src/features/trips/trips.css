@@ -488,10 +488,10 @@
 	margin: -4px 0 0;
 	font-size: var(--vp-text-sm);
 }
-/* Narrow screens: the shell's top bar (50px) is sticky too; stay under it. */
+/* Narrow screens: the shell's top bar is sticky too; stay under it. */
 @media (max-width: 860px) {
 	.vp-stays-bar {
-		top: 50px;
+		top: var(--vp-topbar-h);
 	}
 }
 .vp-stays {
@@ -513,7 +513,7 @@
 }
 @media (max-width: 860px) {
 	.vp-stays-year-head {
-		top: calc(50px + var(--vp-stays-bar-h, 0px));
+		top: calc(var(--vp-topbar-h) + var(--vp-stays-bar-h, 0px));
 	}
 }
 .vp-stays-year-head button {
@@ -724,8 +724,7 @@
 .vp-stays-toast {
 	position: fixed;
 	z-index: 50;
-	/* --vp-bottom-bar: height of a bottom tab bar, when the shell has one. */
-	bottom: calc(20px + var(--vp-bottom-bar, 0px));
+	bottom: 20px;
 	left: 50%;
 	transform: translateX(-50%);
 	display: flex;
@@ -934,10 +933,7 @@
 	}
 	.vp-stays-toast {
 		width: max-content;
-		bottom: calc(
-			12px +
-			var(--vp-bottom-bar, 70px + env(safe-area-inset-bottom))
-		);
+		bottom: calc(12px + var(--vp-tabbar-h) + env(safe-area-inset-bottom));
 	}
 }
 /* Short landscape phones: the action bar scrolls away; year headers stick
@@ -947,7 +943,7 @@
 		position: static;
 	}
 	.vp-stays-year-head {
-		top: 50px;
+		top: var(--vp-topbar-h);
 	}
 }
 /* With the sheet open (it covers the tab bar), the toast sits above Approve. */

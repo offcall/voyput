@@ -931,10 +931,17 @@ a[aria-current="page"] .vp-nav-count {
    section nav as a bottom tab bar. Both keep clear of the safe areas (notch,
    home indicator, landscape sides); the page leaves room for the tab bar.
    `--vp-tabbar-h` is the bar's height without the inset, for sticky actions
-   that sit above it: `bottom: calc(var(--vp-tabbar-h) + env(safe-area-inset-bottom))`. */
+   that sit above it: `bottom: calc(var(--vp-tabbar-h) + env(safe-area-inset-bottom))`.
+   `--vp-topbar-h` is how far the sticky top bar reaches down (inset included),
+   for sticky headers under it: `top: var(--vp-topbar-h)`. 0 where it scrolls away. */
+:root {
+	--vp-topbar-h: 0px;
+}
 @media (max-width: 860px) {
 	:root {
 		--vp-tabbar-h: 60px;
+		/* 52px header + 1px border below it, plus the notch inset above. */
+		--vp-topbar-h: calc(53px + env(safe-area-inset-top));
 		--vp-gutter-left: max(var(--vp-space-4), env(safe-area-inset-left));
 		--vp-gutter-right: max(var(--vp-space-4), env(safe-area-inset-right));
 	}
@@ -1025,6 +1032,7 @@ a[aria-current="page"] .vp-nav-count {
 @media (max-width: 860px) and (max-height: 500px) {
 	:root {
 		--vp-tabbar-h: 48px;
+		--vp-topbar-h: 0px;
 	}
 	.vp-shell-side {
 		position: static;
