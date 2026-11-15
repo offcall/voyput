@@ -14,6 +14,7 @@ Collect showed progress three times (success header with four stat tiles, a "Nex
 - `buildPlan` takes the choice and `plan.steps` holds only the steps it needs (`visibleSteps`): Photos only → Photo locations, Stays; Passport only → Passports, Extract, Review, Stays; Both or no choice → all five. Stored data wins: passport photos or stamps show the passport steps, locations show their step. `plan.next`, `doneCount`, `toDo`, the nav count and `/collect` follow the shown steps. Hidden step URLs still open.
 - The top of Collect is one bar: the title, one row of the shown steps (dot, name, a status only for the open step and steps needing attention) and one button for the next action. On the step that is next, the button turns secondary and leads to the step after. No stat tiles (Insights shows numbers), no Back/Next under the step.
 - `/collect/trips` (Stays) renders no Collect bar: Stays is its own section. Its URL stays.
+- `/collect` and the nav open the first shown source step not done, or the last source step when all are; never Stays.
 
 ## Consequences
 

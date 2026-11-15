@@ -281,11 +281,11 @@ describe("collect wizard", () => {
 			],
 			"MD",
 		);
+		// All done: `/` opens the last source step, which keeps the Collect bar; Stays has none.
 		const { router } = renderApp("/", { db });
 		await waitFor(() =>
-			expect(router.state.location.pathname).toBe("/collect/trips"),
+			expect(router.state.location.pathname).toBe("/collect/review"),
 		);
-		router.navigate({ to: "/collect/$step", params: { step: "review" } });
 		expect(
 			(
 				await screen.findByRole("link", { name: "See your insights →" })

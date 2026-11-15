@@ -71,9 +71,18 @@ export function findStep(id: string | undefined): CollectStep | undefined {
 		: undefined;
 }
 
-/** The step to open on `/collect`: the first shown one not done, or the last when all are. */
+/**
+ * The step to open on `/collect` and from the nav: the first shown source step not
+ * done, or the last one when all are. Never Stays, which is its own section and
+ * shows no Collect bar.
+ */
 export function firstUnfinishedStep(plan: Plan): StepId {
-	return plan.next?.id ?? plan.steps[plan.steps.length - 1]?.id ?? "trips";
+	const steps = plan.steps.filter((step) => step.id !== "trips");
+	return (
+		steps.find((step) => !step.done)?.id ??
+		steps[steps.length - 1]?.id ??
+		"locations"
+	);
 }
 
 const compact = new Intl.NumberFormat("en", {
