@@ -1,6 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
+	buildPhotoIndex,
+	checkStamp,
 	gapBetween,
 	mergeKept,
 	type Stamp,
@@ -12,6 +14,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
 import { removeDemo } from "../src/features/demo/loadDemo";
+import { needsAttention } from "../src/features/review/queue";
 import { seedDemo, stubDemoFetch, stubObjectUrls } from "./fixtures/demo";
 import { renderApp } from "./renderApp";
 
@@ -93,27 +96,27 @@ describe("demo data", () => {
 		);
 		await waitFor(() =>
 			expect(banner.getByRole("status").textContent).toBe(
-				"Demo data loaded. 5 demo pages, 16 stamps and 2,467 locations · 6 countries · 2016–2019. Plus 10 sample pages with 38 stamps to review.",
+				"Demo data loaded. 10 demo pages, 74 stamps and 5,373 locations · 17 countries · 2016–2025. Plus 10 sample pages with 38 stamps to review.",
 			),
 		);
 		await user.click(
 			screen.getByRole("link", { name: /^Step 2: Photo locations/ }),
 		);
 		await screen.findByText(
-			"Demo photo locations loaded: 2,467 locations · 6 countries · 2016–2019.",
+			"Demo photo locations loaded: 5,373 locations · 17 countries · 2016–2025.",
 		);
 		const stored = screen.getByRole("region", {
 			name: "Stored photo locations",
 		});
-		await within(stored).findByText("2,468");
-		for (const code of ["UA", "ES", "PL", "GE", "IT", "FR"]) {
+		await within(stored).findByText("5,374");
+		for (const code of ["UA", "PL", "TH", "JP", "QA", "MD"]) {
 			within(stored).getByText(code);
 		}
 		within(stored).getByRole("img", {
-			name: "Locations per month, 2016-01 to 2020-02, coloured by country",
+			name: "Locations per year, 2016 to 2025, coloured by country",
 		});
 		await screen.findByRole("link", {
-			name: "Step 2: Photo locations, done, 2.5k locations",
+			name: "Step 2: Photo locations, done, 5.4k locations",
 		});
 		await user.click(screen.getByRole("link", { name: /^Step 1: Passports/ }));
 		const counts = async () => ({
@@ -124,20 +127,20 @@ describe("demo data", () => {
 			locations: await db.locations.count(),
 		});
 		const loaded = await counts();
-		// Own data plus the demo passport (5 pages, 16 stamps) and the Commons samples (10 pages, 38 stamps).
+		// Own data plus the demo passport (10 pages, 74 stamps) and the Commons samples (10 pages, 38 stamps).
 		expect(loaded).toMatchObject({
 			passports: 3,
-			photos: 16,
-			extractions: 15,
-			stamps: 55,
+			photos: 21,
+			extractions: 20,
+			stamps: 113,
+			locations: 5374,
 		});
-		expect(loaded.locations).toBeGreaterThan(2000);
 
 		await user.click(
 			screen.getByRole("button", { name: "Load demo data again" }),
 		);
 		await user.click(await screen.findByRole("button", { name: "Replace" }));
-		await screen.findByText(/5 demo pages/);
+		await screen.findByText(/10 demo pages/);
 		expect(await counts()).toEqual(loaded);
 
 		await user.click(screen.getByRole("button", { name: "Remove demo data" }));
@@ -167,26 +170,68 @@ describe("demo data", () => {
 			birth: null,
 		});
 		expect(hints.flat().filter((h) => h.severity === "error")).toEqual([]);
+		// A history dominated by trips: transits show as a day in Qatar, Turkey
+		// or the UAE between two stamps, Schengen trips beyond the first country
+		// come from photos.
 		expect(
-			stays.map((s) => [
-				s.countryCode,
-				s.arrival.date,
-				s.departure.date,
-				`${s.arrival.source}/${s.departure.source}`,
-			]),
+			stays.map(
+				(s) =>
+					`${s.countryCode} ${s.arrival.date} ${s.departure.date ?? "-"} ${s.arrival.source}/${s.departure.source}`,
+			),
 		).toEqual([
-			// From the first photo on: no stay since birth without a birth country.
-			["UA", "2016-01-01", "2016-08-10", "photos/stamp"],
-			["ES", "2016-08-10", "2016-08-24", "stamp/stamp"],
-			["UA", "2016-08-24", "2017-05-03", "stamp/stamp"],
-			["PL", "2017-05-03", "2017-05-12", "stamp/stamp"],
-			["UA", "2017-05-12", "2018-10-12", "stamp/stamp"],
-			["GE", "2018-10-12", "2018-10-20", "stamp/stamp"],
-			["UA", "2018-10-20", "2019-07-01", "stamp/stamp"],
-			// A Schengen trip: entry in Italy, photos in France, exit from France.
-			["IT", "2019-07-01", "2019-07-08", "stamp/photos"],
-			["FR", "2019-07-08", "2019-07-15", "photos/stamp"],
-			["UA", "2019-07-15", null, "stamp/estimated"],
+			"UA 2016-01-01 2016-08-10 photos/stamp",
+			"ES 2016-08-10 2016-08-24 stamp/stamp",
+			"UA 2016-08-24 2017-01-03 stamp/stamp",
+			"PL 2017-01-03 2017-01-08 stamp/stamp",
+			"UA 2017-01-08 2017-06-15 stamp/stamp",
+			"GE 2017-06-15 2017-06-22 stamp/stamp",
+			"AM 2017-06-22 2017-06-29 stamp/stamp",
+			"UA 2017-06-29 2017-10-20 stamp/stamp",
+			"TR 2017-10-20 2017-10-24 stamp/stamp",
+			"UA 2017-10-24 2018-02-08 stamp/stamp",
+			"QA 2018-02-08 2018-02-09 estimated/estimated",
+			"TH 2018-02-09 2018-02-25 stamp/stamp",
+			"QA 2018-02-25 2018-02-26 estimated/estimated",
+			"UA 2018-02-26 2018-07-05 stamp/stamp",
+			"IT 2018-07-05 2018-07-12 stamp/photos",
+			"FR 2018-07-12 2018-07-15 photos/stamp",
+			"UA 2018-07-15 2019-09-03 stamp/stamp",
+			"ME 2019-09-03 2019-09-10 stamp/estimated",
+			"UA 2019-09-10 2019-12-27 stamp/stamp",
+			"AE 2019-12-27 2020-01-04 stamp/stamp",
+			"UA 2020-01-04 2021-07-10 stamp/stamp",
+			"TR 2021-07-10 2021-07-24 stamp/estimated",
+			"UA 2021-07-24 2021-10-14 stamp/stamp",
+			"TR 2021-10-14 2021-10-15 estimated/estimated",
+			"PT 2021-10-15 2021-10-24 stamp/stamp",
+			"TR 2021-10-24 2021-10-25 estimated/estimated",
+			"UA 2021-10-25 2022-06-04 stamp/stamp",
+			"PL 2022-06-04 2022-07-10 stamp/photos",
+			"DE 2022-07-10 2022-07-24 photos/photos",
+			"PL 2022-07-24 2022-08-31 photos/stamp",
+			"UA 2022-08-31 2023-01-11 stamp/stamp",
+			"PL 2023-01-11 2023-01-12 stamp/stamp",
+			"AE 2023-01-12 2023-01-13 estimated/estimated",
+			"TH 2023-01-13 2023-02-11 stamp/stamp",
+			"AE 2023-02-11 2023-02-11 estimated/photos",
+			"PL 2023-02-11 2023-02-12 photos/stamp",
+			"UA 2023-02-12 2023-10-02 stamp/stamp",
+			"PL 2023-10-02 2023-10-03 stamp/stamp",
+			"TR 2023-10-03 2023-10-04 estimated/estimated",
+			"JP 2023-10-04 2023-10-18 stamp/stamp",
+			"TR 2023-10-18 2023-10-19 estimated/estimated",
+			"PL 2023-10-19 2023-10-19 stamp/stamp",
+			"UA 2023-10-19 2024-04-20 stamp/stamp",
+			"PL 2024-04-20 2024-04-21 stamp/photos",
+			"ES 2024-04-21 2024-05-03 photos/photos",
+			"PL 2024-05-03 2024-05-04 photos/stamp",
+			"UA 2024-05-04 2024-08-07 stamp/stamp",
+			"PL 2024-08-07 2024-08-08 stamp/photos",
+			"GR 2024-08-08 2024-08-18 photos/photos",
+			"PL 2024-08-18 2024-08-19 photos/stamp",
+			"UA 2024-08-19 2025-03-07 stamp/stamp",
+			"MD 2025-03-07 2025-03-11 stamp/stamp",
+			"UA 2025-03-11 - stamp/estimated",
 		]);
 		// Stamps and photos cover every day: no gap between stays.
 		expect(
@@ -195,6 +240,49 @@ describe("demo data", () => {
 				return gap ? [gap] : [];
 			}),
 		).toEqual([]);
+	});
+
+	it("leaves only the planted problems in the Review queue", async () => {
+		const db = new VoyputDb("demo-review-queue");
+		await seedDemo(db);
+		// Read back as the app reads them: in uuid order.
+		const index = buildPhotoIndex(await db.locations.toArray());
+		const stamps = await db.stamps
+			.where("passportId")
+			.equals("demo-passport")
+			.toArray();
+		const open = stamps
+			.map((stamp) => ({ stamp, check: checkStamp(index, stamp) }))
+			.filter(needsAttention)
+			.map(({ stamp, check }) => [
+				stamp.countryCode,
+				stamp.direction,
+				stamp.date,
+				stamp.reviewed,
+				check.suggestion,
+			]);
+		expect(open).toEqual([
+			// A smudged 10 read as 16: the photos are back home by then.
+			[
+				"ME",
+				"exit",
+				"2019-09-16",
+				false,
+				expect.stringContaining("around 2019-09-10"),
+			],
+			// The entry/exit word is smudged.
+			["TR", "unknown", "2021-07-24", false, expect.any(String)],
+			// A 01:50 flight: right stamp, but the last photo in Thailand is a day earlier.
+			[
+				"TH",
+				"exit",
+				"2023-02-11",
+				true,
+				expect.stringContaining("around 2023-02-10"),
+			],
+			// Faint, checkpoint unreadable.
+			["PL", "entry", "2023-02-11", false, expect.any(String)],
+		]);
 	});
 
 	it("removes only the stays built on demo data, not the user's own", async () => {
@@ -226,7 +314,7 @@ describe("demo data", () => {
 			[own],
 		);
 		// A demo stay that also holds one of the user's photos keeps it.
-		const mixed = history.findIndex((s) => s.arrival.date === "2019-07-15");
+		const mixed = history.findIndex((s) => s.arrival.date === "2025-03-11");
 		history[mixed] = {
 			...(history[mixed] as TravelStay),
 			photoIds: [...(history[mixed]?.photoIds ?? []), "mine-uuid"],
@@ -240,11 +328,11 @@ describe("demo data", () => {
 		expect(
 			left.map((s) => [s.id, s.countryCode, s.photoIds, s.approved]),
 		).toEqual([
-			[history[mixed]?.id, "UA", ["mine-uuid"], false],
 			["own-spain", "ES", ["mine-uuid"], true],
+			[history[mixed]?.id, "UA", ["mine-uuid"], false],
 		]);
-		expect(left[0]?.arrival).toMatchObject({ source: "estimated" });
-		expect(left[0]?.arrival.stampId).toBeUndefined();
+		expect(left[1]?.arrival).toMatchObject({ source: "estimated" });
+		expect(left[1]?.arrival.stampId).toBeUndefined();
 	});
 
 	it("asks before the Sources link replaces stored demo data", async () => {
@@ -282,7 +370,7 @@ describe("demo data", () => {
 		await user.click(
 			within(await tryDemo()).getByRole("button", { name: "Replace" }),
 		);
-		await screen.findByText(/5 demo pages/);
+		await screen.findByText(/10 demo pages/);
 		expect(await edited()).not.toBe("Edited");
 	});
 });

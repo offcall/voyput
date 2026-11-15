@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. ADR 0021 adds real Commons stamp pages to the demo.
+Accepted. ADR 0021 adds real Commons stamp pages to the demo; ADR 0029 makes the generated passport realistic.
 
 ## Context
 

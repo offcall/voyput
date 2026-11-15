@@ -1,11 +1,16 @@
 /** Synthetic Apple Photos location export that matches the demo trips. */
 
 import {
+	type City,
 	COUNTRIES,
 	type Country,
+	DOMESTIC,
 	HOME,
+	HOME_CITY,
 	LOCATIONS_FROM,
 	LOCATIONS_TO,
+	type Move,
+	QUIET,
 	TRIPS,
 } from "./scenario.ts";
 
@@ -14,7 +19,7 @@ const HEADER =
 	"date,lat,lon,country_code,country,city,source,is_video,filename,uuid";
 
 /** Deterministic PRNG (mulberry32), so the generated files never change by accident. */
-function random(seed: number): () => number {
+export function random(seed: number): () => number {
 	let a = seed;
 	return () => {
 		a = (a + 0x6d2b79f5) | 0;
@@ -34,87 +39,189 @@ function* days(from: string, to: string): Generator<string> {
 }
 
 function country(code: string): Country {
-	const c = COUNTRIES[code];
-	if (!c) throw new Error(`Unknown country ${code}`);
-	return c;
+	const found = COUNTRIES[code];
+	if (!found) throw new Error(`Unknown country ${code}`);
+	return found;
 }
 
-/** Countries visited on one day, in order, with the share of the trip leg already done. */
-function placesOn(day: string): { code: string; progress: number }[] {
-	for (const trip of TRIPS) {
-		const first = trip.legs[0];
-		const last = trip.legs[trip.legs.length - 1];
-		if (!first || !last || day < first.from || day > last.to) continue;
-		const places: { code: string; progress: number }[] = [];
-		if (day === first.from) places.push({ code: HOME, progress: 0 });
-		for (const leg of trip.legs) {
-			if (day < leg.from || day > leg.to) continue;
-			const total = Date.parse(leg.to) - Date.parse(leg.from);
-			const done = Date.parse(day) - Date.parse(leg.from);
-			places.push({ code: leg.country, progress: done / total });
-		}
-		if (day === last.to) places.push({ code: HOME, progress: 0 });
-		return places;
-	}
-	return [{ code: HOME, progress: 0 }];
+function city(code: string, name: string): City {
+	const found = country(code).cities.find((c) => c.name === name);
+	if (!found) throw new Error(`Unknown city ${name} in ${code}`);
+	return found;
 }
+
+const MOVES: Move[] = [...TRIPS.flatMap((t) => t.moves), ...DOMESTIC].sort(
+	(a, b) => a.at.localeCompare(b.at),
+);
+for (const move of MOVES) if (move.country) city(move.country, move.city);
+
+const HOME_MOVE: Move = { at: "", country: HOME, city: HOME_CITY };
+
+/** Where the traveller is at a local time "YYYY-MM-DD HH:MM". */
+function placeAt(at: string): Move {
+	let place = HOME_MOVE;
+	for (const move of MOVES) {
+		if (move.at > at) break;
+		place = move;
+	}
+	return place;
+}
+
+/** Days of trips marked long: photos as sparse as at home. */
+const LONG_DAYS = new Set(
+	TRIPS.filter((t) => t.long).flatMap((t) => [
+		...days(
+			t.moves[0]?.at.slice(0, 10) ?? "",
+			t.moves.at(-1)?.at.slice(0, 10) ?? "",
+		),
+	]),
+);
+
+/**
+ * Days that must have a photo at home: the eve of the first trip (so the
+ * history before the first stamp runs up to it) and the day the planted
+ * misread date lands on.
+ */
+const PHOTO_DAYS = new Set(["2016-08-09", "2019-09-16"]);
 
 const pad = (n: number, width = 2) => String(n).padStart(width, "0");
+const clock = (minute: number) =>
+	`${pad(Math.floor(minute / 60))}:${pad(minute % 60)}`;
 
-export function locationsCsv(): { csv: string; rows: number } {
+/** Last Sunday of a month (1-based), as YYYY-MM-DD. */
+function lastSunday(year: number, month: number): string {
+	const d = new Date(Date.UTC(year, month, 0));
+	d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+	return d.toISOString().slice(0, 10);
+}
+
+/** UTC offset like "+03:00" on a day, with EU summer time where it applies. */
+function offset(c: Country, day: string): string {
+	const year = Number(day.slice(0, 4));
+	const summer =
+		c.dst && day >= lastSunday(year, 3) && day < lastSunday(year, 10);
+	const hours = c.utc + (summer ? 1 : 0);
+	return `${hours < 0 ? "-" : "+"}${pad(Math.abs(hours))}:00`;
+}
+
+/** A day's places: each with the minutes it covers within the photo window. */
+function segments(day: string): { move: Move; from: number; to: number }[] {
+	const START = 7 * 60;
+	const END = 24 * 60 - 1;
+	const today = MOVES.filter((move) => move.at.startsWith(day));
+	const list = [{ move: placeAt(`${day} 00:00`), from: 0 }];
+	for (const move of today) {
+		const [h = 0, min = 0] = move.at.slice(11).split(":").map(Number);
+		list.push({ move, from: h * 60 + min });
+	}
+	return list
+		.map((seg, i) => ({
+			move: seg.move,
+			from: Math.max(START, seg.from),
+			to: Math.min(END, (list[i + 1]?.from ?? END + 1) - 1),
+		}))
+		.filter(
+			(seg) =>
+				seg.move.country !== "" &&
+				!city(seg.move.country, seg.move.city).post &&
+				seg.to - seg.from >= 20,
+		);
+}
+
+export interface PhotoRow {
+	day: string;
+	countryCode: string;
+	filename: string;
+	uuid: string;
+}
+
+export function locationsCsv(): { csv: string; rows: PhotoRow[] } {
 	const rand = random(20161);
 	const lines = [HEADER];
-	let n = 0;
+	const rows: PhotoRow[] = [];
+	let number = 412;
+	const hex = (n: number) =>
+		Array.from({ length: n }, () =>
+			Math.floor(rand() * 16)
+				.toString(16)
+				.toUpperCase(),
+		).join("");
 	for (const day of days(LOCATIONS_FROM, LOCATIONS_TO)) {
-		const places = placesOn(day);
-		const travelling = places.length > 1 || places[0]?.code !== HOME;
-		const count = travelling
-			? 8 + Math.floor(rand() * 10)
-			: rand() < 0.35
-				? 0
-				: 1 + Math.floor(rand() * 3);
-		const minutes = Array.from(
-			{ length: count },
-			() => 8 * 60 + Math.floor(rand() * 14 * 60),
-		).sort((a, b) => a - b);
-		const month = Number(day.slice(5, 7));
+		const segs = segments(day);
+		const abroad = segs.some((seg) => seg.move.country !== HOME);
+		const away = segs.some((seg) => seg.move.city !== HOME_CITY);
+		const moving = MOVES.some((move) => move.at.startsWith(day));
+		const quiet = day >= QUIET.from && day <= QUIET.to;
+		const count = LONG_DAYS.has(day)
+			? moving
+				? 3 + Math.floor(rand() * 5)
+				: rand() < 0.3
+					? 0
+					: 1 + Math.floor(rand() * 5)
+			: abroad
+				? 5 + Math.floor(rand() * 9)
+				: away || moving
+					? 3 + Math.floor(rand() * 7)
+					: rand() < (quiet ? 0.85 : 0.6)
+						? 0
+						: 1 + Math.floor(rand() * 3);
+		const window = segs.reduce((sum, seg) => sum + seg.to - seg.from + 1, 0);
+		const minutes: number[] = [];
+		const at = (from: number, to: number) =>
+			from + Math.floor(rand() * (to - from + 1));
+		for (let i = 0; i < count; i++) {
+			// Spread over the day's places by time, so each gets its share.
+			let left = Math.floor(rand() * window);
+			for (const seg of segs) {
+				const span = seg.to - seg.from + 1;
+				if (left < span) {
+					minutes.push(seg.from + left);
+					break;
+				}
+				left -= span;
+			}
+		}
+		// A transit, or a new country entered today, always shows in the photos.
+		segs.forEach((seg, i) => {
+			const transit =
+				seg.move.at.startsWith(day) &&
+				city(seg.move.country, seg.move.city).transit;
+			const crossed = i > 0 && segs[i - 1]?.move.country !== seg.move.country;
+			const has = minutes.some((t) => t >= seg.from && t <= seg.to);
+			const extra = transit ? 2 + Math.floor(rand() * 3) : crossed && !has;
+			for (let n = Number(extra); n > 0; n--)
+				minutes.push(at(seg.from, seg.to));
+		});
+		if (minutes.length === 0 && PHOTO_DAYS.has(day))
+			minutes.push(at(10 * 60, 20 * 60));
+		minutes.sort((a, b) => a - b);
+
 		for (const minute of minutes) {
-			// Each place gets an equal slice of the 08:00–22:00 window.
-			const slot = Math.min(
-				places.length - 1,
-				Math.floor(((minute - 8 * 60) / (14 * 60)) * places.length),
-			);
-			const place = places[slot] ?? { code: HOME, progress: 0 };
-			const c = country(place.code);
-			const city =
-				place.code === HOME
-					? (c.cities[rand() < 0.8 ? 0 : 1 + Math.floor(rand() * 2)] ??
-						c.cities[0])
-					: c.cities[
-							Math.min(
-								c.cities.length - 1,
-								Math.floor(place.progress * c.cities.length),
-							)
-						];
-			if (!city) throw new Error(`No city for ${place.code}`);
-			const tz = month >= 4 && month <= 10 ? c.tz.summer : c.tz.winter;
-			const time = `${pad(Math.floor(minute / 60))}:${pad(minute % 60)}:${pad(Math.floor(rand() * 60))}`;
-			n++;
+			const place = placeAt(`${day} ${clock(minute)}`);
+			const c = country(place.country);
+			const spot = city(place.country, place.city);
+			const spread = spot.spread ?? 0.03;
+			const video = rand() < 0.06;
+			const ext = video ? "MOV" : day < "2017-09-20" ? "JPG" : "HEIC";
+			const filename = `IMG_${pad(number, 4)}.${ext}`;
+			number = number === 9999 ? 1 : number + 1;
+			const uuid = `demo-${hex(8)}-${hex(4)}-${hex(4)}-${hex(4)}-${hex(12)}`;
 			lines.push(
 				[
-					`${day}T${time}${tz}`,
-					(city.lat + (rand() - 0.5) * 0.06).toFixed(6),
-					(city.lon + (rand() - 0.5) * 0.06).toFixed(6),
+					`${day}T${clock(minute)}:${pad(Math.floor(rand() * 60))}${offset(c, day)}`,
+					(spot.lat + (rand() - 0.5) * 2 * spread).toFixed(6),
+					(spot.lon + (rand() - 0.5) * 2 * spread).toFixed(6),
 					c.code,
 					c.name,
-					city.name,
-					rand() < 0.05 ? "offline" : "apple",
-					rand() < 0.06 ? "True" : "False",
-					`DEMO_${pad(n, 5)}.JPG`,
-					`demo-${pad(n, 6)}`,
+					spot.name,
+					rand() < 0.04 ? "offline" : "apple",
+					video ? "True" : "False",
+					filename,
+					uuid,
 				].join(","),
 			);
+			rows.push({ day, countryCode: c.code, filename, uuid });
 		}
 	}
-	return { csv: `${lines.join("\n")}\n`, rows: n };
+	return { csv: `${lines.join("\n")}\n`, rows };
 }

@@ -117,12 +117,13 @@ describe("routing", () => {
 		const db = new VoyputDb(`routing-${++dbCount}`);
 		await seedDemo(db);
 		const photos = await db.photos.toArray();
-		const second = photos.find((p) => p.name === "page-2.png");
-		if (!second) throw new Error("demo page-2.png missing");
+		// A page with a stamp needing attention: Review opens on that view.
+		const second = photos.find((p) => p.name === "page-4.png");
+		if (!second) throw new Error("demo page-4.png missing");
 
 		const { router } = renderApp(`/collect/review?photo=${second.id}`, { db });
 		const current = await screen.findByRole("button", { current: true });
-		expect(current.textContent).toContain("page-2.png");
+		expect(current.textContent).toContain("page-4.png");
 
 		await user.click(screen.getByRole("tab", { name: "Timeline" }));
 		await waitFor(() =>

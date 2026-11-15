@@ -66,7 +66,7 @@ describe("review", () => {
 		);
 		expect(
 			await db.stamps.where("passportId").equals("demo-passport").count(),
-		).toBe(16);
+		).toBe(74);
 	});
 
 	it("ends an opened stamp with Mark reviewed, then a quiet undo", async () => {
@@ -274,13 +274,13 @@ describe("review", () => {
 		await waitFor(async () =>
 			expect(
 				await db.stamps.where("photoId").equals("demo-photo-1").count(),
-			).toBe(5),
+			).toBe(8),
 		);
 		const added = (await db.stamps.toArray()).find(
 			(s) => s.countryCode === "PL" && s.date === "2016-09-05",
 		);
 		expect(added?.borderCrossing).toBe("car");
-		expect(await card(5)).toBeTruthy();
+		expect(await card(8)).toBeTruthy();
 	});
 
 	it("opens a stamp from the timeline on its photo", async () => {
@@ -295,17 +295,18 @@ describe("review", () => {
 		});
 		await user.click(
 			within(chronology).getByRole("button", {
-				name: "Open stamp: 2017-05-03 entry Poland",
+				name: "Open stamp: 2017-06-15 entry Georgia",
 			}),
 		);
 
 		expect(
 			await screen.findByRole("heading", { name: /page-2\.png/ }),
 		).toBeTruthy();
-		const opened = within(await card(2));
+		// Page 2 opens on its third stamp, after the Ukrainian exit of the same day.
+		const opened = within(await card(3));
 		expect(
 			opened.getByRole("button", { expanded: true }).textContent,
-		).toContain("3 May 2017");
+		).toContain("15 Jun 2017");
 	});
 
 	it("keeps both of two overlapping saves", async () => {

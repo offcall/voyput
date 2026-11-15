@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 const DEMO_NOTICE =
-	"Demo photo locations loaded: 2,467 locations · 6 countries · 2016–2019.";
+	"Demo photo locations loaded: 5,373 locations · 17 countries · 2016–2025.";
 
 describe("location card after a demo load", () => {
 	it("drops the demo notice once demo data is removed", async () => {
@@ -26,7 +26,7 @@ describe("location card after a demo load", () => {
 		await user.click(
 			await screen.findByRole("button", { name: "Try with demo data" }),
 		);
-		await screen.findByText(/5 demo pages/);
+		await screen.findByText(/10 demo pages/);
 		// The demo banner is on the passports step; the locations step reports the load.
 		await user.click(step(/^Step 2: Photo locations/));
 		await screen.findByText(DEMO_NOTICE);
