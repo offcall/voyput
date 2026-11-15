@@ -83,6 +83,20 @@ const groupNearby = (nearby: readonly NearbyPhoto[]) => {
 	return [...groups.values()];
 };
 
+/**
+ * The date a photo-location suggestion points to ("Possible correct date is around
+ * 2016-08-11 …", "… also a photo in Spain on 2016-08-11 …"), for a one-click fix.
+ */
+export function suggestedDate(lines: readonly string[]): string | null {
+	for (const line of lines) {
+		const match =
+			/correct date is around (\d{4}-\d{2}-\d{2})/.exec(line) ??
+			/also a photo in .+? on (\d{4}-\d{2}-\d{2})/.exec(line);
+		if (match?.[1] && isValidDate(match[1])) return match[1];
+	}
+	return null;
+}
+
 const NOTE_LABELS: Record<NoteKind, string> = {
 	problem: "Check",
 	icloudCheck: "Photo location history",
@@ -136,6 +150,17 @@ export function StampCard({
 		{ kind: "icloudCheck" as const, lines: [check.icloudCheck] },
 		{ kind: "suggestion" as const, lines: [check.suggestion] },
 	].filter((note) => note.lines.some(Boolean));
+	// The first open warning sits under the row, folded or not, with its fix.
+	const lead = notes.find(
+		({ kind }) => kind !== "suggestion" && !stamp.dismissed?.[kind],
+	);
+	const suggestion = notes.find(
+		({ kind }) => kind === "suggestion" && !stamp.dismissed?.suggestion,
+	);
+	const fix =
+		lead?.kind === "icloudCheck" && suggestion
+			? suggestedDate(suggestion.lines)
+			: null;
 	const label = `Stamp ${number}`;
 	const ref = useRef<HTMLElement>(null);
 	useEffect(() => {
@@ -183,18 +208,29 @@ export function StampCard({
 					{level === "warning" ? (
 						<Badge tone="warn">photo location</Badge>
 					) : null}
-					{stamp.reviewed ? <Badge tone="good">reviewed</Badge> : null}
-					<Button
-						variant="danger"
-						className="review-icon-button"
-						aria-label={`Delete ${label.toLowerCase()}`}
-						onClick={onDelete}
-					>
-						<TrashIcon />
-					</Button>
+					{stamp.reviewed ? (
+						<span
+							className="review-done-mark"
+							role="img"
+							aria-label="Reviewed"
+							title="Reviewed"
+						>
+							✓
+						</span>
+					) : null}
 				</span>
 			</div>
-
+			{lead ? (
+				<div className="review-notes">
+					<Note
+						kind={lead.kind}
+						lines={lead.lines}
+						fix={fix && fix !== stamp.date ? fix : null}
+						onFix={(date) => onEdit({ date })}
+						onDismiss={() => onDismiss(lead.kind, true)}
+					/>
+				</div>
+			) : null}
 			{expanded ? (
 				<div className="review-stamp-body">
 					<div className="review-fields">
@@ -297,39 +333,31 @@ export function StampCard({
 						</p>
 					) : null}
 					{stamp.notes ? <p className="review-muted">{stamp.notes}</p> : null}
-					{notes.map(({ kind, lines }) =>
-						stamp.dismissed?.[kind] ? (
-							<p key={kind} className="review-note-hidden">
-								{NOTE_LABELS[kind]} marked as fine.
-								<button
-									type="button"
-									className="review-link"
-									onClick={() => onDismiss(kind, false)}
-								>
-									Show again
-								</button>
-							</p>
-						) : (
-							<div key={kind} className="review-note" data-kind={kind}>
-								<span className="review-note-body">
-									<span className="review-note-tag">{NOTE_LABELS[kind]}</span>
-									{lines.map((line) => (
-										<span key={line} className="review-note-line">
-											{formatDatesIn(line)}
-										</span>
-									))}
-								</span>
-								<button
-									type="button"
-									className="review-note-hide"
-									aria-label={`${NOTE_LABELS[kind]} looks right`}
-									onClick={() => onDismiss(kind, true)}
-								>
-									Looks right
-								</button>
-							</div>
-						),
-					)}
+					{notes
+						.filter((note) => note !== lead)
+						.map(({ kind, lines }) =>
+							stamp.dismissed?.[kind] ? (
+								<p key={kind} className="review-note-hidden">
+									{NOTE_LABELS[kind]} marked as fine.
+									<button
+										type="button"
+										className="review-link"
+										onClick={() => onDismiss(kind, false)}
+									>
+										Show again
+									</button>
+								</p>
+							) : (
+								<Note
+									key={kind}
+									kind={kind}
+									lines={lines}
+									fix={null}
+									onFix={() => undefined}
+									onDismiss={() => onDismiss(kind, true)}
+								/>
+							),
+						)}
 					{stamp.date ? (
 						<div className="review-evidence">
 							<h4 className="review-section-label">
@@ -378,6 +406,15 @@ export function StampCard({
 							/>{" "}
 							Reviewed
 						</label>
+						<Button
+							variant="danger"
+							size="sm"
+							className="review-delete"
+							aria-label={`Delete ${label.toLowerCase()}`}
+							onClick={onDelete}
+						>
+							<TrashIcon /> Delete
+						</Button>
 						<ValidateRow
 							validation={validation}
 							onValidate={onValidate}
@@ -397,6 +434,53 @@ export function StampCard({
 				</div>
 			) : null}
 		</article>
+	);
+}
+
+/** One warning with "Looks right" and, where the photo locations point to a date, a fix. */
+function Note({
+	kind,
+	lines,
+	fix,
+	onFix,
+	onDismiss,
+}: {
+	kind: NoteKind;
+	lines: readonly string[];
+	fix: string | null;
+	onFix: (date: string) => void;
+	onDismiss: () => void;
+}) {
+	return (
+		<div className="review-note" data-kind={kind}>
+			<span className="review-note-body">
+				<span className="review-note-tag">{NOTE_LABELS[kind]}</span>
+				{lines.map((line) => (
+					<span key={line} className="review-note-line">
+						{formatDatesIn(line)}
+					</span>
+				))}
+			</span>
+			<span className="review-note-actions">
+				{fix ? (
+					<button
+						type="button"
+						className="review-note-fix"
+						onClick={() => onFix(fix)}
+					>
+						Move to {formatDay(fix)}
+					</button>
+				) : null}
+				<button
+					type="button"
+					className="review-note-hide"
+					aria-label={`${NOTE_LABELS[kind]} looks right`}
+					onClick={onDismiss}
+				>
+					Looks right
+				</button>
+			</span>
+		</div>
 	);
 }
 

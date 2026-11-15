@@ -1,11 +1,23 @@
-import { useNavigate, useSearch } from "@tanstack/react-router";
-import type { Stamp } from "@voyput/core";
-import { Button, Progress, Tabs } from "@voyput/ui";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import {
+	type CheckedStamp,
+	checkStamp,
+	type PhotoIndex,
+	type Stamp,
+} from "@voyput/core";
+import { Button, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
 import { errorMessage, formatDay } from "./format";
 import { PhotoReview } from "./PhotoReview";
+import {
+	buildQueue,
+	nextInQueue,
+	pageInView,
+	REVIEW_VIEWS,
+	type ReviewView,
+} from "./queue";
 import {
 	DEFAULT_UI_STATE,
 	loadUiState,
@@ -15,10 +27,45 @@ import {
 } from "./reviewStore";
 import type { Validation } from "./StampCard";
 import { TimelineView } from "./TimelineView";
-import { useLocationHistory, useReviewRecords } from "./useReviewData";
+import {
+	type ReviewRecords,
+	useLocationHistory,
+	useReviewRecords,
+} from "./useReviewData";
 import "./review.css";
 
 const UNDO_MS = 6000;
+
+const VIEW_LABELS: Record<ReviewView, string> = {
+	attention: "Needs attention",
+	all: "All pages",
+	unreviewed: "Unreviewed",
+	reviewed: "Reviewed",
+	empty: "No stamps",
+};
+
+const byDate = (a: CheckedStamp, b: CheckedStamp) =>
+	(a.stamp.date ?? "9999").localeCompare(b.stamp.date ?? "9999") ||
+	a.stamp.id.localeCompare(b.stamp.id);
+
+/** Each page's stamps with what the photo locations say, sorted by date. */
+function useCheckedStamps(
+	records: ReviewRecords | undefined,
+	index: PhotoIndex | undefined,
+	windowDays: number,
+) {
+	return useMemo(() => {
+		const map = new Map<string, CheckedStamp[]>();
+		if (!records || !index) return map;
+		for (const stamp of records.stamps) {
+			const list = map.get(stamp.photoId) ?? [];
+			list.push({ stamp, check: checkStamp(index, stamp, windowDays) });
+			map.set(stamp.photoId, list);
+		}
+		for (const list of map.values()) list.sort(byDate);
+		return map;
+	}, [records, index, windowDays]);
+}
 
 /** A stamp opened from the timeline; `seq` re-focuses the same stamp twice. */
 interface Focus {
@@ -85,22 +132,54 @@ export function ReviewPage() {
 		if (stamp) openStamp(stamp, true);
 	}, [search.stamp, records.data]);
 	const error = records.error ?? history.error ?? uiError;
-	const stamps = records.data?.stamps ?? [];
-	const reviewed = stamps.filter((s) => s.reviewed).length;
+	const byPhoto = useCheckedStamps(
+		records.data,
+		history.data?.index,
+		settings.locationWindowDays,
+	);
+	const stampsOf = (photoId: string) => byPhoto.get(photoId) ?? [];
+	const photos = records.data?.photos ?? [];
+	const photoIds = photos.map((photo) => photo.id);
+	const currentPhoto =
+		photos.find((photo) => photo.id === currentId) ?? photos[0];
+	const view = ui?.filter ?? DEFAULT_UI_STATE.filter;
 
 	return (
 		<div className="review-page">
-			{records.data && stamps.length > 0 ? (
-				<div className="review-progress">
-					<span className="review-progress-text">
-						<strong>{reviewed}</strong>/{stamps.length} stamps reviewed
-					</span>
-					<Progress
-						value={reviewed}
-						max={stamps.length}
-						label="Stamps reviewed"
-					/>
-				</div>
+			{records.data && history.data && ui && currentPhoto ? (
+				<QueueBar
+					queue={buildQueue(photoIds, stampsOf)}
+					current={
+						focus &&
+						byPhoto
+							.get(currentPhoto.id)
+							?.some((i) => i.stamp.id === focus.stampId)
+							? focus.stampId
+							: null
+					}
+					photoName={currentPhoto.name}
+					view={view}
+					viewCount={(key) =>
+						photoIds.filter((id) => pageInView(stampsOf(id), key)).length
+					}
+					onView={(filter) => updateUi({ filter })}
+					onNext={() => {
+						const next = nextInQueue(photoIds, stampsOf, {
+							photoId: currentPhoto.id,
+							stampId:
+								focus &&
+								byPhoto
+									.get(currentPhoto.id)
+									?.some((i) => i.stamp.id === focus.stampId)
+									? focus.stampId
+									: null,
+						});
+						if (!next) return;
+						// Queue mode: the stamp left behind folds away.
+						if (focus) setExpanded((e) => ({ ...e, [focus.stampId]: false }));
+						openStamp(next.stamp);
+					}}
+				/>
 			) : null}
 			{error ? (
 				<p role="alert" className="review-error">
@@ -139,10 +218,10 @@ export function ReviewPage() {
 									index={history.data.index}
 									dayRuns={history.data.dayRuns}
 									travelDays={history.data.travelDays}
-									filter={ui.filter}
+									stampsOf={stampsOf}
+									view={ui.filter}
 									currentId={currentId}
 									focusStampId={focus?.stampId ?? null}
-									onFilter={(filter) => updateUi({ filter })}
 									onSelect={setCurrentId}
 									onDeleted={setDeleted}
 									expanded={expanded}
@@ -190,5 +269,78 @@ export function ReviewPage() {
 				</div>
 			) : null}
 		</div>
+	);
+}
+
+/**
+ * The queue on top of Review: where the user is among the stamps needing attention,
+ * which pages the strip shows, and Next to the next stamp needing attention across
+ * pages. With none left: "All checked" and the way on to Stays.
+ */
+function QueueBar({
+	queue,
+	current,
+	photoName,
+	view,
+	viewCount,
+	onView,
+	onNext,
+}: {
+	queue: readonly CheckedStamp[];
+	/** The open stamp on the page shown, if any. */
+	current: string | null;
+	photoName: string;
+	view: ReviewView;
+	viewCount: (view: ReviewView) => number;
+	onView: (view: ReviewView) => void;
+	onNext: () => void;
+}) {
+	const position = queue.findIndex((item) => item.stamp.id === current);
+	return (
+		<section className="review-queue" aria-label="Review queue">
+			<p className="review-queue-text" aria-live="polite">
+				{queue.length === 0 ? (
+					<strong>All checked ✓</strong>
+				) : position >= 0 ? (
+					<strong>
+						To check {position + 1} / {queue.length}
+					</strong>
+				) : (
+					<strong>{queue.length} to check</strong>
+				)}{" "}
+				<span className="review-muted">· {photoName}</span>
+			</p>
+			<label className="review-queue-view">
+				<span className="review-sr">Pages</span>
+				<select
+					className="vp-input"
+					value={view}
+					onChange={(event) => {
+						const next = REVIEW_VIEWS.find((v) => v === event.target.value);
+						if (next) onView(next);
+					}}
+				>
+					{REVIEW_VIEWS.map((key) => (
+						<option key={key} value={key}>
+							{VIEW_LABELS[key]} ({viewCount(key)})
+						</option>
+					))}
+				</select>
+			</label>
+			{queue.length === 0 ? (
+				<Link
+					to="/collect/$step"
+					params={{ step: "trips" }}
+					className="vp-button"
+					data-variant="primary"
+				>
+					Go to Stays →
+				</Link>
+			) : (
+				<Button variant="primary" onClick={onNext}>
+					Next →
+				</Button>
+			)}
+		</section>
 	);
 }

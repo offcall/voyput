@@ -1,12 +1,6 @@
-import {
-	type NoteKind,
-	REVIEW_FILTERS,
-	type ReadStamp,
-	type ReviewFilter,
-	type Rotation,
-	type Stamp,
-} from "@voyput/core";
+import type { NoteKind, ReadStamp, Rotation, Stamp } from "@voyput/core";
 import type { VoyputDb } from "../../db/db";
+import { type ReviewView, viewFromStored } from "./queue";
 
 /** Fields of a stamp the user edits on Review. */
 export type StampEdit = Partial<
@@ -161,7 +155,8 @@ export async function setPhotoRotation(
 
 /** What the review section remembers between visits. */
 export interface ReviewUiState {
-	filter: ReviewFilter;
+	/** Pages shown in the photo strip. */
+	filter: ReviewView;
 	/** Days shown at once on the timeline. */
 	timelineWindowDays: number;
 }
@@ -169,7 +164,7 @@ export interface ReviewUiState {
 export const TIMELINE_WINDOWS = [30, 90, 180, 365] as const;
 const UI_KEY = "review:ui";
 export const DEFAULT_UI_STATE: ReviewUiState = {
-	filter: "all",
+	filter: "attention",
 	timelineWindowDays: 90,
 };
 
@@ -179,7 +174,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 export async function loadUiState(db: VoyputDb): Promise<ReviewUiState> {
 	const value = (await db.kv.get(UI_KEY))?.value;
 	if (!isRecord(value)) return DEFAULT_UI_STATE;
-	const filter = REVIEW_FILTERS.find((f) => f === value.filter);
+	const filter = viewFromStored(value.filter);
 	const days = TIMELINE_WINDOWS.find((d) => d === value.timelineWindowDays);
 	return {
 		filter: filter ?? DEFAULT_UI_STATE.filter,

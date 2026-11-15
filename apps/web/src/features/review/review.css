@@ -54,42 +54,33 @@
 
 /* Progress, tabs, loading, empty, toast */
 
-/* "x/y stamps reviewed" sits on the tab row on wide screens. */
-.review-progress {
+/* The queue: where the user is, which pages the strip shows, Next. */
+.review-queue {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	flex-wrap: wrap;
+	gap: var(--vp-space-2) var(--vp-space-3);
+	padding: var(--vp-space-2) var(--vp-space-3);
+	margin-bottom: var(--vp-space-3);
+	border: 1px solid color-mix(in srgb, var(--vp-accent) 35%, var(--vp-border));
+	border-radius: var(--vp-radius);
+	background: color-mix(in srgb, var(--vp-accent) 6%, var(--vp-surface));
+}
+.review-queue-text {
+	flex: 1 1 200px;
+	margin: 0;
 	font-size: var(--vp-text-sm);
-	color: var(--vp-muted);
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.review-progress .vp-progress-track {
-	width: 160px;
+.review-queue-view .vp-input {
+	padding: 5px 8px;
+	font-size: var(--vp-text-sm);
 }
-.review-progress strong {
-	font-family: var(--vp-font-pixel);
-	font-weight: 400;
-	font-size: 16px;
-	color: var(--vp-accent-ink);
-}
-.review-progress .vp-progress-indicator {
-	background: var(--vp-accent);
-	box-shadow: var(--vp-glow-sm);
-	transition: width 0.25s ease;
-}
-@media (min-width: 640px) {
-	.review-progress {
-		position: absolute;
-		top: 0;
-		right: 0;
-		height: 40px;
-	}
-}
-@media (max-width: 639px) {
-	.review-progress .vp-progress-track {
-		flex: 1;
-		width: auto;
-	}
+.review-queue .vp-button {
+	text-decoration: none;
 }
 
 /* Photos / Timeline: a segmented pixel pill, like the area switch. */
@@ -100,10 +91,10 @@
 	border: 1px solid var(--vp-border);
 	border-radius: var(--vp-radius-full);
 	background: var(--vp-surface-2);
-	margin-bottom: var(--vp-space-4);
+	margin-bottom: var(--vp-space-3);
 }
 .review-page .vp-tab {
-	padding: 7px 16px;
+	padding: 4px 12px;
 	margin: 0;
 	border: none;
 	border-radius: var(--vp-radius-full);
@@ -324,63 +315,6 @@
 	list-style: none;
 	padding: 0;
 	margin: 0;
-}
-fieldset.review-filters {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-	border: none;
-	padding: 0;
-	margin: 0 0 10px;
-	min-width: 0;
-}
-.review-chip {
-	--review-chip-tone: var(--vp-accent);
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	font: inherit;
-	font-size: var(--vp-text-sm);
-	line-height: 20px;
-	padding: 3px 11px;
-	color: var(--vp-text);
-	background: var(--vp-surface-2);
-	border: 1px solid var(--vp-border);
-	border-radius: var(--vp-radius-full);
-	white-space: nowrap;
-	cursor: pointer;
-	transition:
-		border-color var(--vp-duration) var(--vp-ease),
-		background var(--vp-duration) var(--vp-ease);
-}
-.review-chip[data-filter="problem"] {
-	--review-chip-tone: var(--vp-bad);
-}
-.review-chip[data-filter="icloud"] {
-	--review-chip-tone: var(--vp-warn);
-}
-.review-chip:hover {
-	border-color: var(--vp-border-strong);
-}
-.review-chip-count {
-	font-family: var(--vp-font-pixel);
-	font-size: 11px;
-	font-variant-numeric: tabular-nums;
-	color: var(--vp-muted);
-}
-.review-chip[aria-pressed="true"] {
-	border-color: var(--review-chip-tone);
-	background: color-mix(
-		in srgb,
-		var(--review-chip-tone) 14%,
-		var(--vp-surface)
-	);
-	color: var(--review-chip-tone);
-	box-shadow: 0 0 12px -2px
-		color-mix(in srgb, var(--review-chip-tone) 60%, transparent);
-}
-.review-chip[aria-pressed="true"] .review-chip-count {
-	color: inherit;
 }
 .review-strip-list {
 	display: flex;
@@ -752,20 +686,22 @@ fieldset.review-filters {
 .review-stamp-toggle[aria-expanded="true"] .review-chevron {
 	transform: rotate(180deg);
 }
-.review-icon-button.vp-button {
+.review-done-mark {
+	color: var(--vp-accent-ink);
+	font-weight: 700;
+	padding: 0 4px;
+}
+.review-delete.vp-button {
 	display: inline-flex;
 	align-items: center;
-	justify-content: center;
-	width: 32px;
-	height: 32px;
-	padding: 0;
-	color: var(--vp-muted);
-	background: none;
-	border-color: transparent;
+	gap: 6px;
 }
-.review-icon-button.vp-button:hover {
-	color: var(--vp-bad);
-	background: var(--vp-bad-soft);
+/* Open warnings sit under the stamp row, folded or not, with their fixes. */
+.review-notes {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 0 14px 10px;
 }
 .review-stamp-body {
 	display: flex;
@@ -852,6 +788,25 @@ fieldset.review-filters {
 }
 .review-note[data-kind="suggestion"] .review-note-tag {
 	color: var(--vp-accent);
+}
+.review-note-actions {
+	flex: none;
+	display: flex;
+	gap: 6px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+.review-note-fix {
+	font: inherit;
+	white-space: nowrap;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--vp-accent-text);
+	background: var(--vp-accent);
+	border: 1px solid var(--vp-accent);
+	border-radius: 999px;
+	padding: 1px 9px;
+	cursor: pointer;
 }
 .review-note-hide {
 	flex: none;

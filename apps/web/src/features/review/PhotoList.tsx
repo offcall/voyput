@@ -1,63 +1,32 @@
-import {
-	type CheckedStamp,
-	photoMatches,
-	photoSeverity,
-	REVIEW_FILTERS,
-	type ReviewFilter,
-} from "@voyput/core";
+import { type CheckedStamp, photoSeverity } from "@voyput/core";
 import type { PhotoRecord } from "../../db/db";
+import { pageInView, type ReviewView } from "./queue";
 import { Thumb } from "./Thumb";
 
-const FILTER_LABELS: Record<ReviewFilter, string> = {
-	all: "All",
-	problem: "Problems",
-	icloud: "Photo location mismatch",
-	empty: "No stamps",
-	unreviewed: "Unreviewed",
-	reviewed: "Reviewed",
-};
-
-/** Photos with their stamps, filtered, as a strip of thumbnails. */
+/** The pages in the chosen view, as a strip of thumbnails. */
 export function PhotoList({
 	photos,
 	stampsOf,
-	filter,
+	view,
 	currentId,
-	onFilter,
 	onSelect,
 }: {
 	photos: readonly PhotoRecord[];
 	stampsOf: (photoId: string) => readonly CheckedStamp[];
-	filter: ReviewFilter;
+	view: ReviewView;
 	currentId: string | null;
-	onFilter: (filter: ReviewFilter) => void;
 	onSelect: (photoId: string) => void;
 }) {
 	const visible = photos.filter((photo) =>
-		photoMatches(stampsOf(photo.id), filter),
+		pageInView(stampsOf(photo.id), view),
 	);
 	return (
 		<nav className="review-list" aria-label="Review photos">
-			<fieldset className="review-filters" aria-label="Filter photos">
-				{REVIEW_FILTERS.map((key) => (
-					<button
-						key={key}
-						type="button"
-						className="review-chip"
-						data-filter={key}
-						aria-pressed={filter === key}
-						onClick={() => onFilter(key)}
-					>
-						{FILTER_LABELS[key]}{" "}
-						<span className="review-chip-count">
-							{photos.filter((p) => photoMatches(stampsOf(p.id), key)).length}
-						</span>
-					</button>
-				))}
-			</fieldset>
 			{visible.length === 0 ? (
 				<p className="review-empty" data-size="small">
-					No photos match this filter.
+					{view === "attention"
+						? "No page needs attention."
+						: "No pages in this view."}
 				</p>
 			) : (
 				<ul className="review-strip-list">

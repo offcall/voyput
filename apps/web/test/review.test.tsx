@@ -50,8 +50,12 @@ describe("review", () => {
 		const again = within(await card(1));
 		const toggle = again.getByRole("button", { expanded: false });
 		expect(toggle.textContent).toContain("9 Aug 2016");
-		expect(again.getByText("reviewed")).toBeTruthy();
+		expect(again.getByRole("img", { name: "Reviewed" })).toBeTruthy();
 
+		// Delete sits inside the opened stamp.
+		await user.click(
+			within(await card(2)).getByRole("button", { expanded: false }),
+		);
 		await user.click(screen.getByRole("button", { name: "Delete stamp 2" }));
 		const toast = await screen.findByRole("status");
 		expect(toast.textContent).toContain("Spain, 10 Aug 2016");

@@ -1,13 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import {
 	type CheckedStamp,
-	checkStamp,
 	countryNamesToCodes,
 	type DateRange,
 	type DayRun,
 	nearbyPhotos,
 	type PhotoIndex,
-	type ReviewFilter,
 	type Stamp,
 } from "@voyput/core";
 import { Button, EmptyState, Notice, PixelArt } from "@voyput/ui";
@@ -19,6 +17,7 @@ import { describeFailure } from "../extract/failure";
 import { errorMessage } from "./format";
 import { PhotoList } from "./PhotoList";
 import { PhotoViewer } from "./PhotoViewer";
+import type { ReviewView } from "./queue";
 import { RescanPanel } from "./RescanPanel";
 import { rescanPhoto, validateStamp } from "./reviewAi";
 import {
@@ -34,20 +33,16 @@ import type { ReviewRecords } from "./useReviewData";
 
 const NO_RANGE: DateRange = { from: null, to: null };
 
-const byDate = (a: CheckedStamp, b: CheckedStamp) =>
-	(a.stamp.date ?? "9999").localeCompare(b.stamp.date ?? "9999") ||
-	a.stamp.id.localeCompare(b.stamp.id);
-
 /** Photo strip, then the current photo beside its stamps as editable cards. */
 export function PhotoReview({
 	records,
 	index,
 	dayRuns,
 	travelDays,
-	filter,
+	stampsOf,
+	view,
 	currentId,
 	focusStampId,
-	onFilter,
 	onSelect,
 	onDeleted,
 	expanded,
@@ -59,11 +54,13 @@ export function PhotoReview({
 	index: PhotoIndex;
 	dayRuns: readonly DayRun[];
 	travelDays: TravelDays;
-	filter: ReviewFilter;
+	/** A page's stamps with their checks, in the order shown. */
+	stampsOf: (photoId: string) => readonly CheckedStamp[];
+	/** Pages shown in the strip. */
+	view: ReviewView;
 	currentId: string | null;
-	/** A stamp opened from the timeline: shown open and scrolled to. */
+	/** A stamp opened from the queue or the timeline: shown open and scrolled to. */
 	focusStampId: string | null;
-	onFilter: (filter: ReviewFilter) => void;
 	onSelect: (photoId: string) => void;
 	onDeleted: (stamp: Stamp) => void;
 	/** Open or closed per stamp id; kept by the page so a tab switch keeps it. */
@@ -76,21 +73,6 @@ export function PhotoReview({
 	const db = useDb();
 	const ai = useAi();
 	const { settings } = useSettings();
-
-	const byPhoto = useMemo(() => {
-		const map = new Map<string, CheckedStamp[]>();
-		for (const stamp of records.stamps) {
-			const list = map.get(stamp.photoId) ?? [];
-			list.push({
-				stamp,
-				check: checkStamp(index, stamp, settings.locationWindowDays),
-			});
-			map.set(stamp.photoId, list);
-		}
-		for (const list of map.values()) list.sort(byDate);
-		return map;
-	}, [records.stamps, index, settings.locationWindowDays]);
-	const stampsOf = (photoId: string) => byPhoto.get(photoId) ?? [];
 
 	const countryCodes = useMemo(() => {
 		const map = countryNamesToCodes();
@@ -161,9 +143,8 @@ export function PhotoReview({
 			<PhotoList
 				photos={records.photos}
 				stampsOf={stampsOf}
-				filter={filter}
+				view={view}
 				currentId={photo.id}
-				onFilter={onFilter}
 				onSelect={onSelect}
 			/>
 			<div className="review-split">
