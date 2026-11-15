@@ -29,7 +29,11 @@ export function Menu({
 				<span aria-hidden="true">⋯</span>
 			</BaseMenu.Trigger>
 			<BaseMenu.Portal>
-				<BaseMenu.Positioner sideOffset={4} align="end">
+				<BaseMenu.Positioner
+					className="vp-menu-positioner"
+					sideOffset={4}
+					align="end"
+				>
 					<BaseMenu.Popup className="vp-menu-popup">
 						{items.map((item, index) => (
 							<BaseMenu.Item

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { PALETTE, SPRITES, spritePaths } from "./sprites";
 
 /** Banded sky, top to bottom, as shares of `--vp-sky-top`. */
@@ -106,7 +106,7 @@ const sun = spritePaths(SPRITES.sun);
 /**
  * A pixel landscape banner: banded sky, clouds, sun or moon, stars and hills.
  * It follows the theme (day sky in light, night in dark) unless `time` forces one.
- * Children sit on top, e.g. a title.
+ * Children sit on top, e.g. a title. On phones a band is at most 48px tall.
  */
 export function PixelSky({
 	time = "auto",
@@ -128,7 +128,7 @@ export function PixelSky({
 			className="vp-sky"
 			data-variant={variant}
 			data-time={time === "auto" ? undefined : time}
-			style={{ height }}
+			style={{ "--vp-sky-h": `${height}px` } as CSSProperties}
 		>
 			<svg
 				className="vp-sky-art"

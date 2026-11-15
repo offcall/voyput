@@ -583,8 +583,10 @@ select.vp-input {
 
 /* ---------- Dialog ---------- */
 
+/* Overlays sit above the phone's top and tab bars (z-index 20). */
 .vp-dialog-backdrop {
 	position: fixed;
+	z-index: 100;
 	inset: 0;
 	background: var(--vp-overlay);
 	backdrop-filter: blur(3px);
@@ -596,6 +598,7 @@ select.vp-input {
 }
 .vp-dialog-popup {
 	position: fixed;
+	z-index: 100;
 	top: 50%;
 	left: 50%;
 	transform: translate(-50%, -50%);
@@ -643,6 +646,7 @@ select.vp-input {
    handle, head, a body that scrolls, actions pinned under it. */
 .vp-sheet-backdrop {
 	position: fixed;
+	z-index: 100;
 	inset: 0;
 	min-height: 100dvh;
 	background: var(--vp-overlay);
@@ -658,6 +662,7 @@ select.vp-input {
 }
 .vp-sheet-viewport {
 	position: fixed;
+	z-index: 100;
 	inset: 0;
 	display: flex;
 	align-items: flex-end;
@@ -758,6 +763,9 @@ select.vp-input {
 .vp-menu-trigger {
 	font-size: var(--vp-text-lg);
 	line-height: 1;
+}
+.vp-menu-positioner {
+	z-index: 110;
 }
 .vp-menu-popup {
 	min-width: 140px;
@@ -1125,6 +1133,7 @@ a[aria-current="page"] .vp-nav-count {
 	gap: var(--vp-space-3);
 }
 .vp-stat {
+	container-type: inline-size;
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
@@ -1148,6 +1157,12 @@ a[aria-current="page"] .vp-nav-count {
 	line-height: 1.15;
 	color: var(--vp-text);
 	overflow-wrap: anywhere;
+}
+/* A narrow tile (two per row on a phone): the next crisp pixel size down. */
+@container (max-width: 170px) {
+	.vp-stat-value {
+		font-size: 16px;
+	}
 }
 .vp-stat-hint {
 	font-size: var(--vp-text-xs);
@@ -1360,6 +1375,7 @@ a[aria-current="page"] .vp-nav-count {
 }
 
 .vp-sky {
+	height: var(--vp-sky-h);
 	position: relative;
 	overflow: hidden;
 	border-radius: var(--vp-radius-lg);
@@ -1436,12 +1452,21 @@ a[aria-current="page"] .vp-nav-count {
 .vp-sky-header-body .vp-page-description {
 	margin: 0;
 }
-@media (max-width: 640px) {
+/* Phones: a lower band, the sprite at 2 screen pixels per art pixel (crisp). */
+@media (max-width: 640px), (max-height: 500px) {
+	.vp-sky[data-variant="band"] {
+		height: min(var(--vp-sky-h), 48px);
+	}
+	.vp-sky-band {
+		gap: var(--vp-space-3);
+		padding: 0 var(--vp-space-3);
+	}
 	.vp-sky-band h1 {
-		font-size: 18px;
+		font-size: 16px;
 	}
 	.vp-sky-band-art {
 		margin-right: 4%;
+		scale: calc(2 / 3);
 	}
 }
 
@@ -1468,6 +1493,54 @@ a[aria-current="page"] .vp-nav-count {
 	.vp-sky-stars rect,
 	.vp-sky-cloud {
 		animation: none;
+	}
+}
+
+/* ---------- Touch ---------- */
+
+/* Coarse pointers (phones, tablets): every control is at least 44px tall or
+   wide to the finger, and inputs use 16px text so iOS does not zoom on focus.
+   Small buttons keep their look; an invisible ::after grows their hit area. */
+@media (pointer: coarse) {
+	.vp-button {
+		min-height: 44px;
+	}
+	.vp-button[data-square] {
+		min-width: 44px;
+	}
+	.vp-button[data-size="sm"] {
+		position: relative;
+		min-height: 32px;
+	}
+	.vp-button[data-size="sm"]::after {
+		content: "";
+		position: absolute;
+		inset: -6px -2px;
+	}
+	.vp-button[data-size="sm"][data-square] {
+		min-width: 36px;
+	}
+	.vp-button[data-size="sm"][data-square]::after {
+		inset: -6px -4px;
+	}
+	.vp-input {
+		font-size: 16px;
+		min-height: 44px;
+		box-sizing: border-box;
+	}
+	.vp-disclosure > summary {
+		min-height: 44px;
+		box-sizing: border-box;
+	}
+	.vp-menu-item {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+		box-sizing: border-box;
+		font-size: var(--vp-text-md);
+	}
+	.vp-tab {
+		min-height: 44px;
 	}
 }
 
