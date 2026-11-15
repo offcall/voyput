@@ -5,6 +5,7 @@ import {
 	parsePhotoResponse,
 	type Stamp,
 } from "@voyput/core";
+import { aiModelLabel } from "../../ai/client";
 import type { AiClient, AiSettings } from "../../ai/openrouter";
 import type { PhotoRecord, VoyputDb } from "../../db/db";
 
@@ -30,11 +31,12 @@ export async function extractPhoto(
 	const finish = (
 		status: PhotoExtraction["status"],
 		notes: string,
+		model = aiModelLabel(settings),
 	): PhotoExtraction => ({
 		photoId: photo.id,
 		status,
 		notes,
-		model: settings.model,
+		model,
 		seconds: Math.round((performance.now() - started) / 1000),
 		finishedAt: new Date().toISOString(),
 	});
@@ -67,7 +69,7 @@ export async function extractPhoto(
 					.filter((stamp) => stamp.source === "ai" && !stamp.reviewed)
 					.delete();
 				await db.stamps.bulkAdd(stamps);
-				await db.extractions.put(finish("ok", result.notes));
+				await db.extractions.put(finish("ok", result.notes, answer.model));
 			},
 		);
 	} catch (error) {

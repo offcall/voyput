@@ -1,15 +1,20 @@
 import type { Rotation } from "@voyput/core";
 import type { Settings } from "../settings/settings";
 import { photoDataUrl } from "./image";
+import type { LocalHealth } from "./local";
 
 const API = "https://openrouter.ai/api/v1";
 const REQUEST_TIMEOUT_MS = 10 * 60_000; // busy pages can take minutes with reasoning
 const MODELS_TIMEOUT_MS = 30_000;
 
+/** Without a provider, calls go to OpenRouter (e.g. the model-trial script). */
 export type AiSettings = Pick<
 	Settings,
 	"openRouterKey" | "model" | "reasoningEffort"
->;
+> &
+	Partial<
+		Pick<Settings, "aiProvider" | "localEngine" | "localToken" | "localPort">
+	>;
 
 /** One image plus instructions; the model must answer with JSON only. */
 export interface ImageQuestion {
@@ -22,6 +27,8 @@ export interface AiAnswer {
 	text: string;
 	/** USD charged by OpenRouter, when it reports it. */
 	cost: number | null;
+	/** What answered, when the provider says (e.g. "local/codex"). */
+	model?: string;
 }
 
 export interface ModelOption {
@@ -37,6 +44,10 @@ export interface AiClient {
 	): Promise<AiAnswer>;
 	/** Models that accept image input. */
 	listImageModels(): Promise<ModelOption[]>;
+	/** Whether voyput-local answers and accepts the token (ADR 0026). */
+	localHealth?(
+		settings: Pick<AiSettings, "localToken" | "localPort">,
+	): Promise<LocalHealth>;
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>

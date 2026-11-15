@@ -2,7 +2,7 @@ import "@voyput/ui/styles.css";
 import { createBrowserHistory } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createOpenRouterClient } from "./ai/openrouter";
+import { createAiClient } from "./ai/client";
 import { App } from "./app/App";
 import { createAppRouter, redirectLegacyHash } from "./app/router";
 import { VoyputDb } from "./db/db";
@@ -18,7 +18,7 @@ createRoot(root).render(
 			router={createAppRouter(createBrowserHistory())}
 			db={new VoyputDb()}
 			storage={localStorage}
-			ai={createOpenRouterClient()}
+			ai={createAiClient()}
 		/>
 	</StrictMode>,
 );

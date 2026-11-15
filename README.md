@@ -1,6 +1,6 @@
 # voyput
 
-Reconstructs a travel history from passport stamp photos, cross-checked against Apple Photos location data. Everything runs in the browser: the user brings photos and a CSV, reads stamps with their own OpenRouter key, reviews them, builds a history of one-country stays (edit, split or add them; days without evidence stay gaps) and sees it on charts.
+Reconstructs a travel history from passport stamp photos, cross-checked against Apple Photos location data. Everything runs in the browser: the user brings photos and a CSV, reads stamps with their own OpenRouter key or their Codex / Claude Code subscription, reviews them, builds a history of one-country stays (edit, split or add them; days without evidence stay gaps) and sees it on charts.
 
 ## Commands
 
@@ -29,6 +29,15 @@ npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/d
 
 Stamps are read through OpenRouter with the user's own key. The default model is `google/gemini-3.8-flash`, which scored best on real stamp pages for about $0.015 per page ([model trial](docs/model-trial-2026-11.md), [ADR 0020](docs/adr/0020-gemini-flash-default-model.md)). Any image model can be picked in Settings. To compare models again, run `node scripts/model-trial/run.mjs` (see its header; it spends real credits).
 
+Or read them on your own computer with the Codex CLI or Claude Code you already pay for: run `voyput-local`, a one-file Node script (Node 22+, no dependencies), and pair it in Settings → AI → Local ([ADR 0026](docs/adr/0026-local-ai-engine.md)):
+
+```bash
+curl -fsSL https://voyput.app.offcall.link/voyput-local.mjs -o voyput-local.mjs && node voyput-local.mjs
+node packages/local/src/voyput-local.ts   # from a clone
+```
+
+It listens on 127.0.0.1 only and answers only requests with the pairing token it prints. Photos go to OpenAI or Anthropic through your own CLI account, never to voyput. Safari may block an https page from reaching 127.0.0.1; use Chrome or Firefox there.
+
 The demo includes 10 real stamp pages from Wikimedia Commons with that model's output left unreviewed, so you can try Review without a key ([credits](apps/web/public/demo/CREDITS.md)).
 
 ## Layout
@@ -36,6 +45,7 @@ The demo includes 10 real stamp pages from Wikimedia Commons with that model's o
 - `apps/web` — the app: routes, sections in `src/features/`, IndexedDB, AI client.
 - `packages/ui` — shared components and theme, with Storybook.
 - `packages/core` — domain types and pure logic.
+- `packages/local` — `voyput-local`, the script that reads stamps with a local Codex or Claude Code CLI; the site serves it as `/voyput-local.mjs`.
 - `tools/photos-export` — a Python script, run with `uv` on a Mac, that exports iPhone photo locations from the Apple Photos library to the CSV the app imports ([ADR 0027](docs/adr/0027-photo-export-script-in-tools.md)).
 
 Decisions are in [`docs/adr/`](docs/adr/README.md).

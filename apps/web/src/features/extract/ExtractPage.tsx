@@ -25,6 +25,7 @@ import {
 	useSyncExternalStore,
 } from "react";
 import { useAi } from "../../ai/AiContext";
+import { aiModelLabel, aiSetupNeeded } from "../../ai/client";
 import { useDb } from "../../db/DbContext";
 import type { PhotoRecord } from "../../db/db";
 import { useSettings } from "../../settings/SettingsContext";
@@ -126,19 +127,20 @@ export function ExtractPage() {
 		);
 	};
 
-	if (!settings.openRouterKey) {
+	const setup = aiSetupNeeded(settings);
+	if (setup) {
 		return (
 			<Stack>
 				<EmptyState
 					art={<PixelArt name="stamp" scale={6} />}
-					title="An API key is needed"
+					title={setup.title}
 					action={
 						<Link to="/settings" className="vp-button" data-variant="primary">
-							Add it in Settings
+							{setup.action}
 						</Link>
 					}
 				>
-					Extraction needs your OpenRouter API key.
+					{setup.text}
 				</EmptyState>
 			</Stack>
 		);
@@ -183,7 +185,7 @@ export function ExtractPage() {
 						</label>
 						<p className="extract-model-line">
 							Reads stamps with{" "}
-							<code className="extract-model">{settings.model}</code>
+							<code className="extract-model">{aiModelLabel(settings)}</code>
 						</p>
 						<div className="extract-actions">
 							<Button
@@ -263,9 +265,9 @@ export function ExtractPage() {
 				}
 			>
 				<p>
-					The photo is sent to {settings.model} again. Its unreviewed AI stamps
-					are replaced; reviewed and hand-added stamps stay, so a reviewed stamp
-					may appear twice.
+					The photo is sent to {aiModelLabel(settings)} again. Its unreviewed AI
+					stamps are replaced; reviewed and hand-added stamps stay, so a
+					reviewed stamp may appear twice.
 				</p>
 			</Dialog>
 		</Stack>

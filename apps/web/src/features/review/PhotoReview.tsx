@@ -11,6 +11,7 @@ import {
 import { Button, EmptyState, Notice, PixelArt } from "@voyput/ui";
 import { type Dispatch, type SetStateAction, useMemo } from "react";
 import { useAi } from "../../ai/AiContext";
+import { aiSetupNeeded } from "../../ai/client";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
 import { describeFailure } from "../extract/failure";
@@ -122,7 +123,8 @@ export function PhotoReview({
 		: NO_RANGE;
 	const items = stampsOf(photo.id);
 	const open = items.filter((item) => !item.stamp.reviewed).length;
-	const aiReady = Boolean(settings.openRouterKey);
+	const aiSetup = aiSetupNeeded(settings);
+	const aiReady = aiSetup === null;
 	const isExpanded = (stamp: Stamp) => expanded[stamp.id] ?? !stamp.reviewed;
 	const extraction = records.extractions.get(photo.id);
 
@@ -189,8 +191,10 @@ export function PhotoReview({
 					>
 						{aiReady ? null : (
 							<p className="review-muted">
-								Validate and rescan need your OpenRouter key.{" "}
-								<Link to="/settings">Add it in Settings</Link>.
+								{settings.aiProvider === "local"
+									? "Validate and rescan need voyput-local paired."
+									: "Validate and rescan need your OpenRouter key."}{" "}
+								<Link to="/settings">{aiSetup?.action}</Link>.
 							</p>
 						)}
 					</RescanPanel>
