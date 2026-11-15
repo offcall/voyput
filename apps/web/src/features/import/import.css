@@ -140,6 +140,16 @@
 .import-grid > li {
 	min-width: 0;
 }
+/* Phones: two pages per row, whatever the width. */
+@container (max-width: 460px) {
+	.import-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--vp-space-2);
+	}
+	.import-grid .vp-dropzone {
+		padding: var(--vp-space-3) var(--vp-space-2);
+	}
+}
 .import-grid .vp-dropzone {
 	aspect-ratio: 4 / 5;
 	box-sizing: border-box;
@@ -329,4 +339,11 @@
 	font-size: var(--vp-text-xs);
 	color: var(--vp-muted);
 	font-variant-numeric: tabular-nums;
+}
+
+/* Coarse pointers: the validity toggle gets a 44px tall row. */
+@media (pointer: coarse) {
+	.import-validity > summary {
+		min-height: 44px;
+	}
 }

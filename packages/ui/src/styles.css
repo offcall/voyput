@@ -272,6 +272,11 @@ a {
 		border-color var(--vp-duration) var(--vp-ease),
 		box-shadow var(--vp-duration) var(--vp-ease);
 }
+@media (max-width: 640px) {
+	.vp-card {
+		padding: var(--vp-space-4);
+	}
+}
 .vp-card[data-variant="selected"] {
 	border-color: var(--vp-border-accent);
 	box-shadow: 0 0 0 1px var(--vp-border-accent);

@@ -99,8 +99,11 @@
 	}
 	/* The top bar: logo left, theme switch right, both finger-sized. */
 	.vp-theme-switch button {
-		min-width: 40px;
-		min-height: 36px;
+		min-width: 44px;
+		min-height: 44px;
+	}
+	.vp-theme-switch {
+		padding: 2px;
 	}
 	.vp-brand-link {
 		min-height: 44px;

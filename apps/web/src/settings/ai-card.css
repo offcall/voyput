@@ -47,3 +47,19 @@
 	flex: 1;
 	min-width: 14rem;
 }
+
+/* Coarse pointers: each reader is a 44px tall row, the radio a little larger. */
+@media (pointer: coarse) {
+	.ai-providers {
+		gap: 0;
+	}
+	.ai-provider {
+		align-items: center;
+		min-height: 44px;
+	}
+	.ai-provider input {
+		margin-top: 0;
+		width: 20px;
+		height: 20px;
+	}
+}

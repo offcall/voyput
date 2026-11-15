@@ -299,6 +299,15 @@
 	font-size: var(--vp-text-sm);
 }
 
+/* Phones: the "Sources: … · change" link goes under the description, so the
+   title and text keep the full width. */
+@media (max-width: 600px) {
+	.collect-step-head {
+		flex-direction: column;
+		gap: var(--vp-space-1);
+	}
+}
+
 /* ---------- Sources ---------- */
 
 .collect-first {
@@ -423,7 +432,7 @@
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.collect-source {
-		grid-template-columns: 72px minmax(0, 1fr);
+		grid-template-columns: 80px minmax(0, 1fr);
 		column-gap: var(--vp-space-3);
 		align-items: start;
 		padding: var(--vp-space-3);

@@ -166,11 +166,6 @@
 		line-height: 1.4;
 		min-height: 44px;
 	}
-	.home-actions > a:not(.vp-button) {
-		display: inline-flex;
-		align-items: center;
-		min-height: 44px;
-	}
 	.home-steps {
 		grid-template-columns: minmax(0, 1fr);
 	}
@@ -182,11 +177,19 @@
 	}
 	.home-step-art {
 		grid-row: span 2;
-		min-width: 72px;
+		width: 80px;
 		min-height: 0;
 		align-self: start;
 	}
 	.home-delete .vp-button {
 		flex: 1 1 100%;
+	}
+}
+
+@media (pointer: coarse) {
+	.home-actions > a:not(.vp-button) {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
 	}
 }
