@@ -18,6 +18,7 @@ import {
 	REVIEW_VIEWS,
 	type ReviewView,
 } from "./queue";
+import type { RescanEntry } from "./RescanPanel";
 import {
 	DEFAULT_UI_STATE,
 	loadUiState,
@@ -38,6 +39,8 @@ const UNDO_MS = 6000;
 
 const VIEW_LABELS: Record<ReviewView, string> = {
 	attention: "Needs attention",
+	problem: "Problems",
+	icloud: "Photo location mismatch",
 	all: "All pages",
 	unreviewed: "Unreviewed",
 	reviewed: "Reviewed",
@@ -88,6 +91,7 @@ export function ReviewPage() {
 	const setCurrentId = (photo: string) =>
 		void navigate({ search: (s) => ({ ...s, photo }) });
 	const [focus, setFocus] = useState<Focus | null>(null);
+	const [rescans, setRescans] = useState<Record<string, RescanEntry>>({});
 	const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 	const [validations, setValidations] = useState<Record<string, Validation>>(
 		{},
@@ -196,9 +200,6 @@ export function ReviewPage() {
 				)
 			) : (
 				<Tabs
-					// Opening a stamp from the timeline starts over on the Photos tab; card
-					// state and validate results live here, so the remount keeps them.
-					key={focus?.seq ?? 0}
 					value={search.tab ?? "photos"}
 					onValueChange={(tab) =>
 						void navigate({
@@ -222,6 +223,9 @@ export function ReviewPage() {
 									view={ui.filter}
 									currentId={currentId}
 									focusStampId={focus?.stampId ?? null}
+									focusSeq={focus?.seq ?? 0}
+									rescans={rescans}
+									setRescans={setRescans}
 									onSelect={setCurrentId}
 									onDeleted={setDeleted}
 									expanded={expanded}

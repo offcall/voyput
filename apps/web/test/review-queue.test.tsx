@@ -1,7 +1,8 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { CheckedStamp, Stamp } from "@voyput/core";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { AiClient } from "../src/ai/openrouter";
 import { VoyputDb } from "../src/db/db";
 import {
 	buildQueue,
@@ -10,7 +11,7 @@ import {
 } from "../src/features/review/queue";
 import { suggestedDate } from "../src/features/review/StampCard";
 import { stubObjectUrls } from "./fixtures/demo";
-import { renderApp } from "./renderApp";
+import { offlineAi, renderApp } from "./renderApp";
 
 const stamp = (
 	id: string,
@@ -74,9 +75,10 @@ describe("review queue order", () => {
 		expect(nextInQueue(ids, () => [], null)).toBeNull();
 	});
 
-	it("reads the old problem filters as needs attention", () => {
-		expect(viewFromStored("problem")).toBe("attention");
-		expect(viewFromStored("icloud")).toBe("attention");
+	it("keeps the stored filters, the problem ones included", () => {
+		expect(viewFromStored("problem")).toBe("problem");
+		expect(viewFromStored("icloud")).toBe("icloud");
+		expect(viewFromStored("attention")).toBe("attention");
 		expect(viewFromStored("reviewed")).toBe("reviewed");
 		expect(viewFromStored("nope")).toBeNull();
 	});
@@ -179,6 +181,13 @@ describe("review queue", () => {
 			within(screen.getByRole("navigation", { name: "Review photos" }));
 		await waitFor(() => expect(strip().getAllByRole("button")).toHaveLength(2));
 		// Only page-2 has every stamp reviewed (its warning stays open).
+		// The problem filters stay apart from "needs attention".
+		await user.selectOptions(select, "problem");
+		await waitFor(() => expect(strip().getAllByRole("button")).toHaveLength(1));
+		await user.selectOptions(select, "icloud");
+		await waitFor(() =>
+			expect(strip().queryAllByRole("button")).toHaveLength(0),
+		);
 		await user.selectOptions(select, "reviewed");
 		await waitFor(() => expect(strip().getAllByRole("button")).toHaveLength(1));
 		expect(
@@ -197,4 +206,77 @@ describe("review queue", () => {
 			).toBe("reviewed"),
 		);
 	});
+
+	it("keeps a page's rescan finds while Next walks on", async () => {
+		localStorage.setItem(
+			"voyput:settings",
+			JSON.stringify({ openRouterKey: "sk-or-test" }),
+		);
+		const db = await seed();
+		const found = (date: string, countryCode: string, country: string) => ({
+			direction: "entry",
+			borderCrossing: "car",
+			dateText: date,
+			date,
+			country,
+			countryCode,
+			location: null,
+			confidence: 70,
+		});
+		const ai: AiClient = {
+			...offlineAi,
+			askAboutImage: async () => ({
+				cost: null,
+				text: JSON.stringify({
+					notes: "",
+					stamps: [
+						found("2020-03-01", "PL", "Poland"),
+						found("2020-04-01", "HU", "Hungary"),
+					],
+				}),
+			}),
+		};
+		const user = userEvent.setup();
+		renderApp("/collect/review", { db, ai });
+		const queue = within(
+			await screen.findByRole("region", { name: "Review queue" }),
+		);
+		await queue.findByText("2 to check");
+		await user.click(screen.getByRole("button", { name: "Rescan with AI" }));
+		const finds = () => screen.findByRole("list", { name: "Missed stamps" });
+		expect(within(await finds()).getAllByRole("listitem")).toHaveLength(2);
+		await user.click(
+			within(await finds()).getAllByRole("button", {
+				name: "Add",
+			})[0] as HTMLElement,
+		);
+		await waitFor(async () =>
+			expect(
+				await db.stamps.where("photoId").equals("page-1.png").count(),
+			).toBe(3),
+		);
+
+		// Next on the same page keeps the remaining find.
+		await user.click(queue.getByRole("button", { name: "Next →" }));
+		await screen.findByRole("heading", { name: /page-1\.png/ });
+		expect(within(await finds()).getAllByRole("listitem")).toHaveLength(1);
+		// So does walking to another page and back.
+		while (!screen.queryByRole("heading", { name: /page-2\.png/ }))
+			await user.click(queue.getByRole("button", { name: "Next →" }));
+		await user.click(
+			within(
+				screen.getByRole("navigation", { name: "Review photos" }),
+			).getByRole("button", { name: /page-1\.png/ }),
+		);
+		await user.click(
+			within(await finds()).getByRole("button", { name: "Add" }),
+		);
+		await waitFor(async () =>
+			expect(
+				await db.stamps.where("photoId").equals("page-1.png").count(),
+			).toBe(4),
+		);
+	});
 });
+
+afterEach(() => localStorage.removeItem("voyput:settings"));

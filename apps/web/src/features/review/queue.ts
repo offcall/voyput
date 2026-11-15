@@ -12,16 +12,13 @@ import {
 export const needsAttention = (item: CheckedStamp): boolean =>
 	!item.stamp.reviewed || severity(item) !== "ok";
 
-/** Which pages the photo strip shows; one select on Review. */
-export type ReviewView =
-	| "attention"
-	| "all"
-	| "unreviewed"
-	| "reviewed"
-	| "empty";
+/** Which pages the photo strip shows; one select on Review. The core filters plus "needs attention". */
+export type ReviewView = "attention" | ReviewFilter;
 
 export const REVIEW_VIEWS: readonly ReviewView[] = [
 	"attention",
+	"problem",
+	"icloud",
 	"all",
 	"unreviewed",
 	"reviewed",
@@ -31,22 +28,16 @@ export const REVIEW_VIEWS: readonly ReviewView[] = [
 export const isReviewView = (value: unknown): value is ReviewView =>
 	(REVIEW_VIEWS as readonly unknown[]).includes(value);
 
-/** A view stored before the queue: the two problem filters became "needs attention". */
+/** A stored view, or null for anything unknown. */
 export const viewFromStored = (value: unknown): ReviewView | null =>
-	isReviewView(value)
-		? value
-		: value === "problem" || value === "icloud"
-			? "attention"
-			: null;
+	isReviewView(value) ? value : null;
 
 /** Does a page with these stamps show in `view`? */
 export const pageInView = (
 	items: readonly CheckedStamp[],
 	view: ReviewView,
 ): boolean =>
-	view === "attention"
-		? items.some(needsAttention)
-		: photoMatches(items, view satisfies ReviewFilter);
+	view === "attention" ? items.some(needsAttention) : photoMatches(items, view);
 
 /** Where the user is: a stamp on a page, or a page as a whole. */
 export interface QueueCursor {

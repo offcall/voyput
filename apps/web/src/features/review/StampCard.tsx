@@ -111,7 +111,7 @@ export function StampCard({
 	windowDays,
 	nearby,
 	expanded,
-	focused,
+	focusSeq,
 	countryCodes,
 	countryNames,
 	validation,
@@ -130,7 +130,8 @@ export function StampCard({
 	nearby: readonly NearbyPhoto[];
 	expanded: boolean;
 	/** Opened from the timeline: scrolled to and outlined. */
-	focused: boolean;
+	/** Set while opened from the queue or the timeline; each new value scrolls to it again. */
+	focusSeq: number | null;
 	/** Country name → code, to keep name and code in step. */
 	countryCodes: ReadonlyMap<string, string>;
 	/** Code → country name. */
@@ -164,8 +165,8 @@ export function StampCard({
 	const label = `Stamp ${number}`;
 	const ref = useRef<HTMLElement>(null);
 	useEffect(() => {
-		if (focused) ref.current?.scrollIntoView?.({ block: "center" });
-	}, [focused]);
+		if (focusSeq !== null) ref.current?.scrollIntoView?.({ block: "center" });
+	}, [focusSeq]);
 
 	return (
 		<article
@@ -173,7 +174,7 @@ export function StampCard({
 			className="review-stamp"
 			data-severity={level}
 			data-reviewed={stamp.reviewed || undefined}
-			data-focused={focused || undefined}
+			data-focused={focusSeq !== null || undefined}
 			aria-label={label}
 		>
 			<div className="review-stamp-summary">

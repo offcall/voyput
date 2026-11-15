@@ -18,7 +18,7 @@ import { errorMessage } from "./format";
 import { PhotoList } from "./PhotoList";
 import { PhotoViewer } from "./PhotoViewer";
 import type { ReviewView } from "./queue";
-import { RescanPanel } from "./RescanPanel";
+import { IDLE_RESCAN, type RescanEntry, RescanPanel } from "./RescanPanel";
 import { rescanPhoto, validateStamp } from "./reviewAi";
 import {
 	addFoundStamp,
@@ -43,12 +43,15 @@ export function PhotoReview({
 	view,
 	currentId,
 	focusStampId,
+	focusSeq,
 	onSelect,
 	onDeleted,
 	expanded,
 	setExpanded,
 	validations,
 	setValidations,
+	rescans,
+	setRescans,
 }: {
 	records: ReviewRecords;
 	index: PhotoIndex;
@@ -61,6 +64,8 @@ export function PhotoReview({
 	currentId: string | null;
 	/** A stamp opened from the queue or the timeline: shown open and scrolled to. */
 	focusStampId: string | null;
+	/** Grows each time a stamp is opened, so the same stamp scrolls into view again. */
+	focusSeq: number;
 	onSelect: (photoId: string) => void;
 	onDeleted: (stamp: Stamp) => void;
 	/** Open or closed per stamp id; kept by the page so a tab switch keeps it. */
@@ -69,6 +74,9 @@ export function PhotoReview({
 	/** AI validate results per stamp id; kept by the page for the same reason. */
 	validations: Record<string, Validation>;
 	setValidations: Dispatch<SetStateAction<Record<string, Validation>>>;
+	/** Rescan hint and finds per photo id; kept by the page for the same reason. */
+	rescans: Record<string, RescanEntry>;
+	setRescans: Dispatch<SetStateAction<Record<string, RescanEntry>>>;
 }) {
 	const db = useDb();
 	const ai = useAi();
@@ -157,7 +165,13 @@ export function PhotoReview({
 					</h2>
 					<PhotoViewer photo={photo} />
 					<RescanPanel
-						key={photo.id}
+						entry={rescans[photo.id] ?? IDLE_RESCAN}
+						update={(change) =>
+							setRescans((all) => ({
+								...all,
+								[photo.id]: change(all[photo.id] ?? IDLE_RESCAN),
+							}))
+						}
 						onRescan={
 							aiReady
 								? (hint) =>
@@ -228,7 +242,7 @@ export function PhotoReview({
 									: []
 							}
 							expanded={isExpanded(item.stamp)}
-							focused={item.stamp.id === focusStampId}
+							focusSeq={item.stamp.id === focusStampId ? focusSeq : null}
 							countryCodes={countryCodes}
 							countryNames={countryNames}
 							validation={validations[item.stamp.id]}
