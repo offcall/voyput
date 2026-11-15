@@ -68,7 +68,8 @@
 /* Stats: sticky in-page section nav, sections with a plain heading. */
 .vp-insights-sections {
 	position: sticky;
-	top: 0;
+	/* Under the shell's sticky top bar on phones; 0 on desktop. */
+	top: var(--vp-topbar-h, 0px);
 	z-index: 5;
 	display: flex;
 	gap: 4px;
