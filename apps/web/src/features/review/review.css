@@ -686,15 +686,19 @@
 .review-stamp-toggle[aria-expanded="true"] .review-chevron {
 	transform: rotate(180deg);
 }
+/* A reviewed stamp is visibly done: the same green as "Mark reviewed". */
 .review-done-mark {
-	color: var(--vp-accent-ink);
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	margin: 0 4px;
+	border-radius: 5px;
+	background: var(--vp-accent);
+	color: var(--vp-accent-text);
+	font-size: 12px;
 	font-weight: 700;
-	padding: 0 4px;
-}
-.review-delete.vp-button {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
+	line-height: 1;
 }
 /* Open warnings sit under the stamp row, folded or not, with their fixes. */
 .review-notes {
@@ -760,10 +764,14 @@
 	border-color: color-mix(in srgb, var(--vp-warn) 45%, transparent);
 	background: var(--vp-warn-soft);
 }
+/* A suggestion is a hint, not an alert: no box, a thin line and a quiet "Looks right". */
 .review-note[data-kind="suggestion"] {
-	color: var(--vp-accent);
-	border-color: color-mix(in srgb, var(--vp-accent) 40%, transparent);
-	background: color-mix(in srgb, var(--vp-accent) 8%, var(--vp-surface));
+	color: var(--vp-muted);
+	border: none;
+	border-left: 2px solid color-mix(in srgb, var(--vp-accent) 60%, transparent);
+	border-radius: 0;
+	background: none;
+	padding: 2px 0 2px 10px;
 }
 .review-note-body {
 	flex: 1;
@@ -825,6 +833,12 @@
 .review-note-hide:hover {
 	opacity: 1;
 }
+.review-note[data-kind="suggestion"] .review-note-hide {
+	border-color: transparent;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	padding: 1px 2px;
+}
 .review-note-hidden {
 	display: flex;
 	align-items: center;
@@ -863,46 +877,67 @@
 	background: var(--vp-surface);
 	border: 1px solid var(--vp-border);
 }
+/* The end of an opened stamp: quiet tools on the left, Reviewed on the right. */
 .review-stamp-footer {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
 	flex-wrap: wrap;
-	gap: 10px;
-	padding-top: 10px;
+	gap: 10px 16px;
+	padding-top: 12px;
 	border-top: 1px solid var(--vp-border);
 }
-.review-check {
+.review-stamp-tools {
+	flex: 1 1 260px;
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	min-width: 0;
+}
+.review-delete {
+	flex: none;
 	display: inline-flex;
 	align-items: center;
-	gap: 8px;
-	padding: 7px 14px 7px 10px;
-	font-size: 14px;
-	font-weight: 600;
-	border-radius: var(--vp-radius);
-	border: 1px solid var(--vp-border);
+	gap: 5px;
+	min-height: 32px;
+	padding: 0 2px;
+	font: inherit;
+	font-size: 13px;
+	color: var(--vp-muted);
+	background: none;
+	border: none;
 	cursor: pointer;
 }
-.review-check:has(input:checked) {
-	color: var(--vp-accent-ink);
-	border-color: var(--vp-accent);
-	background: var(--vp-accent-soft);
-	box-shadow: var(--vp-glow-sm);
-}
-.review-check input {
-	width: 16px;
-	height: 16px;
-	margin: 0;
-	accent-color: var(--vp-accent);
+.review-delete:hover,
+.review-delete:focus-visible {
+	color: var(--vp-bad);
 }
 .review-validate {
 	display: flex;
 	flex-direction: column;
-	align-items: flex-end;
+	align-items: flex-start;
 	gap: 6px;
 	flex: 1;
-	min-width: 200px;
+	min-width: 0;
 	font-size: 13px;
+}
+.review-mark.vp-button {
+	flex: none;
+	margin-left: auto;
+	box-shadow: var(--vp-glow-sm);
+}
+.review-reviewed {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	min-height: 40px;
+	margin: 0 0 0 auto;
+	font-size: 14px;
+	color: var(--vp-muted);
+}
+.review-reviewed-label {
+	font-weight: 700;
+	color: var(--vp-accent-ink);
 }
 .review-validate [role="status"] {
 	align-self: stretch;

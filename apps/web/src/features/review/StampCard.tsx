@@ -399,37 +399,34 @@ export function StampCard({
 						</div>
 					) : null}
 					<div className="review-stamp-footer">
-						<label className="review-check">
-							<input
-								type="checkbox"
-								checked={stamp.reviewed}
-								onChange={(event) => onEdit({ reviewed: event.target.checked })}
-							/>{" "}
-							Reviewed
-						</label>
-						<Button
-							variant="danger"
-							size="sm"
-							className="review-delete"
-							aria-label={`Delete ${label.toLowerCase()}`}
-							onClick={onDelete}
-						>
-							<TrashIcon /> Delete
-						</Button>
-						<ValidateRow
-							validation={validation}
-							onValidate={onValidate}
-							onApply={(correction) =>
-								onEdit({
-									...correction,
-									...(correction.country && !correction.countryCode
-										? {
-												countryCode:
-													countryCodes.get(correction.country) ?? null,
-											}
-										: {}),
-								})
-							}
+						<div className="review-stamp-tools">
+							<button
+								type="button"
+								className="review-delete"
+								aria-label={`Delete ${label.toLowerCase()}`}
+								onClick={onDelete}
+							>
+								<TrashIcon /> Delete
+							</button>
+							<ValidateRow
+								validation={validation}
+								onValidate={onValidate}
+								onApply={(correction) =>
+									onEdit({
+										...correction,
+										...(correction.country && !correction.countryCode
+											? {
+													countryCode:
+														countryCodes.get(correction.country) ?? null,
+												}
+											: {}),
+									})
+								}
+							/>
+						</div>
+						<ReviewedControl
+							reviewed={stamp.reviewed}
+							onChange={(reviewed) => onEdit({ reviewed })}
 						/>
 					</div>
 				</div>
@@ -485,6 +482,45 @@ function Note({
 	);
 }
 
+/**
+ * The end of an opened stamp and its one main action: "Mark reviewed", or once
+ * reviewed a quiet "Reviewed" with a way to undo it.
+ */
+function ReviewedControl({
+	reviewed,
+	onChange,
+}: {
+	reviewed: boolean;
+	onChange: (reviewed: boolean) => void;
+}) {
+	if (!reviewed)
+		return (
+			<Button
+				variant="primary"
+				className="review-mark"
+				onClick={() => onChange(true)}
+			>
+				<span aria-hidden="true">✓ </span>Mark reviewed
+			</Button>
+		);
+	return (
+		<p className="review-reviewed">
+			<span className="review-reviewed-label">
+				Reviewed <span aria-hidden="true">✓</span>
+			</span>
+			<span aria-hidden="true"> · </span>
+			<button
+				type="button"
+				className="review-link"
+				aria-label="Undo reviewed"
+				onClick={() => onChange(false)}
+			>
+				undo
+			</button>
+		</p>
+	);
+}
+
 function TrashIcon() {
 	return (
 		<svg
@@ -515,7 +551,11 @@ function ValidateRow({
 	const running = validation?.status === "running";
 	return (
 		<div className="review-validate">
-			<Button disabled={!onValidate || running} onClick={() => onValidate?.()}>
+			<Button
+				size="sm"
+				disabled={!onValidate || running}
+				onClick={() => onValidate?.()}
+			>
 				{running ? "Checking…" : "Validate with AI"}
 			</Button>
 			{validation?.status === "error" ? (

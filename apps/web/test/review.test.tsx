@@ -30,7 +30,7 @@ describe("review", () => {
 		// Demo stamps come reviewed, so the card is folded: open it and unmark it.
 		const stamp = within(await card(1));
 		await user.click(stamp.getByRole("button", { expanded: false }));
-		await user.click(stamp.getByRole("checkbox", { name: "Reviewed" }));
+		await user.click(stamp.getByRole("button", { name: "Undo reviewed" }));
 		await waitFor(async () =>
 			expect((await db.stamps.get("demo-stamp-01"))?.reviewed).toBe(false),
 		);
@@ -40,7 +40,7 @@ describe("review", () => {
 		await waitFor(async () =>
 			expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-09"),
 		);
-		await user.click(stamp.getByRole("checkbox", { name: "Reviewed" }));
+		await user.click(stamp.getByRole("button", { name: "Mark reviewed" }));
 		await waitFor(async () =>
 			expect((await db.stamps.get("demo-stamp-01"))?.reviewed).toBe(true),
 		);
@@ -67,6 +67,37 @@ describe("review", () => {
 		expect(
 			await db.stamps.where("passportId").equals("demo-passport").count(),
 		).toBe(16);
+	});
+
+	it("ends an opened stamp with Mark reviewed, then a quiet undo", async () => {
+		const db = await demoDb();
+		await updateStamp(db, "demo-stamp-01", { reviewed: false });
+		const user = userEvent.setup();
+		renderApp("/review", { db });
+
+		// An unreviewed stamp opens by itself.
+		const stamp = within(await card(1));
+		expect(stamp.getByRole("button", { expanded: true })).toBeTruthy();
+		expect(stamp.queryByRole("img", { name: "Reviewed" })).toBeNull();
+		expect(stamp.queryByRole("button", { name: "Undo reviewed" })).toBeNull();
+		await user.click(stamp.getByRole("button", { name: "Mark reviewed" }));
+		await waitFor(async () =>
+			expect((await db.stamps.get("demo-stamp-01"))?.reviewed).toBe(true),
+		);
+
+		// Reviewed: the card folds with a check on its row; opened, a quiet way back.
+		expect(await stamp.findByRole("img", { name: "Reviewed" })).toBeTruthy();
+		await user.click(stamp.getByRole("button", { expanded: false }));
+		expect(stamp.queryByRole("button", { name: "Mark reviewed" })).toBeNull();
+		await user.click(
+			await stamp.findByRole("button", { name: "Undo reviewed" }),
+		);
+		await waitFor(async () =>
+			expect((await db.stamps.get("demo-stamp-01"))?.reviewed).toBe(false),
+		);
+		expect(
+			await stamp.findByRole("button", { name: "Mark reviewed" }),
+		).toBeTruthy();
 	});
 
 	it("uses the photo location window from Settings", async () => {
