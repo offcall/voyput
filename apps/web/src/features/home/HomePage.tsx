@@ -33,6 +33,10 @@ const STAMP_READERS: { name: string; text: string }[] = [
 		name: "OpenRouter",
 		text: "only once you add your own key in Settings. Then each page image is sent from this browser straight to OpenRouter and the provider of the model you pick; voyput has no server in between.",
 	},
+	{
+		name: "Local",
+		text: "only if you run voyput-local on your own computer and pair it in Settings. Then each page image goes, encrypted, from this browser to that script, which passes it to your own Claude Code (or, if you turn it on, Codex) CLI; the CLI sends it to Anthropic or OpenAI under your account.",
+	},
 ];
 
 const STEPS: { sprites: SpriteName[]; title: string; text: string }[] = [

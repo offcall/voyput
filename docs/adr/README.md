@@ -29,5 +29,5 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0023](0023-navigation-and-insights.md) | Navigation and Insights | Accepted |
 | [0024](0024-collect-sources.md) | Collect Sources | Accepted |
 | [0025](0025-home-page.md) | Home Page | Accepted |
-| [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Accepted |
 | [0026](0026-local-ai-engine.md) | Local AI Engine | Accepted |
+| [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Accepted |

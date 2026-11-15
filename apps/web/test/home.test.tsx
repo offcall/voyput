@@ -81,6 +81,11 @@ describe("home page", () => {
 				/Only when you read stamps with AI are page images sent/,
 			),
 		).toBeTruthy();
+		// Privacy names both stamp readers and where each sends page images.
+		expect(screen.getByText(/straight to OpenRouter/)).toBeTruthy();
+		expect(
+			screen.getByText(/run voyput-local on your own computer/),
+		).toBeTruthy();
 		expect(screen.getByRole("button", { name: /^Photos only/ })).toBeTruthy();
 		expect(
 			screen.getByRole("button", { name: "Try with demo data" }),
