@@ -1,21 +1,24 @@
 import { Link } from "@tanstack/react-router";
-import { EmptyState, Notice, PixelArt, type SpriteName } from "@voyput/ui";
+import { EmptyState, PixelArt, type SpriteName } from "@voyput/ui";
+import type { InsightViewId } from "./views";
 
 /**
- * Data a Visualize tab cannot draw without:
+ * Data an Insights view cannot draw without:
  * - `locations`: photo locations from the imported location history;
  * - `stays`: stays to replay, stored or suggested (Route, Explore and other stay views).
  */
 export type VizNeed = "locations" | "stays";
 
-/** What the user has, counted once by the Visualize layout. */
+/** What the user has, counted once by the Insights layout. */
 export interface VizHave {
 	/** Imported photo locations. */
 	locations: number;
 	/** Stays the stay views draw from: stored or suggested. */
 	stays: number;
-	/** Stays the user saved; only these appear in the chart filter. */
+	/** Stays the user saved. */
 	storedStays: number;
+	/** Passport stamps read from photos. */
+	stamps: number;
 }
 
 /** The first need the data does not meet, or `null` when the tab can draw. */
@@ -26,8 +29,8 @@ export function missingNeed(
 	return needs.find((need) => have[need] === 0) ?? null;
 }
 
-/** Collect steps a Visualize placeholder can send the user to. */
-type CollectLink = "locations" | "trips";
+/** Collect steps a placeholder or hint can send the user to. */
+type CollectLink = "locations" | "trips" | "passports";
 
 interface Placeholder {
 	sprite: SpriteName;
@@ -91,24 +94,54 @@ export function VizEmpty({ need, have }: { need: VizNeed; have: VizHave }) {
 	);
 }
 
-/** A one-line hint when a tab can draw but some data would make it better. */
-export function VizHint({
-	children,
-	step,
-	label,
-}: {
-	children: string;
+/** A hint: what more data would add, and the Collect step that adds it. */
+export interface Hint {
+	text: string;
 	step: CollectLink;
 	label: string;
-}) {
+}
+
+const HINTS = {
+	locations: {
+		text: "Add photo locations to see cities and routes.",
+		step: "locations",
+		label: "Add photo locations",
+	},
+	stamps: {
+		text: "Add passport photos for exact border dates.",
+		step: "passports",
+		label: "Add passport photos",
+	},
+	suggested: {
+		text: "These stays are suggestions from your stamps and photos.",
+		step: "trips",
+		label: "Check stays",
+	},
+} as const satisfies Record<string, Hint>;
+
+/**
+ * The one hint a view shows, chosen by what data exists: photo locations where
+ * they add cities and routes, stamps where they make border dates exact, then a
+ * word that the stays are only suggestions. The Map draws photos only: no hint.
+ */
+export function hintFor(view: InsightViewId, have: VizHave): Hint | null {
+	if (view === "map") return null;
+	const order =
+		view === "calendar"
+			? (["stamps", "locations"] as const)
+			: (["locations", "stamps"] as const);
+	for (const need of order) if (have[need] === 0) return HINTS[need];
+	return have.storedStays === 0 ? HINTS.suggested : null;
+}
+
+/** A quiet one-line hint with a link to the Collect step that adds the data. */
+export function InsightsHint({ hint }: { hint: Hint }) {
 	return (
-		<Notice>
-			<span>
-				{children}{" "}
-				<Link to="/collect/$step" params={{ step }}>
-					{label}
-				</Link>
-			</span>
-		</Notice>
+		<p className="vp-insights-hint">
+			{hint.text}{" "}
+			<Link to="/collect/$step" params={{ step: hint.step }}>
+				{hint.label} →
+			</Link>
+		</p>
 	);
 }

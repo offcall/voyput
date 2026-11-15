@@ -67,40 +67,55 @@
 	}
 }
 
-/* Collect is one item (ADR 0016). Desktop: Collect, then the Visualize tabs.
-   Phones: Collect and a "Visualize" link in Collect; in Visualize every tab,
-   with Collect pinned at the start of the scrolling bar. */
-.vp-shell-nav a.vp-nav-phone {
+/* Collect · Stays · Insights (ADR 0023). Desktop: the Insights views sit
+   indented under Insights. Phones: Collect, Stays and Insights; in Insights the
+   bar lists the views instead of the Insights item. */
+.vp-shell-nav a.vp-nav-sub {
+	padding: 5px 10px 5px 40px;
+	font-size: var(--vp-text-sm);
+	font-weight: 500;
+}
+.vp-shell-nav a.vp-nav-sub .vp-nav-icon {
 	display: none;
 }
+.vp-shell-nav .vp-nav-parent {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 10px;
+	color: var(--vp-accent-ink);
+	font-size: var(--vp-text-md);
+	font-weight: 600;
+}
+
+.vp-local-note {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0;
+	padding: 0 10px;
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted-2);
+	cursor: help;
+}
+.vp-local-note svg {
+	width: 13px;
+	height: 13px;
+}
+
 @media (max-width: 860px) {
-	.vp-shell-nav a.vp-nav-phone {
-		display: flex;
-	}
-	.vp-shell-nav a.vp-nav-desktop {
+	.vp-shell-nav .vp-nav-desktop {
 		display: none;
 	}
-	.vp-shell-header
-		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"]) {
-		justify-content: flex-start;
-		padding-left: 0;
-		overflow-x: auto;
-		scrollbar-width: none;
+	.vp-shell-header > .vp-shell-nav a.vp-nav-sub {
+		padding: 6px 2px;
+		font-size: 11px;
+		font-weight: 700;
 	}
-	.vp-shell-header
-		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"])
-		> a {
-		flex: none;
-		min-width: 68px;
+	.vp-shell-header > .vp-shell-nav a.vp-nav-sub .vp-nav-icon {
+		display: grid;
 	}
-	.vp-shell-header
-		> .vp-shell-nav:has(a[href^="/visualize/"][aria-current="page"])
-		> a[data-area="collect"] {
-		position: sticky;
-		left: 0;
-		z-index: 1;
-		background: var(--vp-surface);
-		border-right: 1px solid var(--vp-border);
-		color: var(--vp-accent-ink);
+	.vp-local-note {
+		display: none;
 	}
 }

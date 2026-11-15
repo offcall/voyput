@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { LocationRow } from "@voyput/core";
 import { describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
+import { MAP_MODE_KEY } from "../src/features/visualize/views/MapView";
 import { seedTrips, type TestTrip } from "./fixtures/stays";
 import { renderApp } from "./renderApp";
 
@@ -51,17 +52,11 @@ const trip = (
 	stampIds: [],
 });
 
-/** Value of a summary tile, e.g. "4" for "Countries". */
-const stat = (label: string) =>
-	screen.queryByText(label, { selector: ".vp-stat-label" })?.nextElementSibling
-		?.textContent;
+const nav = () => within(screen.getByRole("navigation", { name: "Sections" }));
 
-const expectCountries = (count: string) =>
-	waitFor(() => expect(stat("Countries")).toBe(count));
-
-describe("visualize", () => {
+describe("insights", () => {
 	it("points to Import when there are no locations", async () => {
-		renderApp("/visualize/map");
+		renderApp("/insights/map");
 		expect(
 			await screen.findByText("No photo location history yet"),
 		).toBeTruthy();
@@ -77,14 +72,14 @@ describe("visualize", () => {
 		vi.spyOn(db.locations, "toArray").mockRejectedValue(
 			new Error("disk is gone"),
 		);
-		renderApp("/visualize", { db });
+		renderApp("/insights", { db });
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"disk is gone",
 		);
 		expect(screen.queryByText("No photo location history yet")).toBeNull();
 	});
 
-	it("fails only the trip tabs when the stays cannot be read", async () => {
+	it("fails only the stay views when the stays cannot be read", async () => {
 		const db = new VoyputDb("visualize-stays-error");
 		await db.locations.bulkPut([
 			photo("2024-03-02", "RO", "Romania", 44.4, 26.1),
@@ -92,20 +87,20 @@ describe("visualize", () => {
 		vi.spyOn(db.stamps, "toArray").mockRejectedValue(
 			new Error("stamps are gone"),
 		);
-		const map = renderApp("/visualize/map", { db });
+		const map = renderApp("/insights/map", { db });
 		expect(
 			await screen.findByRole("group", { name: "Route map" }),
 		).toBeTruthy();
 		expect(screen.queryByRole("alert")).toBeNull();
 		map.unmount();
 
-		renderApp("/visualize/explore", { db });
+		renderApp("/insights/stats", { db });
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"stamps are gone",
 		);
 	});
 
-	it("renders every tab and narrows them to the selected stays", async () => {
+	it("renders every view and narrows them all with one filter", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("visualize-filter");
 		await db.locations.bulkPut([
@@ -125,29 +120,16 @@ describe("visualize", () => {
 			],
 			"MD",
 		);
-		renderApp("/visualize/movements", { db });
-		await expectCountries("4");
-		expect(stat("Photos")).toBe("6");
-		expect(stat("Days with photos")).toBe("6");
-
+		renderApp("/insights/map", { db });
 		const panel = () => within(screen.getByRole("main"));
-		const tabs: [string, () => unknown][] = [
-			[
-				"Periods",
-				() => panel().getByRole("list", { name: "Sequence of countries" }),
-			],
-			[
-				"Countries",
-				() => panel().getByRole("row", { name: /Romania 2 33.3%/ }),
-			],
-			["Map", () => panel().getByRole("group", { name: "Route map" })],
-			// Canvas charts draw nothing in jsdom but must not crash.
-			["Heatmap", () => panel().getByRole("img", { name: "Photo heatmap" })],
-			["Globe", () => panel().getByRole("img", { name: "Globe" })],
-			[
-				"Year × country",
-				() => panel().getByRole("rowheader", { name: "All countries" }),
-			],
+		expect(
+			await screen.findByText(
+				"4 countries · 6 photos · 6 days with photos · 4 periods",
+			),
+		).toBeTruthy();
+		expect(panel().getByRole("group", { name: "Route map" })).toBeTruthy();
+
+		const views: [string, () => unknown][] = [
 			[
 				"Calendar",
 				() =>
@@ -155,53 +137,89 @@ describe("visualize", () => {
 					panel().getByRole("img", { name: "Photos per month" }),
 			],
 			[
-				"Moves",
-				() => panel().getByRole("group", { name: "Moves between countries" }),
-			],
-			[
-				"Years",
-				() => panel().getByRole("group", { name: "Countries in 2024" }),
-			],
-			[
-				"Distance",
+				"Stats",
 				() =>
+					panel().getByRole("list", { name: "Sequence of countries" }) &&
+					panel().getByRole("row", { name: /Romania 2 33.3%/ }) &&
+					panel().getByRole("rowheader", { name: "All countries" }) &&
+					panel().getByRole("group", { name: "Moves between countries" }) &&
+					panel().getByRole("group", { name: "Countries in 2024" }) &&
 					panel().getByText("Total distance") &&
 					panel().getByRole("img", { name: "Kilometres per year" }),
 			],
 		];
-		for (const [name, content] of tabs) {
-			await user.click(screen.getByRole("link", { name }));
-			expect(content()).toBeTruthy();
+		for (const [name, content] of views) {
+			await user.click(nav().getByRole("link", { name }));
+			await waitFor(() => expect(content()).toBeTruthy());
 		}
 
-		// A country picks all its stays; single stays are listed too.
-		await user.click(screen.getByRole("checkbox", { name: /^Japan 1 stay$/ }));
-		await user.click(
-			screen.getByRole("checkbox", { name: /^\d+\. South Korea / }),
-		);
-		await expectCountries("2");
-		await user.click(screen.getByRole("link", { name: "Moves" }));
-		// A single Japan → Korea move is still a chart.
+		// One filter for every view: a country, shown as a removable chip.
+		await user.click(screen.getByRole("button", { name: /^Filter/ }));
+		await user.click(screen.getByText("More filters"));
+		const countries = () =>
+			within(screen.getByRole("group", { name: "Countries" }));
+		await user.click(countries().getByRole("button", { name: /Romania/ }));
 		expect(
-			panel().getByRole("group", { name: "Moves between countries" }),
+			screen.getByRole("button", { name: "Remove filter: Romania" }),
+		).toBeTruthy();
+		await user.click(nav().getByRole("link", { name: "Map" }));
+		expect(
+			await screen.findByText(
+				"1 country · 2 photos · 2 days with photos · 1 period",
+			),
 		).toBeTruthy();
 
 		await user.click(
-			screen.getByRole("checkbox", { name: /^Romania 1 stay$/ }),
-		);
-		await expectCountries("3");
-
-		await user.click(screen.getByRole("button", { name: "Show all data" }));
-		await expectCountries("4");
-		await user.click(
-			screen.getByRole("checkbox", { name: /^Bulgaria 1 stay$/ }),
+			screen.getByRole("button", { name: "Remove filter: Romania" }),
 		);
 		expect(
-			await screen.findByText("No photos fall inside the selected stays."),
+			await screen.findByText(
+				"4 countries · 6 photos · 6 days with photos · 4 periods",
+			),
 		).toBeTruthy();
-		// The tabs stay and keep the chosen tab.
+		expect(screen.queryByRole("list", { name: "Active filters" })).toBeNull();
+
+		await user.click(countries().getByRole("button", { name: /Bulgaria/ }));
 		expect(
-			screen.getByRole("link", { name: "Moves" }).getAttribute("aria-current"),
+			await screen.findByText("No photos fall inside the filter."),
+		).toBeTruthy();
+		// The view stays where it was.
+		expect(
+			nav().getByRole("link", { name: "Map" }).getAttribute("aria-current"),
 		).toBe("page");
+	});
+
+	it("switches the map between flat, heat and globe and remembers the choice", async () => {
+		const user = userEvent.setup();
+		localStorage.removeItem(MAP_MODE_KEY);
+		const db = new VoyputDb("insights-map-switch");
+		await db.locations.bulkPut([
+			photo("2024-03-02", "RO", "Romania", 44.4, 26.1),
+		]);
+		const { router, unmount } = renderApp("/insights/map", { db });
+		const style = () =>
+			within(screen.getByRole("group", { name: "Map style" }));
+		expect(
+			await screen.findByRole("group", { name: "Route map" }),
+		).toBeTruthy();
+		expect(
+			style()
+				.getByRole("button", { name: "Flat" })
+				.getAttribute("aria-pressed"),
+		).toBe("true");
+
+		await user.click(style().getByRole("button", { name: "Heat" }));
+		// Canvas charts draw nothing in jsdom but must not crash.
+		expect(screen.getByRole("img", { name: "Photo heatmap" })).toBeTruthy();
+		expect(router.state.location.search).toEqual({ mode: "heat" });
+		await user.click(style().getByRole("button", { name: "Globe" }));
+		expect(screen.getByRole("img", { name: "Globe" })).toBeTruthy();
+		expect(localStorage.getItem(MAP_MODE_KEY)).toBe("globe");
+		unmount();
+
+		// A later visit without a mode in the URL opens the last choice.
+		renderApp("/insights/map", { db });
+		expect(await screen.findByRole("img", { name: "Globe" })).toBeTruthy();
+		localStorage.removeItem(MAP_MODE_KEY);
 	});
 });

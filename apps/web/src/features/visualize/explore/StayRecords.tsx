@@ -66,7 +66,10 @@ export function StayRecords({
 				</Button>
 			</div>
 			<div className="vp-viz-scroll">
-				<table className="vp-viz-table vp-explore-records">
+				<table
+					className="vp-viz-table vp-explore-records"
+					aria-label="Every stay"
+				>
 					<thead>
 						<tr>
 							{COLUMNS.map((col) => {

@@ -2,6 +2,7 @@ import type { CountryStat, VizData } from "@voyput/core";
 import { CountryChip } from "@voyput/ui";
 import { useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
+import { useShowAll } from "../ShowAll";
 import { formatInt, NoData } from "./format";
 import "./countries.css";
 
@@ -34,16 +35,17 @@ export function CountriesTable({ data }: { data: VizData }) {
 		flip: false,
 	});
 	const { countries, photoCount } = data;
-	if (countries.length === 0) return <NoData />;
-	const max = Math.max(...countries.map((c) => c.photos), 1);
-	// Rank stays by photos whatever the sort.
-	const rank = new Map(countries.map((c, i) => [c.code, i + 1]));
 	const rows = [...countries].sort(
 		(a, b) =>
 			(sort.flip ? -1 : 1) * compare[sort.key](a, b) ||
 			b.photos - a.photos ||
 			a.code.localeCompare(b.code),
 	);
+	const { shown, toggle } = useShowAll(rows);
+	if (countries.length === 0) return <NoData />;
+	const max = Math.max(...countries.map((c) => c.photos), 1);
+	// Rank stays by photos whatever the sort.
+	const rank = new Map(countries.map((c, i) => [c.code, i + 1]));
 	const ariaSort = (key: SortKey) => {
 		if (sort.key !== key) return undefined;
 		const ascending = key === "country" || key === "first";
@@ -92,7 +94,7 @@ export function CountriesTable({ data }: { data: VizData }) {
 						</tr>
 					</thead>
 					<tbody>
-						{rows.map((c) => {
+						{shown.map((c) => {
 							const share = (c.photos / photoCount) * 100;
 							const first = firstYear(c);
 							const last = lastYear(c);
@@ -132,6 +134,7 @@ export function CountriesTable({ data }: { data: VizData }) {
 					</tbody>
 				</table>
 			</div>
+			{toggle}
 		</figure>
 	);
 }

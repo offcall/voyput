@@ -26,7 +26,46 @@ export const icons = {
 			<path d="m6.5 17 3-3.5 2.5 2.5 1.5-1.5 2 2.5" />
 		</Icon>
 	),
-	visualize: (
+	/** A suitcase: the Stays history. */
+	stays: (
+		<Icon>
+			<rect x="3.5" y="7.5" width="17" height="12" rx="2" />
+			<path d="M9 7.5V5.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5.5v2M3.5 13h17" />
+		</Icon>
+	),
+	/** A dashed path between two points: Journey. */
+	journey: (
+		<Icon>
+			<circle cx="6" cy="18" r="2" />
+			<circle cx="18" cy="6" r="2" />
+			<path d="M7.5 16.5c2-4 7-3 9-9" strokeDasharray="2 2.5" />
+		</Icon>
+	),
+	map: (
+		<Icon>
+			<path d="m3.5 6.5 5.5-2 6 2 5.5-2v13l-5.5 2-6-2-5.5 2z" />
+			<path d="M9 4.5v13M15 6.5v13" />
+		</Icon>
+	),
+	calendar: (
+		<Icon>
+			<rect x="4" y="5.5" width="16" height="14.5" rx="2" />
+			<path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
+		</Icon>
+	),
+	stats: (
+		<Icon>
+			<path d="M5 20V12M10 20V5M15 20v-9M20 20v-5M3.5 20h17" />
+		</Icon>
+	),
+	/** A padlock: data stays local. */
+	lock: (
+		<Icon>
+			<rect x="5" y="10.5" width="14" height="10" rx="2" />
+			<path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" />
+		</Icon>
+	),
+	insights: (
 		<Icon>
 			<circle cx="12" cy="12" r="8.5" />
 			<path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5z" />

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Extends ADR 0013. Collect part (pages, URLs, area switch for Collect) superseded by ADR 0016.
+Accepted. Extends ADR 0013. Collect part (pages, URLs, area switch for Collect) superseded by ADR 0016; Visualize part superseded by ADR 0023.
 
 ## Context
 

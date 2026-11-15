@@ -77,11 +77,16 @@ const edgeText = (edge: FilteredStay["entry"]) =>
 /** One stay: dates, how its edges are known, places and stamps. */
 export function StayDetail({
 	stay,
+	filtered,
 	onCountry,
+	onFilter,
 	onClose,
 }: {
 	stay: FilteredStay;
+	/** The stay filter is exactly this stay. */
+	filtered: boolean;
 	onCountry: (countryCode: string) => void;
+	onFilter: () => void;
 	onClose: () => void;
 }) {
 	const kind = stay.kind === "transit" ? "Transit" : "Stay";
@@ -92,9 +97,16 @@ export function StayDetail({
 			countryCode={stay.countryCode}
 			onClose={onClose}
 			actions={
-				<Button size="sm" onClick={() => onCountry(stay.countryCode)}>
-					All visits to {stay.country}
-				</Button>
+				<>
+					<Button size="sm" onClick={() => onCountry(stay.countryCode)}>
+						All visits to {stay.country}
+					</Button>
+					{filtered ? null : (
+						<Button size="sm" onClick={onFilter}>
+							Show only this stay
+						</Button>
+					)}
+				</>
 			}
 		>
 			<Facts

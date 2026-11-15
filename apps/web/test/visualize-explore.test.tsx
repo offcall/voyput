@@ -111,18 +111,25 @@ const kpi = (label: string) =>
 	screen.queryByText(label, { selector: ".vp-stat-label" })?.nextElementSibling
 		?.textContent;
 
+/** Days in the filtered stays, from the line above the records. */
+const days = () =>
+	/^([\d,]+) days ·/.exec(
+		screen.queryByTestId("record-facts")?.textContent ?? "",
+	)?.[1];
+
 const kpis = () => ({
 	stays: kpi("Stays"),
 	countries: kpi("Countries"),
-	days: kpi("Days"),
+	days: days(),
 });
 
 const ALL = { stays: "6", countries: "5", days: "551" };
 
 async function openExplore() {
 	const db = await seed();
-	renderApp("/visualize/explore", { db });
+	renderApp("/insights/stats", { db });
 	await waitFor(() => expect(kpis()).toEqual(ALL));
+	await userEvent.click(screen.getByRole("button", { name: /^Filter/ }));
 	const filters = within(screen.getByRole("region", { name: "Filters" }));
 	const chip = (group: string, name: RegExp | string) =>
 		within(filters.getByRole("group", { name: group })).getByRole("button", {
@@ -131,7 +138,7 @@ async function openExplore() {
 	return { filters, chip };
 }
 
-describe("visualize explore", () => {
+describe("insights stats and filter", () => {
 	it("narrows the KPIs with each filter and resets them", async () => {
 		const user = userEvent.setup();
 		const { filters, chip } = await openExplore();
@@ -174,17 +181,15 @@ describe("visualize explore", () => {
 		const { chip } = await openExplore();
 		await user.click(chip("Countries", /Romania/));
 		await user.click(chip("Kind", "Transit"));
-		expect(screen.getByText("Nothing matches these filters")).toBeTruthy();
-		const main = within(screen.getByRole("main"));
-		const resets = main.getAllByRole("button", { name: "Reset filters" });
-		await user.click(resets.at(-1) as HTMLElement);
+		expect(screen.getByText("Nothing matches this filter")).toBeTruthy();
+		await user.click(screen.getByRole("button", { name: "Clear filter" }));
 		expect(kpis()).toEqual(ALL);
 	});
 
 	it("opens the detail of a selected record and of its country", async () => {
 		const user = userEvent.setup();
 		await openExplore();
-		const table = screen.getByRole("table");
+		const table = screen.getByRole("table", { name: "Every stay" });
 		await user.click(within(table).getByRole("button", { name: /Japan/ }));
 		const detail = within(
 			screen.getByRole("complementary", { name: "Stay details" }),
@@ -221,5 +226,37 @@ describe("visualize explore", () => {
 					'"Romania","RO","2023-03-01","2023-03-04","2023-03-01","2023-03-04","4","4","stay","Plane","Set by hand","Plane","Set by hand","0","0",""',
 				].join("\r\n"),
 		);
+	});
+
+	it("shows the filter as removable chips and narrows to one stay from its detail", async () => {
+		const user = userEvent.setup();
+		const { chip } = await openExplore();
+		await user.click(chip("Region", "Asia"));
+		const active = () =>
+			within(screen.getByRole("list", { name: "Active filters" }));
+		expect(
+			active().getByRole("button", { name: "Remove filter: Asia" }),
+		).toBeTruthy();
+		// The button counts the active filters.
+		expect(screen.getByRole("button", { name: /^Filter · 1/ })).toBeTruthy();
+		await user.click(
+			active().getByRole("button", { name: "Remove filter: Asia" }),
+		);
+		expect(screen.queryByRole("list", { name: "Active filters" })).toBeNull();
+		expect(kpis()).toEqual(ALL);
+
+		const table = screen.getByRole("table", { name: "Every stay" });
+		await user.click(within(table).getByRole("button", { name: /Japan/ }));
+		await user.click(
+			screen.getByRole("button", { name: "Show only this stay" }),
+		);
+		expect(kpi("Stays")).toBe("1");
+		expect(
+			active().getByRole("button", {
+				name: "Remove filter: Japan 2024-06-09 – 2024-06-14",
+			}),
+		).toBeTruthy();
+		await user.click(active().getByRole("button", { name: "Clear all" }));
+		expect(kpis()).toEqual(ALL);
 	});
 });

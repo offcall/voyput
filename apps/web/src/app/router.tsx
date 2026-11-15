@@ -7,8 +7,14 @@ import {
 } from "@tanstack/react-router";
 import { CollectPage } from "../features/collect/CollectPage";
 import { findStep } from "../features/collect/steps";
-import { findVizTab, firstVizTab } from "../features/visualize/tabs";
-import { VisualizePage } from "../features/visualize/VisualizePage";
+import { InsightsPage } from "../features/visualize/InsightsPage";
+import {
+	FIRST_VIEW,
+	findView,
+	isMapMode,
+	legacyTarget,
+	type MapMode,
+} from "../features/visualize/views";
 import { SettingsPage } from "../settings/SettingsPage";
 import { Layout } from "./Layout";
 
@@ -123,30 +129,72 @@ const legacyTripRoute = createRoute({
 	},
 });
 
-/** Visualize stays mounted while the tab changes: data and the trip filter survive the switch. */
-const visualizeRoute = createRoute({
+/** Insights search params: the Map style; any other param rides along untouched. */
+export interface InsightsSearch {
+	mode?: MapMode;
+}
+
+const validateInsightsSearch = (
+	search: Record<string, unknown>,
+): InsightsSearch => {
+	const { mode, ...rest } = search;
+	return { ...rest, ...(isMapMode(mode) ? { mode } : {}) };
+};
+
+/** Insights stays mounted while the view changes: data and the filter survive the switch. */
+const insightsRoute = createRoute({
 	getParentRoute: () => rootRoute,
-	path: "/visualize",
-	component: VisualizePage,
+	path: "/insights",
+	component: InsightsPage,
 });
-const toFirstVizTab = () =>
+const toFirstView = () =>
 	redirect({
-		to: "/visualize/$tab",
-		params: { tab: firstVizTab().id },
+		to: "/insights/$view",
+		params: { view: FIRST_VIEW },
 		replace: true,
 	});
-const visualizeIndexRoute = createRoute({
-	getParentRoute: () => visualizeRoute,
+const insightsIndexRoute = createRoute({
+	getParentRoute: () => insightsRoute,
 	path: "/",
 	beforeLoad: () => {
-		throw toFirstVizTab();
+		throw toFirstView();
 	},
 });
-const visualizeTabRoute = createRoute({
-	getParentRoute: () => visualizeRoute,
-	path: "$tab",
+const insightsViewRoute = createRoute({
+	getParentRoute: () => insightsRoute,
+	path: "$view",
+	validateSearch: validateInsightsSearch,
 	beforeLoad: ({ params }) => {
-		if (!findVizTab(params.tab)) throw toFirstVizTab();
+		if (!findView(params.view)) throw toFirstView();
+	},
+});
+
+/** `/visualize` and its old tabs (ADR 0015) lead to the view that holds that content now (ADR 0023). */
+const toLegacyTarget = (
+	tab: string | undefined,
+	search: Record<string, unknown>,
+) => {
+	const target = legacyTarget(tab);
+	return redirect({
+		to: "/insights/$view",
+		params: { view: target.view },
+		search: { ...search, ...(target.mode ? { mode: target.mode } : {}) },
+		...(target.section ? { hash: target.section } : {}),
+		replace: true,
+	});
+};
+const legacyVisualizeRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/visualize",
+	beforeLoad: ({ location }) => {
+		throw toLegacyTarget(undefined, location.search);
+	},
+});
+const legacyVisualizeTabRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/visualize/$tab",
+	beforeLoad: ({ params, location }) => {
+		throw toLegacyTarget(params.tab, location.search);
 	},
 });
 
@@ -162,7 +210,9 @@ const routeTree = rootRoute.addChildren([
 	legacyReviewRoute,
 	legacy("/trips", "trips"),
 	legacyTripRoute,
-	visualizeRoute.addChildren([visualizeIndexRoute, visualizeTabRoute]),
+	insightsRoute.addChildren([insightsIndexRoute, insightsViewRoute]),
+	legacyVisualizeRoute,
+	legacyVisualizeTabRoute,
 	page("/settings", SettingsPage),
 ]);
 

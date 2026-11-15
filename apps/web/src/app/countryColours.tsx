@@ -78,3 +78,33 @@ export function CountryColoursProvider({ children }: { children: ReactNode }) {
 export function useCountryColour(): CountryPalette {
 	return useContext(CountryColoursContext);
 }
+
+/** Colour of every country outside the kept ones: one quiet tone. */
+export const NEUTRAL_COUNTRY_COLOUR = "var(--vp-pixel-grey)";
+
+/**
+ * Keeps the colours of `keep` (e.g. the top countries) and paints every other
+ * country one neutral tone, so a history with 50 countries stays readable.
+ * An empty `keep` (nothing ranked yet) changes nothing.
+ */
+export function KeepCountryColours({
+	keep,
+	children,
+}: {
+	keep: readonly string[];
+	children: ReactNode;
+}) {
+	const parent = useContext(CountryColoursContext);
+	const key = keep.join(",");
+	const palette = useMemo((): CountryPalette => {
+		if (!key) return parent;
+		const kept = new Set(key.split(",").map((c) => c.toUpperCase()));
+		return (code) =>
+			kept.has(code.toUpperCase()) ? parent(code) : NEUTRAL_COUNTRY_COLOUR;
+	}, [parent, key]);
+	return (
+		<CountryColoursContext.Provider value={palette}>
+			{children}
+		</CountryColoursContext.Provider>
+	);
+}

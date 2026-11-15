@@ -26,3 +26,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0020](0020-gemini-flash-default-model.md) | Gemini 3.8 Flash as Default Model | Accepted |
 | [0021](0021-commons-sample-pages-in-demo.md) | Commons Sample Pages in the Demo | Accepted |
 | [0022](0022-stays-without-home.md) | Stays Without Home | Accepted |
+| [0023](0023-navigation-and-insights.md) | Navigation and Insights | Accepted |

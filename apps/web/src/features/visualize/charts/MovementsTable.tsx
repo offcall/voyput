@@ -1,5 +1,6 @@
 import type { VizData } from "@voyput/core";
 import { useCountryColour } from "../../../app/countryColours";
+import { useShowAll } from "../ShowAll";
 import { formatInt, NoData } from "./format";
 import { useMarkTip } from "./useMarkTip";
 
@@ -8,6 +9,7 @@ export function MovementsTable({ data }: { data: VizData }) {
 	const colour = useCountryColour();
 	const { hostRef, mark, tip } = useMarkTip();
 	const { movements } = data;
+	const { shown, toggle } = useShowAll(movements);
 	if (movements.length === 0) return <NoData />;
 	return (
 		<figure className="vp-viz-figure">
@@ -46,7 +48,7 @@ export function MovementsTable({ data }: { data: VizData }) {
 						</tr>
 					</thead>
 					<tbody>
-						{movements.map((m, i) => (
+						{shown.map((m, i) => (
 							<tr key={`${m.range}-${m.start}`}>
 								<td>{i + 1}</td>
 								<td>
@@ -67,6 +69,7 @@ export function MovementsTable({ data }: { data: VizData }) {
 					</tbody>
 				</table>
 			</div>
+			{toggle}
 		</figure>
 	);
 }

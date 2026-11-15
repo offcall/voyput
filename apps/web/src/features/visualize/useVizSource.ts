@@ -18,9 +18,11 @@ export type VizSource =
 			stays: TravelStay[];
 			/** The birth date, the first day of a stay since birth; null while unknown. */
 			birth: string | null;
+			/** Stored passport stamps: without any, border dates are guesses. */
+			stamps: number;
 	  };
 
-/** Locations and stored stays, read once when the page opens. */
+/** Locations, stored stays and the stamp count, read once when the page opens. */
 export function useVizSource(): VizSource {
 	const db = useDb();
 	const [source, setSource] = useState<VizSource>({ status: "loading" });
@@ -30,8 +32,9 @@ export function useVizSource(): VizSource {
 			db.locations.toArray(),
 			db.stays.toArray(),
 			db.kv.get(BIRTH_KEY),
+			db.stamps.count(),
 		])
-			.then(([rows, stored, birth]) => {
+			.then(([rows, stored, birth, stamps]) => {
 				if (!alive) return;
 				setSource({
 					status: "ready",
@@ -41,6 +44,7 @@ export function useVizSource(): VizSource {
 						typeof birth?.value === "string" && isIsoDate(birth.value)
 							? birth.value
 							: null,
+					stamps,
 				});
 			})
 			.catch((error: unknown) => {

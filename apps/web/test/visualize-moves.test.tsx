@@ -65,7 +65,7 @@ describe("moves sankey layout", () => {
 	});
 });
 
-describe("moves tab", () => {
+describe("moves on Stats", () => {
 	it("filters moves by year and lists routes in a table", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("visualize-moves");
@@ -76,7 +76,7 @@ describe("moves tab", () => {
 			photo("2024-01-03", "RO", "Romania"),
 			photo("2024-01-04", "BG", "Bulgaria"),
 		]);
-		renderApp("/visualize/sankey", { db });
+		renderApp("/insights/stats", { db });
 		const value = (label: string) =>
 			screen.getByText(label, { selector: ".vp-moves-stats dt" })
 				.nextElementSibling?.textContent;
@@ -102,7 +102,9 @@ describe("moves tab", () => {
 
 		await user.click(within(years).getByRole("button", { name: "All" }));
 		await user.click(screen.getByRole("tab", { name: "Table" }));
-		const rows = within(screen.getByRole("table")).getAllByRole("row");
+		const rows = within(
+			screen.getByRole("table", { name: /a move is a day/ }),
+		).getAllByRole("row");
 		expect(rows.map((row) => row.textContent)).toEqual([
 			"FromToMovesLast",
 			expect.stringMatching(/MD.*Moldova.*RO.*Romania.*2.*2024-01-03/),
@@ -121,7 +123,7 @@ describe("moves tab", () => {
 			photo("2024-01-04", "RO", "Romania"),
 			photo("2024-01-05", "BG", "Bulgaria"),
 		]);
-		renderApp("/visualize/sankey", { db });
+		renderApp("/insights/stats", { db });
 		const flows = await screen.findByRole("group", {
 			name: "Moves between countries",
 		});

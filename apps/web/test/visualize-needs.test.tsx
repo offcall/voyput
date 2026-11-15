@@ -1,5 +1,5 @@
 import { screen, within } from "@testing-library/react";
-import type { LocationRow } from "@voyput/core";
+import type { LocationRow, Stamp } from "@voyput/core";
 import { describe, expect, it } from "vitest";
 import { VoyputDb } from "../src/db/db";
 import { seedTrips, type TestStop, type TestTrip } from "./fixtures/stays";
@@ -44,9 +44,32 @@ const romania: TestTrip = {
 	stampIds: [],
 };
 
+/** A reviewed entry stamp into Romania. */
+const stamp: Stamp = {
+	id: "s1",
+	passportId: "p1",
+	photoId: "ph1",
+	direction: "entry",
+	borderCrossing: "plane",
+	dateText: "2024-03-01",
+	date: "2024-03-01",
+	country: "Romania",
+	countryCode: "RO",
+	location: "Otopeni",
+	confidence: 95,
+	notes: "",
+	problem: null,
+	source: "ai",
+	reviewed: true,
+};
+
 async function seed(
 	name: string,
-	{ locations, trips }: { locations: boolean; trips: boolean },
+	{
+		locations,
+		trips,
+		stamps = false,
+	}: { locations: boolean; trips: boolean; stamps?: boolean },
 ): Promise<VoyputDb> {
 	const db = new VoyputDb(name);
 	if (locations)
@@ -55,16 +78,23 @@ async function seed(
 			photo("2024-01-06", "MD", "Moldova"),
 		]);
 	if (trips) await seedTrips(db, [romania], "MD");
+	if (stamps) await db.stamps.put(stamp);
 	return db;
 }
 
 const main = () => within(screen.getByRole("main"));
 const hrefOf = (name: string) =>
 	main().getByRole("link", { name }).getAttribute("href");
+const hints = () => document.querySelectorAll(".vp-insights-hint");
 
-describe("visualize placeholders", () => {
-	it("asks for locations first when a stay tab has no data at all", async () => {
-		renderApp("/visualize/route", {
+const STAMPS_HINT = "Add passport photos for exact border dates.";
+const LOCATIONS_HINT = "Add photo locations to see cities and routes.";
+const SUGGESTED_HINT =
+	"These stays are suggestions from your stamps and photos.";
+
+describe("insights placeholders and hints", () => {
+	it("asks for locations first when a stay view has no data at all", async () => {
+		renderApp("/insights/journey", {
 			db: await seed("needs-empty", { locations: false, trips: false }),
 		});
 		expect(await screen.findByText("No stays yet")).toBeTruthy();
@@ -72,29 +102,41 @@ describe("visualize placeholders", () => {
 		expect(screen.queryByText(/Step \d of \d/)).toBeNull();
 	});
 
-	it("shows the Explore placeholder instead of the dashboard", async () => {
-		renderApp("/visualize/explore", {
-			db: await seed("needs-explore", { locations: false, trips: false }),
+	it("shows the Stats placeholder instead of the numbers", async () => {
+		renderApp("/insights/stats", {
+			db: await seed("needs-stats", { locations: false, trips: false }),
 		});
 		expect(await screen.findByText("No stays yet")).toBeTruthy();
-		expect(screen.queryByText("Longest stay")).toBeNull();
+		expect(screen.queryByText("Days abroad")).toBeNull();
 	});
 
-	it("draws Explore from photos alone: every photo place is a suggested stay", async () => {
-		renderApp("/visualize/explore", {
+	it("draws Stats from photos alone and asks for stamps in one line", async () => {
+		renderApp("/insights/stats", {
 			db: await seed("needs-photos", { locations: true, trips: false }),
 		});
-		expect(
-			await screen.findByText(
-				"These stays are suggestions from your stamps and photos.",
-			),
-		).toBeTruthy();
-		expect(hrefOf("Check stays")).toBe("/collect/trips");
+		expect(await screen.findByText(STAMPS_HINT, { exact: false })).toBeTruthy();
+		expect(hrefOf("Add passport photos →")).toBe("/collect/passports");
+		expect(hints()).toHaveLength(1);
 		expect(screen.queryByText("No stays yet")).toBeNull();
 	});
 
-	it("tells a chart tab's user their stays are kept but locations are missing", async () => {
-		renderApp("/visualize/map", {
+	it("says the stays are suggestions once stamps and photos are there", async () => {
+		renderApp("/insights/calendar", {
+			db: await seed("needs-suggested", {
+				locations: true,
+				trips: false,
+				stamps: true,
+			}),
+		});
+		expect(
+			await screen.findByText(SUGGESTED_HINT, { exact: false }),
+		).toBeTruthy();
+		expect(hrefOf("Check stays →")).toBe("/collect/trips");
+		expect(hints()).toHaveLength(1);
+	});
+
+	it("tells a Map user their stays are kept but locations are missing", async () => {
+		renderApp("/insights/map", {
 			db: await seed("needs-chart", { locations: false, trips: true }),
 		});
 		expect(
@@ -105,45 +147,39 @@ describe("visualize placeholders", () => {
 		expect(screen.queryByRole("group", { name: "Route map" })).toBeNull();
 	});
 
-	it("plays saved stays without locations and hints at the import", async () => {
-		renderApp("/visualize/route", {
+	it("plays saved stays without locations and hints at them, not at stamps", async () => {
+		renderApp("/insights/journey", {
 			db: await seed("needs-route", { locations: false, trips: true }),
 		});
 		expect(
 			await screen.findByRole("img", { name: "Route player map" }),
 		).toBeTruthy();
-		expect(hrefOf("Import photo locations")).toBe("/collect/locations");
+		expect(screen.getByText(LOCATIONS_HINT, { exact: false })).toBeTruthy();
+		expect(hrefOf("Add photo locations →")).toBe("/collect/locations");
+		expect(hints()).toHaveLength(1);
 		expect(screen.queryByText("No stays yet")).toBeNull();
 	});
 
-	it("draws a chart from locations alone and suggests saving stays for the filter", async () => {
-		renderApp("/visualize/map", {
+	it("draws the map from locations alone, with the filter and no hint", async () => {
+		renderApp("/insights/map", {
 			db: await seed("needs-filter", { locations: true, trips: false }),
 		});
 		expect(
 			await screen.findByRole("group", { name: "Route map" }),
 		).toBeTruthy();
-		expect(
-			main().getByText(
-				"Save your stays to filter these charts by country or stay.",
-			),
-		).toBeTruthy();
-		expect(hrefOf("Check stays")).toBe("/collect/trips");
+		expect(await screen.findByRole("button", { name: /^Filter/ })).toBeTruthy();
+		expect(hints()).toHaveLength(0);
 	});
 
-	it("draws the chart and the stay filter when both are there", async () => {
-		renderApp("/visualize/map", {
-			db: await seed("needs-full", { locations: true, trips: true }),
+	it("shows no hint when stamps, photos and saved stays are all there", async () => {
+		renderApp("/insights/stats", {
+			db: await seed("needs-full", {
+				locations: true,
+				trips: true,
+				stamps: true,
+			}),
 		});
-		expect(
-			await screen.findByRole("group", { name: "Route map" }),
-		).toBeTruthy();
-		expect(
-			main().getByRole("checkbox", { name: /^Romania 1 stay$/ }),
-		).toBeTruthy();
-		expect(
-			main().getByRole("checkbox", { name: /^2\. Romania 1 → 5 Mar 2024$/ }),
-		).toBeTruthy();
-		expect(main().queryByRole("link", { name: "Check stays" })).toBeNull();
+		expect(await screen.findByText("Days abroad")).toBeTruthy();
+		expect(hints()).toHaveLength(0);
 	});
 });

@@ -1,54 +1,65 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { VIZ_TABS } from "../src/features/visualize/tabs";
+import { INSIGHT_VIEWS } from "../src/features/visualize/views";
 import { renderApp } from "./renderApp";
 
 const nav = () => within(screen.getByRole("navigation", { name: "Sections" }));
 const collectLink = () => nav().getByRole("link", { name: /^Collect/ });
-const first = VIZ_TABS[0];
-const second = VIZ_TABS[1];
-const third = VIZ_TABS[2];
+const staysLink = () => nav().getByRole("link", { name: /^Stays/ });
+const current = (link: HTMLElement) => link.getAttribute("aria-current");
 
-describe("collect and visualize navigation", () => {
-	if (!first || !second || !third) throw new Error("need three tabs");
-
-	it("has one Collect item beside the Visualize tabs and returns to the last step", async () => {
+describe("collect, stays and insights navigation", () => {
+	it("lists Collect, Stays, Insights and its views, and returns to the last step and view", async () => {
 		const user = userEvent.setup();
 		const { router } = renderApp("/collect/review");
 		await screen.findByRole("heading", { level: 2, name: "Review the stamps" });
-		expect(nav().getAllByRole("link", { name: /^Collect/ })).toHaveLength(1);
-		for (const old of ["Import", "Extract", "Review", "Trips"])
+		for (const old of ["Import", "Extract", "Review", "Trips", "Visualize"])
 			expect(nav().queryByRole("link", { name: old })).toBeNull();
-		expect(collectLink().getAttribute("aria-current")).toBe("page");
-		for (const tab of VIZ_TABS)
-			expect(nav().getByRole("link", { name: tab.label })).toBeTruthy();
+		expect(current(collectLink())).toBe("page");
+		expect(current(staysLink())).toBeNull();
+		for (const view of INSIGHT_VIEWS)
+			expect(nav().getByRole("link", { name: view.label })).toBeTruthy();
 
-		// On phones the Collect bar adds one link to Visualize, to the last tab.
-		await user.click(nav().getByRole("link", { name: "Visualize" }));
+		// Stays is the Stays step of Collect, with its own nav item.
+		await user.click(staysLink());
 		await waitFor(() =>
-			expect(router.state.location.pathname).toBe(`/visualize/${first.id}`),
+			expect(router.state.location.pathname).toBe("/collect/trips"),
 		);
-		expect(collectLink().getAttribute("aria-current")).toBeNull();
-		expect(nav().queryByRole("link", { name: "Visualize" })).toBeNull();
+		expect(current(staysLink())).toBe("page");
+		expect(current(collectLink())).toBeNull();
 
-		await user.click(nav().getByRole("link", { name: third.label }));
+		// Insights opens the first view, then the last one visited.
+		await user.click(nav().getByRole("link", { name: "Insights" }));
+		await waitFor(() =>
+			expect(router.state.location.pathname).toBe("/insights/journey"),
+		);
+		expect(current(nav().getByRole("link", { name: "Journey" }))).toBe("page");
+		await user.click(nav().getByRole("link", { name: "Calendar" }));
 		await user.click(collectLink());
 		await waitFor(() =>
 			expect(router.state.location.pathname).toBe("/collect/review"),
 		);
-		await user.click(nav().getByRole("link", { name: "Visualize" }));
+		await user.click(nav().getByRole("link", { name: "Insights" }));
 		await waitFor(() =>
-			expect(router.state.location.pathname).toBe(`/visualize/${third.id}`),
+			expect(router.state.location.pathname).toBe("/insights/calendar"),
 		);
 	});
 
-	it("redirects /visualize to the first tab without a history entry", async () => {
+	it("says the data stays local", async () => {
+		renderApp("/collect/passports");
+		const note = await screen.findByText("Local only");
+		expect(note.parentElement?.getAttribute("title")).toBe(
+			"Your data never leaves this browser.",
+		);
+	});
+
+	it("redirects /visualize to the first view without a history entry", async () => {
 		const { router } = renderApp("/collect/passports");
 		await screen.findByRole("heading", { level: 1, name: "Collect" });
 		await router.navigate({ to: "/visualize" });
 		await waitFor(() =>
-			expect(router.state.location.pathname).toBe(`/visualize/${first.id}`),
+			expect(router.state.location.pathname).toBe("/insights/journey"),
 		);
 		router.history.back();
 		await waitFor(() =>
@@ -56,55 +67,69 @@ describe("collect and visualize navigation", () => {
 		);
 	});
 
-	it("redirects an unknown tab to the first tab", async () => {
-		const { router } = renderApp("/visualize/nope");
-		await waitFor(() =>
-			expect(router.state.location.pathname).toBe(`/visualize/${first.id}`),
-		);
-		expect(
-			await screen.findByRole("heading", { level: 1, name: "Visualize" }),
-		).toBeTruthy();
-	});
+	it.each([
+		["/visualize/route", "/insights/journey", {}, ""],
+		["/visualize/explore", "/insights/stats", {}, ""],
+		["/visualize/map", "/insights/map", { mode: "flat" }, ""],
+		[
+			"/visualize/heatmap?from=x",
+			"/insights/map",
+			{ mode: "heat", from: "x" },
+			"",
+		],
+		["/visualize/globe", "/insights/map", { mode: "globe" }, ""],
+		["/visualize/calendar", "/insights/calendar", {}, ""],
+		["/visualize/movements", "/insights/stats", {}, "periods"],
+		["/visualize/countries", "/insights/stats", {}, "countries"],
+		["/visualize/matrix", "/insights/stats", {}, "years"],
+		["/visualize/donut", "/insights/stats", {}, "years"],
+		["/visualize/sankey", "/insights/stats", {}, "moves"],
+		["/visualize/distance", "/insights/stats", {}, "distance"],
+		["/visualize/nope", "/insights/journey", {}, ""],
+		["/insights/nope", "/insights/journey", {}, ""],
+	])(
+		"redirects %s to the view that holds it",
+		async (from, to, search, hash) => {
+			const { router } = renderApp(from);
+			await waitFor(() => expect(router.state.location.pathname).toBe(to));
+			expect(router.state.location.search).toEqual(search);
+			expect(router.state.location.hash).toBe(hash);
+		},
+	);
 
-	it("moves between tabs with back and forward", async () => {
+	it("moves between views with back and forward", async () => {
 		const user = userEvent.setup();
-		const { router } = renderApp(`/visualize/${first.id}`);
-		await screen.findByRole("heading", { level: 1, name: "Visualize" });
-		await user.click(nav().getByRole("link", { name: second.label }));
-		await user.click(nav().getByRole("link", { name: third.label }));
+		const { router } = renderApp("/insights/journey");
+		await screen.findByRole("heading", { level: 1, name: "Journey" });
+		await user.click(nav().getByRole("link", { name: "Map" }));
+		await user.click(nav().getByRole("link", { name: "Stats" }));
 		await waitFor(() =>
-			expect(router.state.location.pathname).toBe(`/visualize/${third.id}`),
+			expect(router.state.location.pathname).toBe("/insights/stats"),
 		);
 
 		router.history.back();
 		await waitFor(() =>
-			expect(
-				nav()
-					.getByRole("link", { name: second.label })
-					.getAttribute("aria-current"),
-			).toBe("page"),
+			expect(current(nav().getByRole("link", { name: "Map" }))).toBe("page"),
 		);
 		router.history.forward();
 		await waitFor(() =>
-			expect(router.state.location.pathname).toBe(`/visualize/${third.id}`),
+			expect(router.state.location.pathname).toBe("/insights/stats"),
 		);
 	});
 
 	it("reaches Settings from both areas", async () => {
 		const user = userEvent.setup();
-		renderApp(`/visualize/${second.id}`);
-		await screen.findByRole("heading", { level: 1, name: "Visualize" });
+		renderApp("/insights/map");
+		await screen.findByRole("heading", { level: 1, name: "Map" });
 		await user.click(screen.getByRole("link", { name: "Settings" }));
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
-		// Settings belongs to neither area: the Visualize tabs stay listed.
-		expect(nav().getByRole("link", { name: second.label })).toBeTruthy();
-
-		expect(collectLink().getAttribute("aria-current")).toBeNull();
+		expect(nav().getByRole("link", { name: "Map" })).toBeTruthy();
+		expect(current(collectLink())).toBeNull();
 
 		await user.click(collectLink());
 		await screen.findByRole("heading", { level: 1, name: "Collect" });
 		await user.click(screen.getByRole("link", { name: "Settings" }));
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
-		expect(collectLink().getAttribute("aria-current")).toBeNull();
+		expect(current(collectLink())).toBeNull();
 	});
 });

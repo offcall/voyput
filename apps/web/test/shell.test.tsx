@@ -32,7 +32,7 @@ async function seedCounts(db: VoyputDb) {
 }
 
 describe("app shell", () => {
-	it("opens on the first Collect step and reaches Visualize and Settings from the nav", async () => {
+	it("opens on the first Collect step and reaches Insights and Settings from the nav", async () => {
 		const user = userEvent.setup();
 		renderApp("/");
 		expect(
@@ -44,8 +44,8 @@ describe("app shell", () => {
 
 		await user.click(screen.getByRole("link", { name: "Settings" }));
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
-		await user.click(screen.getByRole("link", { name: "Route" }));
-		await screen.findByRole("heading", { level: 1, name: "Visualize" });
+		await user.click(screen.getByRole("link", { name: "Insights" }));
+		await screen.findByRole("heading", { level: 1, name: "Journey" });
 		await user.click(screen.getByRole("link", { name: /^Collect/ }));
 		await screen.findByRole("heading", { level: 1, name: "Collect" });
 	});

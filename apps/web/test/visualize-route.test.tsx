@@ -123,7 +123,7 @@ const stat = (label: string) =>
 		?.textContent;
 
 async function openRoute(name: string) {
-	renderApp("/visualize/route", { db: await seed(name) });
+	renderApp("/insights/journey", { db: await seed(name) });
 	await screen.findByRole("img", { name: "Route player map" });
 }
 
@@ -263,20 +263,22 @@ describe("route player", () => {
 		expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
 	});
 
-	it("plays stays suggested from photos alone and says they are suggestions", async () => {
+	it("plays stays suggested from photos alone and asks for stamps", async () => {
 		const db = new VoyputDb("route-empty");
 		await db.locations.bulkPut([
 			photo("2024-01-05", "MD", "Moldova", 47.0, 28.8),
 		]);
-		renderApp("/visualize/route", { db });
+		renderApp("/insights/journey", { db });
 		expect(
-			await screen.findByText(
-				"These stays are suggestions from your stamps and photos.",
-			),
+			await screen.findByText("Add passport photos for exact border dates.", {
+				exact: false,
+			}),
 		).toBeTruthy();
 		expect(
-			screen.getByRole("link", { name: "Check stays" }).getAttribute("href"),
-		).toBe("/collect/trips");
+			screen
+				.getByRole("link", { name: "Add passport photos →" })
+				.getAttribute("href"),
+		).toBe("/collect/passports");
 		expect(screen.queryByText("No stays yet")).toBeNull();
 	});
 });

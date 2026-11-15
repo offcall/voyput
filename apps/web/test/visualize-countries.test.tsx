@@ -23,7 +23,7 @@ const photo = (
 	uuid: `countries-${n}`,
 });
 
-describe("countries tab", () => {
+describe("countries on Stats", () => {
 	it("sorts by any column and keeps the photo rank", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("visualize-countries-sort");
@@ -35,8 +35,10 @@ describe("countries tab", () => {
 			photo("2024-01-04", "AT", "Austria"),
 			photo("2024-01-05", "AT", "Austria"),
 		]);
-		renderApp("/visualize/countries", { db });
-		const table = await screen.findByRole("table");
+		renderApp("/insights/stats", { db });
+		const table = await screen.findByRole("table", {
+			name: /Countries by photos/,
+		});
 		const names = () =>
 			within(table)
 				.getAllByRole("row")
@@ -70,5 +72,61 @@ describe("countries tab", () => {
 			.slice(1)
 			.map((row) => row.querySelector("td")?.textContent);
 		expect(ranks).toEqual(["2", "3", "1"]);
+	});
+
+	it("shows the top 10 countries first and all of them on request", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("visualize-countries-show-all");
+		const codes = [
+			"AT",
+			"BE",
+			"BG",
+			"CH",
+			"CZ",
+			"DE",
+			"DK",
+			"EE",
+			"ES",
+			"FI",
+			"FR",
+			"GR",
+		];
+		// More photos for earlier codes, so the rank is fixed; a month apart, one stay each.
+		await db.locations.bulkPut(
+			codes.flatMap((code, i) =>
+				Array.from({ length: codes.length - i }, (_, k) =>
+					photo(
+						`2024-${String(i + 1).padStart(2, "0")}-${String(k + 1).padStart(2, "0")}`,
+						code,
+						code,
+					),
+				),
+			),
+		);
+		renderApp("/insights/stats", { db });
+		const table = await screen.findByRole("table", {
+			name: /Countries by photos/,
+		});
+		const rows = () => within(table).getAllByRole("row").slice(1);
+		await waitFor(() => expect(rows()).toHaveLength(10));
+		const panel = table.closest("figure") as HTMLElement;
+		await user.click(
+			within(panel).getByRole("button", { name: "Show all 12" }),
+		);
+		expect(rows()).toHaveLength(12);
+		await user.click(
+			within(panel).getByRole("button", { name: "Show top 10" }),
+		);
+		expect(rows()).toHaveLength(10);
+
+		// Ranked bar lists start short too.
+		const top = screen.getByRole("list", { name: "Top countries" });
+		expect(within(top).getAllByRole("listitem")).toHaveLength(10);
+		await user.click(
+			within(top.parentElement as HTMLElement).getByRole("button", {
+				name: "Show all 12",
+			}),
+		);
+		expect(within(top).getAllByRole("listitem")).toHaveLength(12);
 	});
 });
