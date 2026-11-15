@@ -100,6 +100,48 @@ describe("review", () => {
 		).toBeTruthy();
 	});
 
+	it("keeps a pending field edit when Mark reviewed or Undo reviewed is clicked", async () => {
+		const db = await demoDb();
+		await updateStamp(db, "demo-stamp-01", { reviewed: false });
+		const user = userEvent.setup();
+		const first = renderApp("/review", { db });
+
+		// Typed but not blurred: the click on Mark reviewed blurs and saves it.
+		const stamp = within(await card(1));
+		const location = stamp.getByLabelText("Location");
+		await user.clear(location);
+		await user.type(location, "Kyiv Boryspil");
+		await user.click(stamp.getByRole("button", { name: "Mark reviewed" }));
+		await waitFor(async () => {
+			const saved = await db.stamps.get("demo-stamp-01");
+			expect(saved?.location).toBe("Kyiv Boryspil");
+			expect(saved?.reviewed).toBe(true);
+		});
+
+		// Same for Undo reviewed.
+		await user.click(stamp.getByRole("button", { expanded: false }));
+		const again = stamp.getByLabelText("Location");
+		await user.clear(again);
+		await user.type(again, "Lviv");
+		await user.click(stamp.getByRole("button", { name: "Undo reviewed" }));
+		await waitFor(async () => {
+			const saved = await db.stamps.get("demo-stamp-01");
+			expect(saved?.location).toBe("Lviv");
+			expect(saved?.reviewed).toBe(false);
+		});
+
+		first.unmount();
+		renderApp("/review", { db });
+		const reopened = within(await card(1));
+		expect(reopened.getByLabelText("Location")).toHaveProperty("value", "Lviv");
+		expect(
+			reopened.getByRole("button", { name: "Mark reviewed" }),
+		).toBeTruthy();
+		const stored = await db.stamps.get("demo-stamp-01");
+		expect(stored?.location).toBe("Lviv");
+		expect(stored?.reviewed).toBe(false);
+	});
+
 	it("uses the photo location window from Settings", async () => {
 		const db = await demoDb();
 		const user = userEvent.setup();
