@@ -97,6 +97,57 @@ describe("photo location strip sets the stamp date", () => {
 		expect(dates).toEqual(["2024-03-12"]);
 	});
 
+	it("saves nothing when the browser cancels a drag or capture is lost", () => {
+		const dates: string[] = [];
+		render(<Harness dates={dates} />);
+		const track = slider();
+		track.getBoundingClientRect = () => ({ width: 220 }) as DOMRect;
+		const finger = { pointerType: "touch" };
+
+		// Sideways, then the page starts scrolling: pointercancel.
+		fireEvent.pointerDown(track, { ...finger, pointerId: 1, clientX: 100 });
+		fireEvent.pointerMove(track, { ...finger, pointerId: 1, clientX: 164 });
+		expect(slider().getAttribute("aria-valuetext")).toBe("7 Mar 2024");
+		fireEvent.pointerCancel(track, { ...finger, pointerId: 1, clientX: 164 });
+		expect(dates).toEqual([]);
+		expect(slider().getAttribute("aria-valuetext")).toBe("10 Mar 2024");
+
+		// Capture lost without a pointerup.
+		fireEvent.pointerDown(track, { ...finger, pointerId: 2, clientX: 100 });
+		fireEvent.pointerMove(track, { ...finger, pointerId: 2, clientX: 40 });
+		fireEvent.lostPointerCapture(track, { ...finger, pointerId: 2 });
+		fireEvent.pointerUp(track, { ...finger, pointerId: 2, clientX: 40 });
+		expect(dates).toEqual([]);
+		expect(slider().getAttribute("aria-valuetext")).toBe("10 Mar 2024");
+	});
+
+	it("drops the edit when a second finger lands, until every finger lifts", () => {
+		const dates: string[] = [];
+		render(<Harness dates={dates} />);
+		const track = slider();
+		track.getBoundingClientRect = () => ({ width: 220 }) as DOMRect;
+		const finger = { pointerType: "touch" };
+
+		fireEvent.pointerDown(track, { ...finger, pointerId: 1, clientX: 100 });
+		fireEvent.pointerMove(track, { ...finger, pointerId: 1, clientX: 164 });
+		fireEvent.pointerDown(track, { ...finger, pointerId: 2, clientX: 180 });
+		expect(slider().getAttribute("aria-valuetext")).toBe("10 Mar 2024");
+		fireEvent.pointerMove(track, { ...finger, pointerId: 2, clientX: 40 });
+		fireEvent.pointerMove(track, { ...finger, pointerId: 1, clientX: 200 });
+		fireEvent.pointerUp(track, { ...finger, pointerId: 2, clientX: 40 });
+		// The first finger, still down, does not start a new drag.
+		fireEvent.pointerMove(track, { ...finger, pointerId: 1, clientX: 30 });
+		fireEvent.pointerUp(track, { ...finger, pointerId: 1, clientX: 30 });
+		expect(dates).toEqual([]);
+		expect(slider().getAttribute("aria-valuetext")).toBe("10 Mar 2024");
+
+		// With every finger lifted, a new one-finger drag works again.
+		fireEvent.pointerDown(track, { ...finger, pointerId: 3, clientX: 200 });
+		fireEvent.pointerMove(track, { ...finger, pointerId: 3, clientX: 156 });
+		fireEvent.pointerUp(track, { ...finger, pointerId: 3, clientX: 156 });
+		expect(dates).toEqual(["2024-03-12"]);
+	});
+
 	it("steps a day with the keys and buttons, a week with Shift, and resets", async () => {
 		const user = userEvent.setup();
 		const dates: string[] = [];

@@ -47,6 +47,9 @@ export function PannableDayStrip({
 		pxPerDay: number;
 		last: number;
 	} | null>(null);
+	/** Pointers down on the strip, and whether they block a drag (more than one went down). */
+	const fingers = useRef(new Set<number>());
+	const blocked = useRef(false);
 
 	const saved = dayNumber(date);
 	if (saved === null) return null;
@@ -61,19 +64,34 @@ export function PannableDayStrip({
 		onDate(dayIso(day));
 	};
 
+	/** Drops a drag without saving: the strip snaps back to the stored date. */
+	const cancelDrag = () => {
+		drag.current = null;
+		setMoving(null);
+	};
 	const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
 		if (event.pointerType === "mouse" && event.button !== 0) return;
+		fingers.current.add(event.pointerId);
+		// Every finger is captured, so its release always reaches the strip.
+		try {
+			event.currentTarget.setPointerCapture(event.pointerId);
+		} catch {
+			// No capture (jsdom, or the pointer is already gone): moves still arrive while over the strip.
+		}
+		// A second finger (a pinch or a stray touch) cancels the edit; nothing
+		// moves the date again until every finger has lifted.
+		if (fingers.current.size > 1) {
+			blocked.current = true;
+			cancelDrag();
+			return;
+		}
+		if (blocked.current) return;
 		drag.current = {
 			pointerId: event.pointerId,
 			startX: event.clientX,
 			pxPerDay: event.currentTarget.getBoundingClientRect().width / total,
 			last: 0,
 		};
-		try {
-			event.currentTarget.setPointerCapture(event.pointerId);
-		} catch {
-			// No capture (jsdom, or the pointer is already gone): moves still arrive while over the strip.
-		}
 		setMoving(0);
 	};
 	const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
@@ -86,12 +104,22 @@ export function PannableDayStrip({
 		);
 		setMoving(current.last);
 	};
-	const endDrag = (event: PointerEvent<HTMLDivElement>) => {
+	/** A finger left the strip; once none is left, a new drag may start. */
+	const release = (pointerId: number) => {
+		fingers.current.delete(pointerId);
+		if (fingers.current.size === 0) blocked.current = false;
+	};
+	const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+		release(event.pointerId);
 		const current = drag.current;
 		if (!current || current.pointerId !== event.pointerId) return;
-		drag.current = null;
-		setMoving(null);
+		cancelDrag();
 		moveTo(stripView(stamp, radius, current.last).day);
+	};
+	/** The browser took the pointer (e.g. to scroll) or capture was lost: no save. */
+	const onPointerLost = (event: PointerEvent<HTMLDivElement>) => {
+		release(event.pointerId);
+		if (drag.current?.pointerId === event.pointerId) cancelDrag();
 	};
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
 		const step = event.shiftKey ? 7 : 1;
@@ -137,8 +165,9 @@ export function PannableDayStrip({
 					data-dragging={moving === null ? undefined : ""}
 					onPointerDown={onPointerDown}
 					onPointerMove={onPointerMove}
-					onPointerUp={endDrag}
-					onPointerCancel={endDrag}
+					onPointerUp={onPointerUp}
+					onPointerCancel={onPointerLost}
+					onLostPointerCapture={onPointerLost}
 					onKeyDown={onKeyDown}
 				>
 					<DayStrip
