@@ -1,51 +1,39 @@
 # voyput
 
-Reconstructs a travel history from passport stamp photos, cross-checked against Apple Photos location data. Everything runs in the browser: the user brings photos and a CSV, reads stamps with their own OpenRouter key or their Claude Code / Codex subscription, reviews them, builds a history of one-country stays (edit, split or add them; days without evidence stay gaps) and sees it on charts.
+![voyput: passport pages and photo locations become stays, a map and a replayed journey](docs/media/voyput.gif)
 
-## Commands
+Passport stamps + iPhone photo locations → your travel history. Runs in browser. Data stays in browser.
 
-```bash
-npm install
-npm run dev        # app at http://127.0.0.1:5173
-npm run storybook  # component kit at http://127.0.0.1:6006
-npm run check      # biome, tsc, tests
-npm run build      # static app in apps/web/dist
-npm run demo:generate  # rebuild demo pages, stamps and CSV in apps/web/public/demo
-```
+**Try:** https://voyput.app.offcall.link (demo data, no key needed)
 
-## Deploy
+## How it works
 
-`apps/web/dist` is a static site with path routes (`/collect/trips/<stay id>`, see [ADR 0013](docs/adr/0013-browser-history-routes.md)). The server (Coolify, nginx, any static host) must serve `index.html` for unknown paths, and the app must live at the domain root. Files that exist (`/assets/...`, `/demo/...`) are served as they are.
+1. Add photos of passport stamp pages, iPhone photo locations CSV, or both.
+2. AI reads stamps: country, date, direction. You check each against the page and your photo locations.
+3. Get one-country stays. Edit, split, approve.
+4. See Journey replay, map, calendar, stats.
 
-## Navigation
+## Private
 
-- **Home** (`/`): what voyput is, what stays in the browser and what goes to the AI, a start choice and "Continue" for returning users ([ADR 0025](docs/adr/0025-home-page.md)).
-- **Collect** (`/collect/<step>`): one wizard — passports, photo locations, extract, review — under one compact bar of steps with the next action. On first visit it asks which sources you have (photos, passport or both) and shows only those steps ([ADR 0024](docs/adr/0024-collect-sources.md)). `/collect` opens the first source step that is not done. Old URLs (`/import`, `/review?photo=…`, `/trips/<id>`, …) redirect. See [ADR 0016](docs/adr/0016-collect-wizard.md).
-- **Stays** (`/collect/trips/<stay id>`): the history as one-country stays, grouped by year, edited in a side panel.
-- **Insights** (`/insights/<view>`): four views — Journey, Map, Calendar, Stats — with one shared filter; old `/visualize/<tab>` URLs redirect ([ADR 0023](docs/adr/0023-navigation-and-insights.md)).
-- **Settings** (`/settings`).
+- Everything in this browser (IndexedDB). No account, no voyput server, no analytics.
+- Stamp reading sends page images to the AI you pick, with your own key: [OpenRouter](https://openrouter.ai/keys), or your local Claude Code / Codex CLI via `voyput-local` (below).
+- Photo locations CSV from your Mac: [`tools/photos-export`](tools/photos-export). Reads Photos library locally, uploads nothing.
 
-## Stamp reading
-
-Stamps are read through OpenRouter with the user's own key. The default model is `google/gemini-3.8-flash`, which scored best on real stamp pages for about $0.015 per page ([model trial](docs/model-trial-2026-11.md), [ADR 0020](docs/adr/0020-gemini-flash-default-model.md)). Any image model can be picked in Settings. To compare models again, run `node scripts/model-trial/run.mjs` (see its header; it spends real credits).
-
-Or read them on your own computer with the Claude Code (or, opt-in with `--codex`, Codex) CLI you already pay for: run `voyput-local`, a one-file Node script (Node 22.12+, no dependencies), and pair it in Settings → AI → Local ([ADR 0026](docs/adr/0026-local-ai-engine.md)):
+## Read stamps with your Claude Code / Codex subscription
 
 ```bash
 curl -fsSL https://voyput.app.offcall.link/voyput-local.mjs -o voyput-local.mjs && node voyput-local.mjs
-node --experimental-strip-types packages/local/src/voyput-local.ts   # from a clone
 ```
 
-It listens on 127.0.0.1 only. The pairing token it prints never travels: requests are signed with it, photos and answers are encrypted with a key derived from it, and the script must prove it knows it before a photo is sent. Photos go to OpenAI or Anthropic through your own CLI account, never to voyput. Safari may block an https page from reaching 127.0.0.1; use Chrome or Firefox there.
+Node 22.12+. Listens on 127.0.0.1 only. Open the pairing link it prints. Requests signed, photos encrypted. Safari may block it; use Chrome or Firefox. Details: [ADR 0026](docs/adr/0026-local-ai-engine.md).
 
-The demo includes 10 real stamp pages from Wikimedia Commons with that model's output left unreviewed, so you can try Review without a key ([credits](apps/web/public/demo/CREDITS.md)).
+## Dev
 
-## Layout
+```bash
+npm install
+npm run dev     # http://127.0.0.1:5173
+npm run check   # biome, tsc, tests
+npm run build   # static site in apps/web/dist; serve index.html for unknown paths
+```
 
-- `apps/web` — the app: routes, sections in `src/features/`, IndexedDB, AI client.
-- `packages/ui` — shared components and theme, with Storybook.
-- `packages/core` — domain types and pure logic.
-- `packages/local` — `voyput-local`, the script that reads stamps with a local Claude Code or Codex CLI; the site serves it as `/voyput-local.mjs`.
-- `tools/photos-export` — a Python script, run with `uv` on a Mac, that exports iPhone photo locations from the Apple Photos library to the CSV the app imports ([ADR 0027](docs/adr/0027-photo-export-script-in-tools.md)).
-
-Decisions are in [`docs/adr/`](docs/adr/README.md).
+Code: `apps/web` app · `packages/core` logic · `packages/ui` components · `packages/local` voyput-local · `tools/photos-export` CSV exporter. Decisions: [`docs/adr/`](docs/adr/README.md).
