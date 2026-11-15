@@ -7,6 +7,15 @@
 	max-width: 960px;
 }
 
+/* The sky grows with the hero text on narrow screens; `PixelSky` sets a fixed inline height. */
+.home > .vp-sky {
+	height: auto !important;
+	min-height: 300px;
+}
+.home > .vp-sky > .vp-sky-content {
+	height: auto;
+}
+
 .home-hero {
 	display: flex;
 	flex-direction: column;
@@ -42,6 +51,11 @@
 }
 .home-promise svg {
 	flex: none;
+}
+.home-promise-note {
+	display: block;
+	font-size: var(--vp-text-sm);
+	color: var(--vp-muted);
 }
 
 .home-summary {

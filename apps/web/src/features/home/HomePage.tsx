@@ -31,7 +31,7 @@ export const SOURCE_URL = "https://github.com/offcall/voyput";
 const STAMP_READERS: { name: string; text: string }[] = [
 	{
 		name: "OpenRouter",
-		text: "only once you add your own key in Settings. Each page photo goes from this browser straight to OpenRouter and the model you pick; voyput has no server in between.",
+		text: "only once you add your own key in Settings. Then each page image is sent from this browser straight to OpenRouter and the provider of the model you pick; voyput has no server in between.",
 	},
 ];
 
@@ -94,9 +94,13 @@ function Hero() {
 				</h1>
 				<p className="home-promise">
 					<PixelArt name="star" scale={2} />
-					<strong>
-						Nothing is uploaded. Everything runs and stays in your browser.
-					</strong>
+					<span>
+						<strong>Your data stays in your browser.</strong>{" "}
+						<span className="home-promise-note">
+							Only when you read stamps with AI are page images sent: with your
+							own key, straight to the AI you choose.
+						</span>
+					</span>
 				</p>
 			</div>
 		</PixelSky>
@@ -227,7 +231,7 @@ function Privacy() {
 				</li>
 				<li>
 					<strong>No backend.</strong> voyput is static files: no account, no
-					server, no upload.
+					voyput server, nothing uploaded to voyput.
 				</li>
 				<li>
 					<strong>No analytics, cookies or trackers.</strong> Fonts and pixel

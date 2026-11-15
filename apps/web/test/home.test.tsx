@@ -75,9 +75,10 @@ describe("home page", () => {
 			level: 1,
 			name: "Your travel history from passport stamps and iPhone photo locations",
 		});
+		expect(screen.getByText("Your data stays in your browser.")).toBeTruthy();
 		expect(
 			screen.getByText(
-				"Nothing is uploaded. Everything runs and stays in your browser.",
+				/Only when you read stamps with AI are page images sent/,
 			),
 		).toBeTruthy();
 		expect(screen.getByRole("button", { name: /^Photos only/ })).toBeTruthy();
