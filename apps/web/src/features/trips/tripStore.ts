@@ -12,6 +12,7 @@ import {
 	sortStays,
 	suggestHistory,
 	type TravelStay,
+	withBirthStay,
 } from "@voyput/core";
 import { LEGACY_TRIPS_KEY, type VoyputDb } from "../../db/db";
 
@@ -72,13 +73,7 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 		passports,
 		dismissed: periodsOf(dismissed?.value),
 		stored: sortStays(stored),
-		birthCountry: isCountryCode(birthCountry?.value)
-			? birthCountry.value
-			: null,
-		birth:
-			typeof birth?.value === "string" && isIsoDate(birth.value)
-				? birth.value
-				: null,
+		...birthOf(birthCountry?.value, birth?.value),
 		order: order?.value === "oldest" ? "oldest" : "newest",
 		legacy: Array.isArray(legacy?.value)
 			? legacy.value.filter(isLegacyTrip)
@@ -120,6 +115,39 @@ export async function saveBirth(
 			value ? db.kv.put({ key, value }) : db.kv.delete(key),
 		),
 	);
+}
+
+export interface Birth {
+	birth: string | null;
+	birthCountry: string | null;
+}
+
+/** Stored birth values; an invalid one reads as not set. */
+const birthOf = (birthCountry: unknown, birth: unknown): Birth => ({
+	birthCountry: isCountryCode(birthCountry) ? birthCountry : null,
+	birth: typeof birth === "string" && isIsoDate(birth) ? birth : null,
+});
+
+/** The birth setting alone, for Settings. */
+export async function loadBirth(db: VoyputDb): Promise<Birth> {
+	const [birthCountry, birth] = await Promise.all([
+		db.kv.get(BIRTH_COUNTRY_KEY),
+		db.kv.get(BIRTH_KEY),
+	]);
+	return birthOf(birthCountry?.value, birth?.value);
+}
+
+/**
+ * Saves the birth setting from Settings. A stored history gets its stay since
+ * birth added, moved or removed, as on the Stays step; a suggestion picks the
+ * setting up when it is built.
+ */
+export async function changeBirth(db: VoyputDb, birth: Birth): Promise<void> {
+	await db.transaction("rw", db.kv, db.stays, async () => {
+		await saveBirth(db, birth);
+		const stored = sortStays(await db.stays.toArray());
+		if (stored.length > 0) await saveStays(db, withBirthStay(stored, birth));
+	});
 }
 
 /** Keeps the trips still waiting for a country; none left removes the key. */

@@ -10,6 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { useAi } from "../ai/AiContext";
 import type { ModelOption } from "../ai/openrouter";
+import { ProfileCard } from "./ProfileCard";
 import { useSettings } from "./SettingsContext";
 import {
 	LOCATION_WINDOW_MAX,
@@ -56,6 +57,7 @@ export function SettingsPage() {
 				</Notice>
 			)}
 			<div className="settings-column">
+				<ProfileCard />
 				<Card
 					title="OpenRouter"
 					art={<PixelArt name="plane" scale={3} />}

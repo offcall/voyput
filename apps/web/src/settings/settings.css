@@ -12,3 +12,8 @@
 .settings-number {
 	max-width: 8rem;
 }
+.settings-profile {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: var(--vp-space-3);
+}

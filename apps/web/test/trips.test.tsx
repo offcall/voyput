@@ -71,18 +71,46 @@ async function seed(db: VoyputDb) {
 	]);
 }
 
-const stat = (label: string) =>
-	screen.getByText(label, { selector: ".vp-stat-label" }).nextElementSibling
-		?.textContent;
+type User = ReturnType<typeof userEvent.setup>;
+
+/** The action bar: "1 ready · 4 to check · 0 errors". */
+const summary = () =>
+	document.querySelector(".vp-stays-summary")?.textContent ?? "";
+
+/** The panel beside the list while no stay is selected: "5 stays · 3 countries · 0 approved". */
+const totals = () =>
+	document.querySelector(".vp-trips-empty p")?.textContent ?? "";
 
 /** A stay's row button, by its number and country. */
 const row = (n: number, country: string) =>
 	screen.findByRole("button", { name: new RegExp(`^${n}\\. ${country},`) });
 
+/** Opens a stay in the panel. */
+async function open(user: User, n: number, country: string) {
+	await user.click(await row(n, country));
+	return within(
+		await screen.findByRole("region", { name: `Stay: ${country}` }),
+	);
+}
+
+/** Picks an item of the "⋯" menu. */
+async function more(user: User, item: string | RegExp) {
+	await user.click(screen.getByRole("button", { name: "More stay actions" }));
+	const menu = within(screen.getByRole("menu"));
+	await user.click(
+		menu.queryByRole("menuitemradio", { name: item }) ??
+			menu.getByRole("menuitem", { name: item }),
+	);
+}
+
+/** The toast's button after a change ("Undo") or an undo ("Redo"). */
+const toastButton = (name: "Undo" | "Redo") =>
+	within(screen.getByRole("status")).getByRole("button", { name });
+
 /** Stay numbers in the order the list shows them. */
 const shownNumbers = () =>
-	[...document.querySelectorAll(".vp-stays .vp-stay-num")].map((n) =>
-		Number(n.textContent),
+	[...document.querySelectorAll(".vp-stays .vp-stay")].map((n) =>
+		Number.parseInt(n.getAttribute("aria-label") ?? "", 10),
 	);
 
 async function storedStays(db: VoyputDb) {
@@ -92,34 +120,67 @@ async function storedStays(db: VoyputDb) {
 	);
 }
 
+/** Sets the birth country and date on the Settings page. */
+async function setBirth(
+	user: User,
+	db: VoyputDb,
+	country: string,
+	date: string,
+) {
+	const view = renderApp("/settings", { db });
+	const card = within(
+		(await screen.findByRole("heading", { name: "Profile" })).closest(
+			".vp-card",
+		) as HTMLElement,
+	);
+	await user.selectOptions(
+		await card.findByRole("combobox", { name: "Birth country" }),
+		country,
+	);
+	fireEvent.change(card.getByLabelText("Birth date"), {
+		target: { value: date },
+	});
+	await waitFor(async () =>
+		expect((await db.kv.get("trips:birth"))?.value).toBe(date || undefined),
+	);
+	view.unmount();
+}
+
 describe("trips", () => {
-	it("lists the suggested stays without home stays and approves the clear ones", async () => {
+	it("lists calm rows with a status, approves the ready ones, and undoes from the toast", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-list");
 		await seed(db);
 		const first = renderApp("/collect/trips", { db });
 
 		// The first stay begins with the first photo, not "since birth".
-		expect((await row(1, "Moldova")).textContent).toContain(
-			"1 Jan → 1 Mar 2024",
-		);
+		const moldova = await row(1, "Moldova");
+		expect(moldova.textContent).toContain("1 Jan → 1 Mar 2024");
+		expect(moldova.textContent).toContain("Chișinău");
+		expect(moldova.getAttribute("aria-label")).toMatch(/needs a look$/);
+		// A row only selects: every edit control is in the panel.
+		expect(within(moldova).queryAllByRole("combobox")).toHaveLength(0);
+		expect(within(moldova).queryAllByRole("button")).toHaveLength(0);
+		expect(screen.queryByRole("button", { name: /^Delete stay/ })).toBeNull();
+		expect(screen.queryByRole("button", { name: /^Split stay/ })).toBeNull();
+		expect(screen.queryByRole("combobox", { name: /method/ })).toBeNull();
+
 		expect(screen.getByText(/Your first change saves it/)).toBeTruthy();
-		expect((await row(2, "Romania")).textContent).toContain("1 → 5 Mar 2024");
-		expect((await row(2, "Romania")).textContent).toContain("5 days");
+		const romania = await row(2, "Romania");
+		expect(romania.textContent).toContain("1 → 5 Mar 2024");
+		expect(romania.textContent).toContain("5 days");
+		expect(romania.getAttribute("aria-label")).toMatch(/ready$/);
 		expect((await row(4, "Japan")).textContent).toContain("10 → 20 May 2024");
 		expect((await row(5, "Moldova")).textContent).toContain("now");
 		expect(screen.queryByText(/Home/)).toBeNull();
-		expect(screen.queryByRole("region", { name: /^Trip / })).toBeNull();
-		expect(stat("Stays")).toBe("5");
-		expect(stat("Countries")).toBe("3");
-		expect(stat("Left to approve")).toBe("5");
+		expect(summary()).toBe("1 ready · 4 to check · 0 errors");
+		expect(totals()).toBe("5 stays · 3 countries · 0 approved");
 		expect(await db.stays.count()).toBe(0);
 
 		// Only Romania has stamps on both edges.
-		await user.click(
-			screen.getByRole("button", { name: "✓ Approve clear (1)" }),
-		);
-		expect(stat("Approved")).toBe("1");
+		await user.click(screen.getByRole("button", { name: "✓ Approve 1" }));
+		expect(screen.getByRole("status").textContent).toContain("Approved 1 stay");
+		expect(summary()).toBe("0 ready · 4 to check · 0 errors · 1 approved");
 		await waitFor(async () =>
 			expect((await storedStays(db)).map((s) => s.approved)).toEqual([
 				false,
@@ -129,24 +190,36 @@ describe("trips", () => {
 				false,
 			]),
 		);
+		await user.click(toastButton("Undo"));
+		expect(summary()).toBe("1 ready · 4 to check · 0 errors");
+		await waitFor(async () =>
+			expect((await storedStays(db)).some((s) => s.approved)).toBe(false),
+		);
+		await user.click(toastButton("Redo"));
+		expect(totals()).toBe("5 stays · 3 countries · 1 approved");
+		await waitFor(async () =>
+			expect((await storedStays(db))[1]?.approved).toBe(true),
+		);
 		first.unmount();
 
 		renderApp("/collect/trips", { db });
-		expect(await row(2, "Romania")).toBeTruthy();
-		expect(stat("Approved")).toBe("1");
+		expect((await row(2, "Romania")).getAttribute("aria-label")).toMatch(
+			/approved$/,
+		);
+		expect(totals()).toBe("5 stays · 3 countries · 1 approved");
 		expect(screen.queryByText(/Your first change saves it/)).toBeNull();
 	});
 
-	it("marks a transit, edits methods, deletes and undoes, all saved", async () => {
+	it("marks a transit, edits methods and deletes in the panel; undo and redo by keyboard and menu", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-edit");
 		await seed(db);
 		renderApp("/collect/trips", { db });
 
-		const japan = (await row(4, "Japan")).closest(".vp-stay") as HTMLElement;
-		await user.click(within(japan).getByRole("button", { name: "Transit" }));
+		const japan = await open(user, 4, "Japan");
+		await user.click(japan.getByRole("button", { name: "Transit" }));
 		await user.selectOptions(
-			within(japan).getByRole("combobox", { name: "Arrival method" }),
+			japan.getByRole("combobox", { name: "Arrival method" }),
 			"plane",
 		);
 		await waitFor(async () =>
@@ -157,130 +230,115 @@ describe("trips", () => {
 			}),
 		);
 		// A transit is passed through: Japan no longer counts.
-		expect(stat("Countries")).toBe("2");
+		await user.click(japan.getByRole("button", { name: "Close the stay" }));
+		expect(totals()).toBe("5 stays · 2 countries · 0 approved");
 
-		await user.click(screen.getByRole("button", { name: "Delete stay 2" }));
+		const romania = await open(user, 2, "Romania");
+		await user.click(romania.getByRole("button", { name: "Delete stay 2" }));
 		expect(
 			screen.queryByRole("button", { name: /^\d+\. Romania,/ }),
 		).toBeNull();
+		expect(screen.getByRole("status").textContent).toContain("Deleted Romania");
 		await waitFor(async () => expect(await db.stays.count()).toBe(4));
-		await user.click(screen.getByRole("button", { name: "← Undo" }));
+		await user.keyboard("{Control>}z{/Control}");
 		expect(await row(2, "Romania")).toBeTruthy();
 		await waitFor(async () => expect(await db.stays.count()).toBe(5));
-		await user.click(screen.getByRole("button", { name: "Redo →" }));
+		await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
+		await waitFor(async () => expect(await db.stays.count()).toBe(4));
+		await more(user, "Undo");
+		await waitFor(async () => expect(await db.stays.count()).toBe(5));
+		await more(user, "Redo");
 		await waitFor(async () => expect(await db.stays.count()).toBe(4));
 	});
 
-	it("edits a stay's dates in the detail and shows the crossing hints", async () => {
+	it("edits a stay's dates in the panel and shows its hints there", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-detail");
 		await seed(db);
 		const { router } = renderApp("/collect/trips", { db });
 
-		await user.click(await row(4, "Japan"));
+		const detail = await open(user, 4, "Japan");
 		await waitFor(() =>
 			expect(router.state.location.pathname).toMatch(
 				/^\/collect\/trips\/stay-/,
 			),
 		);
-		const detail = within(screen.getByRole("region", { name: "Stay: Japan" }));
 		expect(detail.getByDisplayValue("Tokyo, Kyoto")).toBeTruthy();
 
 		const arrival = detail.getByLabelText("Arrival date");
 		fireEvent.change(arrival, { target: { value: "2024-05-12" } });
-		expect(await screen.findByText(/Long travel window/)).toBeTruthy();
+		expect(await detail.findByText(/Long travel window/)).toBeTruthy();
 		expect(detail.getByText("Set by hand")).toBeTruthy();
 
 		fireEvent.change(arrival, { target: { value: "2024-05-01" } });
-		expect(await screen.findByText(/Overlap/)).toBeTruthy();
-		expect(stat("With errors")).toBe("1");
-		const japan = (await row(4, "Japan")).closest(".vp-stay") as HTMLElement;
+		expect(await detail.findByText(/Overlap/)).toBeTruthy();
+		expect(summary()).toContain("1 error");
+		expect((await row(4, "Japan")).getAttribute("aria-label")).toMatch(
+			/has an error$/,
+		);
 		expect(
-			within(japan).getByRole<HTMLButtonElement>("button", {
-				name: "✓ Approve",
-			}).disabled,
+			detail.getByRole<HTMLButtonElement>("button", { name: "✓ Approve" })
+				.disabled,
 		).toBe(true);
 
 		await user.click(
 			detail.getByRole("button", { name: /Use previous departure/ }),
 		);
 		expect(screen.queryByText(/Overlap/)).toBeNull();
-		expect(stat("With errors")).toBe("0");
+		expect(summary()).toContain("0 errors");
 		await waitFor(async () =>
 			expect((await storedStays(db))[3]?.arrival).toMatchObject({
 				date: "2024-05-10",
 				source: "manual",
 			}),
 		);
+		// Approve is the panel's main button.
+		await user.click(detail.getByRole("button", { name: "✓ Approve" }));
+		await waitFor(async () =>
+			expect((await storedStays(db))[3]?.approved).toBe(true),
+		);
+		expect(detail.getByRole("button", { name: "↩ Reopen" })).toBeTruthy();
 	});
 
-	it("takes a birth country and date: the first stay is there since birth", async () => {
+	it("takes the birth country and date from Settings: the first stay is there since birth", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-settings");
 		await seed(db);
-		const first = renderApp("/collect/trips", { db });
 
-		const born = () => screen.getByText(/Born in/).closest("p");
-		await screen.findByText(/Born in/);
-		expect(born()?.textContent).toContain("no country set");
-		await user.click(screen.getByRole("button", { name: "set" }));
-		await user.selectOptions(
-			screen.getByRole("combobox", { name: "Birth country" }),
-			"MD",
-		);
-		// A country alone does not start a stay since birth.
-		expect((await row(1, "Moldova")).textContent).toContain("1 Jan → 1 Mar");
-		fireEvent.change(screen.getByLabelText("Birth date"), {
-			target: { value: "1997-05-21" },
-		});
+		// Nothing stored yet: the suggestion picks the setting up.
+		await setBirth(user, db, "MD", "1997-05-21");
+		expect((await db.kv.get("trips:birthCountry"))?.value).toBe("MD");
+		const first = renderApp("/collect/trips", { db });
 		expect((await row(1, "Moldova")).textContent).toContain(
 			"21 May 1997 → 1 Jan 2024",
 		);
 		expect((await row(2, "Moldova")).textContent).toContain("1 Jan → 1 Mar");
-		expect(stat("Stays")).toBe("6");
-
-		// A new country moves the stay since birth.
-		await user.selectOptions(
-			screen.getByRole("combobox", { name: "Birth country" }),
-			"RO",
+		expect(totals()).toContain("6 stays");
+		expect(screen.queryByText(/Born in/)?.textContent).toMatch(
+			/Born in 🇲🇩 Moldova · 21 May 1997/,
 		);
-		expect((await row(1, "Romania")).textContent).toContain("21 May 1997");
-		expect(stat("Stays")).toBe("6");
-		// Clearing the date removes it.
-		fireEvent.change(screen.getByLabelText("Birth date"), {
-			target: { value: "" },
-		});
-		expect((await row(1, "Moldova")).textContent).toContain("1 Jan → 1 Mar");
-		expect(stat("Stays")).toBe("5");
-		// Undo brings it back, redo removes it again, undo once more.
-		await user.click(screen.getByRole("button", { name: "← Undo" }));
-		expect((await row(1, "Romania")).textContent).toContain("21 May 1997");
-		await user.click(screen.getByRole("button", { name: "Redo →" }));
-		expect(stat("Stays")).toBe("5");
-		await user.click(screen.getByRole("button", { name: "← Undo" }));
-		await user.click(screen.getByRole("button", { name: "Done" }));
-		expect(born()?.textContent).toMatch(/Born in 🇷🇴 Romania · 21 May 1997/);
-		await waitFor(async () => {
-			expect((await db.kv.get("trips:birth"))?.value).toBe("1997-05-21");
-			expect((await db.kv.get("trips:birthCountry"))?.value).toBe("RO");
+		expect(
+			screen
+				.getByRole("link", { name: "Change in Settings" })
+				.getAttribute("href"),
+		).toBe("/settings");
+		await user.click(screen.getByRole("button", { name: /^✓ Approve/ }));
+		await waitFor(async () => expect(await db.stays.count()).toBe(6));
+		first.unmount();
+
+		// A stored history: a new country moves the stay since birth.
+		await setBirth(user, db, "RO", "1997-05-21");
+		await waitFor(async () =>
 			expect((await storedStays(db))[0]).toMatchObject({
 				countryCode: "RO",
 				sinceBirth: true,
-			});
-		});
-		first.unmount();
-
-		// After a reload the stay still follows the setting.
+			}),
+		);
+		// Clearing the date removes it.
+		await setBirth(user, db, "RO", "");
+		await waitFor(async () => expect(await db.stays.count()).toBe(5));
 		renderApp("/collect/trips", { db });
-		expect((await row(1, "Romania")).textContent).toContain("21 May 1997");
-		await user.click(screen.getByRole("button", { name: "change" }));
-		await user.selectOptions(
-			screen.getByRole("combobox", { name: "Birth country" }),
-			"MD",
-		);
-		expect((await row(1, "Moldova")).textContent).toContain(
-			"21 May 1997 → 1 Jan 2024",
-		);
+		expect((await row(1, "Moldova")).textContent).toContain("1 Jan → 1 Mar");
 	});
 
 	it("leaves a stay since birth the user edited when the birth setting changes", async () => {
@@ -291,24 +349,65 @@ describe("trips", () => {
 			{ key: "trips:birth", value: "1997-05-21" },
 			{ key: "trips:birthCountry", value: "MD" },
 		]);
-		renderApp("/collect/trips", { db });
+		const first = renderApp("/collect/trips", { db });
 
-		const birthRow = (await row(1, "Moldova")).closest(".vp-stay");
-		if (!(birthRow instanceof HTMLElement)) throw new Error("no row");
-		expect(birthRow.textContent).toContain("21 May 1997");
-		await user.click(within(birthRow).getByRole("button", { name: "Transit" }));
-		await user.click(screen.getByRole("button", { name: "change" }));
-		await user.selectOptions(
-			screen.getByRole("combobox", { name: "Birth country" }),
-			"RO",
-		);
+		expect((await row(1, "Moldova")).textContent).toContain("21 May 1997");
+		const birthStay = await open(user, 1, "Moldova");
+		await user.click(birthStay.getByRole("button", { name: "Transit" }));
+		await waitFor(async () => expect(await db.stays.count()).toBe(6));
+		first.unmount();
+
+		await setBirth(user, db, "RO", "1997-05-21");
+		renderApp("/collect/trips", { db });
 		expect((await row(1, "Moldova")).textContent).toContain("21 May 1997");
 		expect(
 			screen.queryByRole("button", { name: /^\d+\. Romania, 21 May/ }),
 		).toBeNull();
 	});
 
-	it("shows days without evidence as a gap row and adds a stay in it", async () => {
+	it("groups stays by year: the newest two open, older ones folded with a count", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-years");
+		await db.locations.bulkPut([
+			photo("2017-06-01", "FR", "France", "Paris"),
+			photo("2019-06-01", "ES", "Spain", "Madrid"),
+			photo("2021-06-01", "IT", "Italy", "Rome"),
+			photo("2023-06-01", "DE", "Germany", "Berlin"),
+		]);
+		renderApp("/collect/trips", { db });
+
+		const year = (y: string) =>
+			screen.getByRole("button", { name: new RegExp(`^${y}`) });
+		await row(4, "Germany");
+		expect(year("2023").getAttribute("aria-expanded")).toBe("true");
+		expect(year("2021").getAttribute("aria-expanded")).toBe("true");
+		expect(year("2019").getAttribute("aria-expanded")).toBe("false");
+		expect(year("2019").textContent).toContain("1 stay");
+		expect(year("2017").getAttribute("aria-expanded")).toBe("false");
+		expect(shownNumbers()).toEqual([4, 3]);
+
+		await user.click(year("2019"));
+		expect(shownNumbers()).toEqual([4, 3, 2]);
+		await user.click(year("2023"));
+		expect(shownNumbers()).toEqual([3, 2]);
+	});
+
+	it("opens the year of a stay selected by its URL", async () => {
+		const db = new VoyputDb("trips-years-url");
+		await db.locations.bulkPut([
+			photo("2017-06-01", "FR", "France", "Paris"),
+			photo("2019-06-01", "ES", "Spain", "Madrid"),
+			photo("2021-06-01", "IT", "Italy", "Rome"),
+			photo("2023-06-01", "DE", "Germany", "Berlin"),
+		]);
+		renderApp("/collect/trips/stay-2017-06-01-fr", { db });
+		expect(
+			await screen.findByRole("region", { name: "Stay: France" }),
+		).toBeTruthy();
+		expect((await row(1, "France")).getAttribute("aria-pressed")).toBe("true");
+	});
+
+	it("shows days without evidence as a thin gap row and adds a stay in it", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-gap");
 		await db.stamps.bulkPut([
@@ -327,7 +426,7 @@ describe("trips", () => {
 		if (!(gap instanceof HTMLElement)) throw new Error("no gap row");
 		expect(gap.textContent).toContain("25 Aug → 30 Sep 2016");
 		// A gap is not an error.
-		expect(stat("With errors")).toBe("0");
+		expect(summary()).toContain("0 errors");
 
 		await user.click(
 			within(gap).getByRole("button", { name: /Add a stay in the gap/ }),
@@ -357,11 +456,11 @@ describe("trips", () => {
 				arrival: { date: "2016-08-24", source: "manual" },
 			}),
 		);
-		await user.click(screen.getByRole("button", { name: "← Undo" }));
+		await user.click(toastButton("Undo"));
 		expect(await screen.findByText("gap · 37 days")).toBeTruthy();
 	});
 
-	it("sorts newest or oldest first and keeps the choice", async () => {
+	it("sorts newest or oldest first from the menu and keeps the choice", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-sort");
 		await seed(db);
@@ -369,7 +468,7 @@ describe("trips", () => {
 
 		await row(5, "Moldova");
 		expect(shownNumbers()).toEqual([5, 4, 3, 2, 1]);
-		await user.click(screen.getByRole("button", { name: "Oldest first" }));
+		await more(user, "Oldest first");
 		expect(shownNumbers()).toEqual([1, 2, 3, 4, 5]);
 		await waitFor(async () =>
 			expect((await db.kv.get("trips:order"))?.value).toBe("oldest"),
@@ -379,21 +478,22 @@ describe("trips", () => {
 		renderApp("/collect/trips", { db });
 		await row(5, "Moldova");
 		expect(shownNumbers()).toEqual([1, 2, 3, 4, 5]);
+		await user.click(screen.getByRole("button", { name: "More stay actions" }));
 		expect(
 			screen
-				.getByRole("button", { name: "Oldest first" })
-				.getAttribute("aria-pressed"),
+				.getByRole("menuitemradio", { name: "Oldest first" })
+				.getAttribute("aria-checked"),
 		).toBe("true");
 	});
 
-	it("splits a stay at a day, undoes it, and a rebuild keeps the split", async () => {
+	it("splits a stay from the panel, undoes it, and a rebuild keeps the split", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-split");
 		await seed(db);
 		renderApp("/collect/trips", { db });
 
-		await row(2, "Romania");
-		await user.click(screen.getByRole("button", { name: "Split stay 2" }));
+		const panel = await open(user, 2, "Romania");
+		await user.click(panel.getByRole("button", { name: "Split stay 2" }));
 		const form = within(screen.getByRole("form", { name: "Split stay" }));
 		const day = form.getByLabelText("Split on");
 		fireEvent.change(day, { target: { value: "2024-03-05" } });
@@ -405,25 +505,24 @@ describe("trips", () => {
 
 		expect((await row(2, "Romania")).textContent).toContain("1 → 3 Mar 2024");
 		expect((await row(3, "Romania")).textContent).toContain("3 → 5 Mar 2024");
-		expect(stat("Stays")).toBe("6");
+		await waitFor(async () => expect(await db.stays.count()).toBe(6));
+		expect(screen.getByRole("status").textContent).toContain("Split Romania");
+
+		await user.click(toastButton("Undo"));
+		await waitFor(async () => expect(await db.stays.count()).toBe(5));
+		await user.click(toastButton("Redo"));
 		await waitFor(async () => expect(await db.stays.count()).toBe(6));
 
-		await user.click(screen.getByRole("button", { name: "← Undo" }));
-		expect(stat("Stays")).toBe("5");
-		await waitFor(async () => expect(await db.stays.count()).toBe(5));
-		await user.click(screen.getByRole("button", { name: "Redo →" }));
-		expect(stat("Stays")).toBe("6");
-
 		// Edited stays survive a rebuild; the rest is suggested again.
-		expect(screen.getByText("Keeps approved and edited stays")).toBeTruthy();
-		await user.click(
-			screen.getByRole("button", { name: "Rebuild suggestions" }),
-		);
-		await waitFor(() => expect(stat("Stays")).toBe("6"));
+		await more(user, /^Rebuild suggestions/);
+		expect(
+			await screen.findByText(/Rebuilt suggestions/, { selector: "span" }),
+		).toBeTruthy();
 		expect((await row(3, "Romania")).textContent).toContain("3 → 5 Mar 2024");
+		await waitFor(async () => expect(await db.stays.count()).toBe(6));
 	});
 
-	it("adds a stay from the top button, after the latest one", async () => {
+	it("adds a stay from the top button, after the latest one, and after a stay from the panel", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-add");
 		const { router } = renderApp("/collect/trips", { db });
@@ -449,6 +548,25 @@ describe("trips", () => {
 			),
 		);
 		await waitFor(async () => expect(await db.stays.count()).toBe(1));
+
+		const panel = within(
+			await screen.findByRole("region", { name: "Stay: Georgia" }),
+		);
+		await user.click(
+			panel.getByRole("button", { name: "Add a stay after stay 1" }),
+		);
+		const after = within(screen.getByRole("form", { name: "Add stay" }));
+		expect(after.getByLabelText<HTMLInputElement>("Arrival date").value).toBe(
+			"2018-10-20",
+		);
+		await user.selectOptions(
+			after.getByRole("combobox", { name: "Country" }),
+			"AM",
+		);
+		await user.click(after.getByRole("button", { name: "Add stay" }));
+		expect((await row(2, "Armenia")).textContent).toContain(
+			"20 Oct 2018 → now",
+		);
 	});
 
 	it("adds a trip the migration could not place once the user picks its country", async () => {

@@ -26,7 +26,7 @@
 	color: var(--vp-muted);
 }
 
-/* Layout */
+/* Layout: the list, and the selected stay in a panel to its right. */
 .vp-trips-layout {
 	display: grid;
 	gap: 20px;
@@ -35,14 +35,46 @@
 .vp-trips-layout > * {
 	min-width: 0;
 }
-@media (min-width: 1100px) {
-	.vp-trips-layout[data-open] {
-		grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
+@media (min-width: 1180px) {
+	.vp-trips-layout {
+		grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
 	}
 	.vp-trips-pane {
 		position: sticky;
-		top: 16px;
+		top: calc(var(--vp-stays-bar-h, 0px) + 12px);
+		max-height: calc(100vh - var(--vp-stays-bar-h, 0px) - 24px);
+		overflow-y: auto;
 	}
+}
+/* Narrower: no summary beside the list; the selected stay opens as a bottom sheet. */
+@media (max-width: 1179px) {
+	.vp-trips-pane:not([data-sheet]) {
+		display: none;
+	}
+	.vp-trips-pane[data-sheet] {
+		position: fixed;
+		z-index: 40;
+		right: 0;
+		bottom: 0;
+		left: 0;
+		max-height: 75vh;
+		overflow-y: auto;
+		box-shadow: 0 -12px 30px rgb(0 0 0 / 0.35);
+	}
+	.vp-trips-pane[data-sheet] .vp-trips-detail {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+	/* Room to scroll the last rows above the sheet. */
+	.vp-trips-layout[data-open] .vp-stays {
+		margin-bottom: 40vh;
+	}
+}
+.vp-trips-empty p {
+	margin: 0 0 8px;
+}
+.vp-trips-empty p:last-child {
+	margin: 0;
 }
 
 /* Detail */
@@ -325,14 +357,33 @@
 	flex: 1;
 }
 
-/* Stays list: one row per stay, thin rows for gaps between them. */
+/* Stays list: an action bar, then one calm row per stay, grouped by year. */
 .vp-stays-bar {
 	position: sticky;
 	top: 0;
-	z-index: 2;
-	padding: 8px 0;
-	background: var(--vp-bg);
-	border-bottom: 2px solid var(--vp-border);
+	z-index: 3;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	min-height: 52px;
+	padding: 8px 12px;
+	border: 2px solid var(--vp-border-accent);
+	border-radius: var(--vp-radius-lg);
+	background: var(--vp-surface);
+}
+.vp-stays-summary {
+	flex: 1 1 220px;
+	margin: 0;
+	font-size: var(--vp-text-md);
+}
+.vp-stays-summary [data-bad] {
+	color: var(--vp-bad);
+	font-weight: 600;
+}
+.vp-stays-note {
+	margin: -4px 0 0;
+	font-size: var(--vp-text-sm);
 }
 /* Narrow screens: the shell's top bar (50px) is sticky too; stay under it. */
 @media (max-width: 860px) {
@@ -340,79 +391,90 @@
 		top: 50px;
 	}
 }
-.vp-stays-born {
-	margin: 0;
-	font-size: var(--vp-text-md);
-}
-.vp-stays-born-pick {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	gap: 8px 12px;
-	font-size: var(--vp-text-sm);
-}
-.vp-stays-born-pick .vp-input {
-	max-width: 260px;
-}
-.vp-stays-link {
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--vp-accent);
-	font: inherit;
-	text-decoration: underline;
-	cursor: pointer;
-}
 .vp-stays {
 	display: flex;
 	flex-direction: column;
-	gap: 6px;
-	container-type: inline-size;
+	border: 2px solid var(--vp-border);
+	border-radius: var(--vp-radius-lg);
+	background: var(--vp-surface);
 }
-.vp-stays-listbar {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 8px;
+.vp-stays-year + .vp-stays-year {
+	border-top: 2px solid var(--vp-border);
 }
-.vp-stays-order {
-	display: inline-flex;
-	gap: 4px;
+.vp-stays-year-head {
+	position: sticky;
+	top: var(--vp-stays-bar-h, 0px);
+	z-index: 2;
 	margin: 0;
-	padding: 0;
+	background: var(--vp-surface);
+}
+@media (max-width: 860px) {
+	.vp-stays-year-head {
+		top: calc(50px + var(--vp-stays-bar-h, 0px));
+	}
+}
+.vp-stays-year-head button {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	width: 100%;
+	padding: 8px 14px;
 	border: 0;
-}
-.vp-stays-rebuild-note {
+	background: none;
+	color: var(--vp-text);
+	font-family: var(--vp-font-pixel);
 	font-size: var(--vp-text-sm);
+	font-weight: 400;
+	text-align: left;
+	cursor: pointer;
 }
-/* Days no stay covers: a thin dashed row between two stays. */
+.vp-stays-year-head button > :last-child {
+	margin-left: auto;
+}
+.vp-stays-year-head button:focus-visible {
+	outline: 2px solid var(--vp-focus);
+	outline-offset: -2px;
+}
+/* Days no stay covers: a thin dashed line between two stays. */
+.vp-stay-block {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
 .vp-stay-gap {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 4px 12px;
-	margin-left: 36px;
-	padding: 2px 8px;
-	border: 2px dashed var(--vp-border);
-	border-radius: var(--vp-radius);
-	font-size: var(--vp-text-sm);
+	gap: 0 12px;
+	margin: 0 14px;
+	padding: 0 8px;
+	border-top: 2px dashed var(--vp-border);
+	border-bottom: 2px dashed var(--vp-border);
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted);
+}
+.vp-stay-gap .vp-button {
+	min-height: 0;
+	padding-block: 0;
 }
 .vp-stay-gap-label {
 	font-family: var(--vp-font-pixel);
 	text-transform: uppercase;
-	color: var(--vp-muted);
 }
-/* Add and split forms under a row. */
+/* Add and split forms. */
 .vp-stay-add {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
 	gap: 8px 12px;
-	margin-left: 36px;
+	margin: 8px 14px;
 	padding: 10px;
 	border: 2px solid var(--vp-border-accent);
 	border-radius: var(--vp-radius);
 	background: var(--vp-accent-soft);
+}
+.vp-trips-detail .vp-stay-add {
+	margin: 0;
 }
 .vp-stay-add .vp-input {
 	max-width: 220px;
@@ -424,65 +486,40 @@
 	gap: 6px 8px;
 	font-size: var(--vp-text-sm);
 }
-.vp-stay-block {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
+/* One stay: flag, country and first place, dates, days, a status dot. */
 .vp-stay {
 	display: grid;
-	grid-template-columns: 28px minmax(0, 1fr) auto;
+	grid-template-columns: auto minmax(0, 1fr) auto 10px;
 	align-items: center;
-	gap: 8px;
-	padding: 6px 8px;
-	border: 2px solid var(--vp-border);
-	border-radius: var(--vp-radius);
-	background: var(--vp-surface);
-}
-.vp-stay[data-selected] {
-	border-color: var(--vp-accent);
-	box-shadow: var(--vp-glow-sm);
-}
-.vp-stay[data-error] {
-	border-left: 6px solid var(--vp-bad);
-}
-.vp-stay[data-approved] {
-	background: var(--vp-surface-2);
-}
-.vp-stay[data-approved] .vp-stay-country::after {
-	content: " ✓";
-	color: var(--vp-good);
-}
-.vp-stay-num {
-	font-family: var(--vp-font-pixel);
-	font-size: var(--vp-text-sm);
-	color: var(--vp-muted);
-	text-align: right;
-}
-.vp-stay-main {
-	display: grid;
-	grid-template-columns: auto minmax(0, 1fr) auto;
-	align-items: center;
-	gap: 10px;
-	min-width: 0;
-	padding: 2px 4px;
+	gap: 12px;
+	width: 100%;
+	padding: 8px 14px;
 	border: 0;
-	border-radius: var(--vp-radius-sm);
+	border-top: 1px solid var(--vp-border);
+	border-left: 4px solid transparent;
 	background: none;
 	color: inherit;
 	font: inherit;
 	text-align: left;
 	cursor: pointer;
 }
-.vp-stay-main:hover {
-	background: var(--vp-surface-3);
+.vp-stay:hover {
+	background: var(--vp-surface-2);
 }
-.vp-stay-main:focus-visible {
+.vp-stay:focus-visible {
 	outline: 2px solid var(--vp-focus);
+	outline-offset: -2px;
+}
+.vp-stay[data-selected] {
+	border-left-color: var(--vp-accent);
+	background: var(--vp-accent-soft);
 }
 .vp-stay-flag {
-	font-size: 22px;
+	font-size: 20px;
 	line-height: 1;
+}
+.vp-stay[data-kind="transit"] .vp-stay-flag {
+	filter: grayscale(0.6);
 }
 .vp-stay-text {
 	display: flex;
@@ -495,7 +532,6 @@
 	white-space: nowrap;
 }
 .vp-stay-place {
-	font-weight: 400;
 	color: var(--vp-muted);
 }
 .vp-stay-dates {
@@ -503,68 +539,114 @@
 	color: var(--vp-muted);
 }
 .vp-stay-days {
-	font-family: var(--vp-font-pixel);
 	font-size: var(--vp-text-sm);
+	color: var(--vp-muted);
+	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
-.vp-stay-tools {
+.vp-stay-status {
+	width: 10px;
+	height: 10px;
+	background: var(--vp-warn);
+}
+.vp-stay-status[data-status="ok"] {
+	background: var(--vp-good);
+}
+.vp-stay-status[data-status="error"] {
+	background: var(--vp-bad);
+}
+/* Approved: a filled check mark instead of a dot. */
+.vp-stay-status[data-approved] {
+	box-shadow:
+		0 0 0 2px var(--vp-surface),
+		0 0 0 4px var(--vp-good);
+}
+
+/* "⋯" menu */
+.vp-more {
+	position: relative;
+}
+.vp-more-menu {
+	position: absolute;
+	z-index: 20;
+	top: calc(100% + 6px);
+	right: 0;
 	display: flex;
-	flex-wrap: wrap;
-	justify-content: flex-end;
-	align-items: center;
-	gap: 6px;
-}
-.vp-stay-kind {
-	display: inline-flex;
-	margin: 0;
-	padding: 0;
+	flex-direction: column;
+	min-width: 230px;
+	padding: 4px;
 	border: 2px solid var(--vp-border);
-	border-radius: var(--vp-radius-sm);
+	border-radius: var(--vp-radius);
+	background: var(--vp-surface);
+	box-shadow: 0 12px 30px rgb(0 0 0 / 0.3);
 }
-.vp-stay-kind button {
-	padding: 2px 6px;
+.vp-more-item {
+	display: grid;
+	grid-template-columns: 16px 1fr;
+	gap: 6px;
+	padding: 6px 8px;
 	border: 0;
+	border-radius: var(--vp-radius-sm);
 	background: none;
-	font-size: 16px;
-	line-height: 1.4;
-	opacity: 0.45;
+	color: var(--vp-text);
+	font: inherit;
+	font-size: var(--vp-text-sm);
+	text-align: left;
 	cursor: pointer;
 }
-.vp-stay-kind button[aria-pressed="true"] {
-	background: var(--vp-accent-soft);
-	opacity: 1;
+.vp-more-item:hover:not(:disabled),
+.vp-more-item:focus-visible {
+	background: var(--vp-surface-3);
+	outline: none;
 }
-.vp-stay[data-kind="transit"] .vp-stay-flag {
-	filter: grayscale(0.6);
+.vp-more-item:disabled {
+	opacity: 0.45;
+	cursor: default;
 }
-.vp-stay-methods {
-	display: inline-flex;
-	align-items: center;
-	gap: 2px;
+.vp-more-item[role="menuitemradio"] + .vp-more-item[role="menuitem"] {
+	margin-top: 4px;
+	border-top: 1px solid var(--vp-border);
+	border-radius: 0;
+}
+.vp-more-check {
+	color: var(--vp-accent);
+}
+.vp-more-note {
+	display: block;
+	font-size: var(--vp-text-xs);
 	color: var(--vp-muted);
 }
-.vp-stay-method {
-	width: 44px;
-	padding: 2px;
-	border: 2px solid var(--vp-border);
-	border-radius: var(--vp-radius-sm);
-	background: var(--vp-surface);
-	color: var(--vp-text);
-	font-size: 15px;
+
+/* Toast after a change */
+.vp-stays-toast {
+	position: fixed;
+	z-index: 50;
+	bottom: 20px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	max-width: calc(100vw - 24px);
+	padding: 6px 6px 6px 16px;
+	font-size: var(--vp-text-sm);
+	color: var(--vp-bg);
+	background: var(--vp-text);
+	border-radius: var(--vp-radius);
+	box-shadow: 0 12px 30px rgb(0 0 0 / 0.3);
 }
-.vp-stay-method[data-unknown] {
-	border-style: dashed;
-}
+
+/* Panel: hints, kind, actions */
 .vp-stay-hints {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 4px;
 	margin: 0;
-	padding: 0 0 0 36px;
+	padding: 0;
 	list-style: none;
 }
 .vp-stay-hint {
-	padding: 3px 8px;
+	padding: 4px 8px;
 	border-left: 4px solid var(--vp-info);
 	border-radius: var(--vp-radius-sm);
 	background: var(--vp-info-soft);
@@ -578,27 +660,36 @@
 	border-color: var(--vp-bad);
 	background: var(--vp-bad-soft);
 }
-/* A narrow list (detail open, or a phone): the tools go under the stay. */
-@container (max-width: 760px) {
-	.vp-stay {
-		grid-template-columns: 22px minmax(0, 1fr);
-	}
-	.vp-stay-tools {
-		grid-column: 2 / -1;
-		justify-content: flex-start;
-	}
+.vp-stay-kind {
+	display: inline-flex;
+	align-self: flex-start;
+	margin: 0;
+	padding: 0;
+	border: 2px solid var(--vp-border);
+	border-radius: var(--vp-radius-sm);
 }
-@container (max-width: 480px) {
-	.vp-stay-tools {
-		grid-column: 1 / -1;
-	}
-	.vp-stay-hints {
-		padding-left: 0;
-	}
-	.vp-stay-gap,
-	.vp-stay-add {
-		margin-left: 0;
-	}
+.vp-stay-kind button {
+	padding: 3px 10px;
+	border: 0;
+	background: none;
+	color: var(--vp-muted);
+	font: inherit;
+	font-size: var(--vp-text-sm);
+	cursor: pointer;
+}
+.vp-stay-kind button[aria-pressed="true"] {
+	background: var(--vp-accent-soft);
+	color: var(--vp-text);
+}
+.vp-stay-panel-actions {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.vp-stay-panel-more {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
 }
 
 /* Stay detail */
@@ -608,10 +699,15 @@
 	gap: 6px;
 }
 .vp-stay-form,
-.vp-stay-edges {
+.vp-stay-edge-fields {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 	gap: 12px;
+}
+.vp-stay-edges {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
 }
 .vp-stay-edge {
 	display: flex;
