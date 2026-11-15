@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
 	admit,
+	byteBudget,
 	childEnv,
 	claudeAnswer,
 	claudeCommand,
@@ -19,10 +20,18 @@ import {
 	pairingLink,
 	parseExtractBody,
 	type Runner,
+	requestAad,
 	requestLines,
+	reserveFrom,
+	respond,
+	responseAad,
 	responseProof,
+	type Sealed,
+	seal,
+	sealKey,
 	sha256Hex,
 	tempDirPid,
+	unseal,
 } from "../src/voyput-local";
 
 const TOKEN = "test-token-0123456789abcdef";
@@ -45,28 +54,30 @@ function sign(
 	const mac = createHmac("sha256", token)
 		.update(requestLines(method, path, String(now), nonce, bodyHash).join("\n"))
 		.digest("base64url");
-	return { header: `v2.${now}.${nonce}.${bodyHash}.${mac}`, nonce };
+	return { header: `v3.${now}.${nonce}.${bodyHash}.${mac}`, nonce };
 }
 
 function depsWith(
 	runner: Runner = { run: async () => '{"stamps":[]}' },
 	engines: Deps["engines"] = ["claude", "codex"],
-	busy = false,
+	reserve?: Deps["reserve"],
 ): Deps & { jobs: ExtractJob[] } {
 	const jobs: ExtractJob[] = [];
+	const recording: Runner = {
+		run: (job, signal, deadline) => {
+			jobs.push(job);
+			return runner.run(job, signal, deadline);
+		},
+	};
 	return {
 		token: TOKEN,
 		port: DEFAULT_PORT,
 		engines,
 		jobs,
 		nonces: new NonceGuard(),
-		busy: () => busy,
-		runner: {
-			run: (job, signal, deadline) => {
-				jobs.push(job);
-				return runner.run(job, signal, deadline);
-			},
-		},
+		reserve:
+			reserve ??
+			reserveFrom(limitJobs(recording, 3, 6), byteBudget(64 * 1024 * 1024)),
 	};
 }
 
@@ -97,8 +108,24 @@ function request(
 	};
 }
 
-const extract = (value: unknown) =>
-	request("POST", "/extract", JSON.stringify(value));
+/** A POST /extract the way the app sends it: the JSON sealed, the header signed. */
+function extract(value: unknown, { now = NOW, token = TOKEN } = {}) {
+	const nonce = `nonce-${++nonceCount}-abcdefghijk`;
+	const body = JSON.stringify(
+		seal(
+			sealKey(token),
+			JSON.stringify(value),
+			requestAad("POST", "/extract", String(now), nonce),
+		),
+	);
+	return request("POST", "/extract", body, {}, { token, now, nonce });
+}
+
+/** The answer of an extract, opened with the request's nonce. */
+const opened = (body: string, nonce: string) =>
+	JSON.parse(
+		unseal(sealKey(TOKEN), JSON.parse(body), responseAad(nonce)) ?? "null",
+	);
 
 describe("voyput-local authentication", () => {
 	it("answers a signed /health with engines and a proof bound to the nonce", async () => {
@@ -108,7 +135,7 @@ describe("voyput-local authentication", () => {
 		const body = JSON.parse(response.body);
 		expect(body).toMatchObject({
 			app: "voyput-local",
-			version: "2",
+			version: "3",
 			engines: ["claude", "codex"],
 			maxJobs: 3,
 		});
@@ -234,7 +261,7 @@ describe("voyput-local checks before the body", () => {
 		expect(
 			statusOf(
 				request("POST", "/extract", "{}"),
-				depsWith(undefined, undefined, true),
+				depsWith(undefined, undefined, () => null),
 			),
 		).toBe(503);
 		expect(statusOf(request("POST", "/extract", "{}"))).toBe("admitted");
@@ -242,7 +269,7 @@ describe("voyput-local checks before the body", () => {
 });
 
 describe("voyput-local extraction", () => {
-	it("runs the chosen engine and proves its answer", async () => {
+	it("decrypts the sealed photo, runs the engine and seals the answer", async () => {
 		const deps = depsWith();
 		const req = extract({
 			engine: "claude",
@@ -252,11 +279,13 @@ describe("voyput-local extraction", () => {
 		});
 		const response = await handle(req, deps, NOW);
 		expect(response.status).toBe(200);
-		const body = JSON.parse(response.body);
-		expect(body).toMatchObject({ text: '{"stamps":[]}', engine: "claude" });
-		expect(body.proof).toBe(
-			responseProof(TOKEN, req.nonce, 'claude\n{"stamps":[]}'),
-		);
+		expect(response.body).not.toContain("stamps");
+		expect(opened(response.body, req.nonce)).toEqual({
+			text: '{"stamps":[]}',
+			engine: "claude",
+		});
+		expect(req.body).not.toContain(IMAGE.slice(-8));
+		expect(req.body).not.toContain("photo");
 		expect(deps.jobs[0]?.image.mediaType).toBe("image/png");
 		expect(deps.jobs[0]?.image.data.toString()).toBe("png");
 	});
@@ -325,14 +354,18 @@ describe("voyput-local job queue", () => {
 		image: { mediaType: "image/jpeg", data: Buffer.from("jpg") },
 	};
 	const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+	const open = () => new AbortController().signal;
+	const later = () => Date.now() + 60_000;
 
 	/** A runner whose runs finish only when released. */
 	function held() {
 		const release: (() => void)[] = [];
 		let peak = 0;
 		let running = 0;
+		let started = 0;
 		const runner: Runner = {
 			run: async () => {
+				started++;
 				running++;
 				peak = Math.max(peak, running);
 				await new Promise<void>((resolve) => release.push(resolve));
@@ -340,37 +373,96 @@ describe("voyput-local job queue", () => {
 				return "ok";
 			},
 		};
-		return { runner, release, peak: () => peak };
+		return { runner, release, peak: () => peak, started: () => started };
 	}
 
-	it("runs at most the limit at once and reports busy when the line is full", async () => {
+	it("runs at most the limit at once and never holds more than limit + waiting places", async () => {
 		const { runner, release, peak } = held();
-		const limited = limitJobs(runner, 2, 1);
-		const signal = new AbortController().signal;
-		const deadline = Date.now() + 60_000;
+		const line = limitJobs(runner, 2, 1);
+		const slots = [line.reserve(), line.reserve(), line.reserve()];
+		expect(line.reserve()).toBeNull();
 		const all = Promise.all(
-			[1, 2, 3].map(() => limited.run(job, signal, deadline)),
+			slots.map((slot) => slot?.run(job, open(), later())),
 		);
 		await tick();
 		expect(release).toHaveLength(2);
-		expect(limited.busy()).toBe(true);
 		for (const done of release.splice(0)) done();
 		await tick();
 		expect(release).toHaveLength(1);
 		release.shift()?.();
 		expect(await all).toEqual(["ok", "ok", "ok"]);
 		expect(peak()).toBe(2);
-		expect(limited.busy()).toBe(false);
+		expect(line.reserve()).toBeNull();
+		for (const slot of slots) slot?.release();
+		expect(line.reserve()).not.toBeNull();
+	});
+
+	it("admits overlapping uploads only up to capacity, and frees room only when an answer is sent", async () => {
+		const { runner, release } = held();
+		const deps = depsWith(runner, ["claude"], undefined);
+		deps.reserve = reserveFrom(limitJobs(runner, 1, 1), byteBudget(1 << 20));
+		const body = { system: "", text: "", image: IMAGE };
+		// Three uploads arrive before any body is read: two fit, the third does not.
+		const first = extract(body);
+		const second = extract(body);
+		const third = extract(body);
+		const a = admit(first, deps, NOW);
+		const b = admit(second, deps, NOW);
+		const c = admit(third, deps, NOW);
+		expect("slot" in a && "slot" in b).toBe(true);
+		expect("response" in c && c.response.status).toBe(503);
+		if (!("slot" in a) || !("slot" in b)) throw new Error("expected slots");
+		// Both bodies arrive later; the line still holds two, never three.
+		const answers = [
+			respond(first, a, deps, open(), later()),
+			respond(second, b, deps, open(), later()),
+		];
+		await tick();
+		expect(release).toHaveLength(1);
+		expect("response" in admit(extract(body), deps, NOW)).toBe(true);
+		release.shift()?.();
+		await answers[0];
+		// The finished job's slot is still held until its answer is sent.
+		expect("response" in admit(extract(body), deps, NOW)).toBe(true);
+		a.slot?.release();
+		const d = admit(extract(body), deps, NOW);
+		expect("slot" in d).toBe(true);
+		await tick();
+		release.shift()?.();
+		await answers[1];
+		b.slot?.release();
+		if ("slot" in d) d.slot?.release();
+	});
+
+	it("keeps body bytes reserved until release and refuses uploads past the budget", () => {
+		const budget = byteBudget(100);
+		const reserve = reserveFrom(limitJobs(held().runner, 5, 5), budget);
+		const big = reserve(80);
+		expect(big).not.toBeNull();
+		expect(reserve(30)).toBeNull();
+		expect(budget.used()).toBe(80);
+		big?.release();
+		big?.release();
+		expect(budget.used()).toBe(0);
+		expect(reserve(30)).not.toBeNull();
+	});
+
+	it("gives back the bytes when the line has no place", () => {
+		const budget = byteBudget(100);
+		const line = limitJobs(held().runner, 1, 0);
+		const reserve = reserveFrom(line, budget);
+		expect(reserve(10)).not.toBeNull();
+		expect(reserve(10)).toBeNull();
+		expect(budget.used()).toBe(10);
 	});
 
 	it("drops a waiting job when its client goes away or its deadline passes", async () => {
 		const { runner, release } = held();
-		const limited = limitJobs(runner, 1, 5);
-		const open = new AbortController().signal;
-		const first = limited.run(job, open, Date.now() + 60_000);
+		const line = limitJobs(runner, 1, 5);
+		const first = line.reserve()?.run(job, open(), later());
 		const gone = new AbortController();
-		const second = limited.run(job, gone.signal, Date.now() + 60_000);
-		const late = limited.run(job, open, Date.now() + 5);
+		const second = line.reserve()?.run(job, gone.signal, later());
+		const late = line.reserve()?.run(job, open(), Date.now() + 5);
 		gone.abort();
 		await expect(second).rejects.toThrow("client went away");
 		await expect(late).rejects.toThrow("deadline passed");
@@ -378,6 +470,69 @@ describe("voyput-local job queue", () => {
 		release.shift()?.();
 		expect(await first).toBe("ok");
 		expect(release).toHaveLength(0);
+	});
+
+	it("on close rejects waiting jobs, starts none, and reports idle once running ones end", async () => {
+		const { runner, release, started } = held();
+		const line = limitJobs(runner, 1, 5);
+		const running = line.reserve()?.run(job, open(), later());
+		const waiting = [1, 2].map(() => line.reserve()?.run(job, open(), later()));
+		await tick();
+		expect(started()).toBe(1);
+		line.close();
+		for (const queued of waiting)
+			await expect(queued).rejects.toThrow("shutting down");
+		expect(line.reserve()).toBeNull();
+		let idle = false;
+		const settled = line.idle().then(() => {
+			idle = true;
+		});
+		await tick();
+		expect(idle).toBe(false);
+		release.shift()?.();
+		expect(await running).toBe("ok");
+		await settled;
+		expect(idle).toBe(true);
+		await tick();
+		expect(started()).toBe(1);
+	});
+});
+
+describe("voyput-local encryption", () => {
+	const key = sealKey(TOKEN);
+
+	it("opens only with the same key and the same associated data", () => {
+		const sealed: Sealed = seal(key, "secret page", "aad-1");
+		expect(unseal(key, sealed, "aad-1")).toBe("secret page");
+		expect(unseal(key, sealed, "aad-2")).toBeNull();
+		expect(unseal(sealKey("other-token-0123456789"), sealed, "aad-1")).toBe(
+			null,
+		);
+		const flipped = Buffer.from(sealed.data, "base64");
+		flipped[0] = (flipped[0] ?? 0) ^ 1;
+		expect(
+			unseal(key, { ...sealed, data: flipped.toString("base64") }, "aad-1"),
+		).toBeNull();
+		expect(unseal(key, { iv: "x" }, "aad-1")).toBeNull();
+	});
+
+	it("refuses an extract body sealed for another request", async () => {
+		const req = extract({ system: "", text: "", image: IMAGE });
+		const other = extract({ system: "", text: "", image: IMAGE });
+		const response = await handle(
+			{
+				...other,
+				body: req.body,
+				headers: {
+					...other.headers,
+					"x-voyput-auth": sign("POST", "/extract", req.body).header,
+				},
+			},
+			depsWith(),
+			NOW,
+		);
+		expect(response.status).toBe(400);
+		expect(JSON.parse(response.body).error).toBe("body could not be decrypted");
 	});
 });
 

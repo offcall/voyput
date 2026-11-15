@@ -36,7 +36,7 @@ curl -fsSL https://voyput.app.offcall.link/voyput-local.mjs -o voyput-local.mjs 
 node --experimental-strip-types packages/local/src/voyput-local.ts   # from a clone
 ```
 
-It listens on 127.0.0.1 only. The pairing token it prints never travels: requests are signed with it, and the script must prove it knows it before a photo is sent. Photos go to OpenAI or Anthropic through your own CLI account, never to voyput. Safari may block an https page from reaching 127.0.0.1; use Chrome or Firefox there.
+It listens on 127.0.0.1 only. The pairing token it prints never travels: requests are signed with it, photos and answers are encrypted with a key derived from it, and the script must prove it knows it before a photo is sent. Photos go to OpenAI or Anthropic through your own CLI account, never to voyput. Safari may block an https page from reaching 127.0.0.1; use Chrome or Firefox there.
 
 The demo includes 10 real stamp pages from Wikimedia Commons with that model's output left unreviewed, so you can try Review without a key ([credits](apps/web/public/demo/CREDITS.md)).
 

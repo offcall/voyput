@@ -2,9 +2,14 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import {
+	byteBudget,
 	type Deps,
+	type ExtractJob,
 	handle,
+	limitJobs,
 	NonceGuard,
+	type Runner,
+	reserveFrom,
 } from "../../../packages/local/src/voyput-local";
 import { aiSetupNeeded, createAiClient } from "../src/ai/client";
 import {
@@ -51,16 +56,28 @@ function localServer({
 	tamper = (body: string) => body,
 }: {
 	token?: string;
-	runner?: Deps["runner"];
+	runner?: Runner;
 	tamper?: (body: string) => string;
 } = {}) {
+	const jobs: ExtractJob[] = [];
 	const deps: Deps = {
 		token,
 		port: 5000,
 		engines: ["claude", "codex"],
-		runner,
 		nonces: new NonceGuard(),
-		busy: () => false,
+		reserve: reserveFrom(
+			limitJobs(
+				{
+					run: (job, signal, deadline) => {
+						jobs.push(job);
+						return runner.run(job, signal, deadline);
+					},
+				},
+				3,
+				6,
+			),
+			byteBudget(1 << 20),
+		),
 	};
 	const calls: Call[] = [];
 	const fetchImpl: typeof fetch = async (input, init) => {
@@ -90,14 +107,14 @@ function localServer({
 			headers: response.headers,
 		});
 	};
-	return { calls, fetchImpl };
+	return { calls, fetchImpl, jobs };
 }
 
 const sent = (calls: Call[]) =>
 	calls.map((call) => JSON.stringify(call)).join("\n");
 
 describe("local AI client", () => {
-	it("proves the server, then posts the prompt and image signed, never the token", async () => {
+	it("proves the server, then posts the prompt and image encrypted and signed, never the token", async () => {
 		const server = localServer();
 		const answer = await createLocalClient({
 			fetchImpl: server.fetchImpl,
@@ -112,14 +129,27 @@ describe("local AI client", () => {
 			"http://127.0.0.1:5000/health",
 			"http://127.0.0.1:5000/extract",
 		]);
-		expect(server.calls[1]?.headers["x-voyput-auth"]).toMatch(/^v2\./);
-		expect(JSON.parse(server.calls[1]?.body ?? "")).toEqual({
+		expect(server.calls[1]?.headers["x-voyput-auth"]).toMatch(/^v3\./);
+		// What crosses the port is ciphertext only.
+		const wire = sent(server.calls);
+		for (const secret of [
+			local.localToken,
+			"read stamps",
+			"Photo filename",
+			"eA==",
+		])
+			expect(wire).not.toContain(secret);
+		expect(Object.keys(JSON.parse(server.calls[1]?.body ?? ""))).toEqual([
+			"iv",
+			"data",
+		]);
+		// voyput-local decrypted exactly what the app built.
+		expect(server.jobs[0]).toMatchObject({
 			engine: "claude",
 			system: "read stamps",
 			text: "Photo filename: a.jpg",
-			image: "data:image/jpeg;base64,eA==",
 		});
-		expect(sent(server.calls)).not.toContain(local.localToken);
+		expect(server.jobs[0]?.image.data.toString()).toBe("x");
 	});
 
 	it("sends no photo to a server that cannot prove it knows the token", async () => {
@@ -130,7 +160,7 @@ describe("local AI client", () => {
 				calls.push(String(input));
 				return json({
 					app: "voyput-local",
-					version: "2",
+					version: "3",
 					engines: ["claude"],
 					maxJobs: 3,
 					proof: "made-up",
@@ -146,16 +176,48 @@ describe("local AI client", () => {
 		});
 	});
 
-	it("drops an answer whose proof does not match", async () => {
+	it("gives an impostor that takes the port after /health only ciphertext, and rejects its answer", async () => {
+		const real = localServer();
+		let stolen = "";
+		const fetchImpl: typeof fetch = async (input, init) => {
+			if (String(input).endsWith("/health")) return real.fetchImpl(input, init);
+			// voyput-local stopped; someone else now holds 127.0.0.1:5000.
+			stolen = typeof init?.body === "string" ? init.body : "";
+			return json({
+				text: '{"stamps":[{"country":"forged"}]}',
+				engine: "claude",
+			});
+		};
+		await expect(
+			createLocalClient({ fetchImpl, encodeImage }).askAboutImage(
+				local,
+				question,
+			),
+		).rejects.toThrow("could not be decrypted");
+		expect(stolen).not.toBe("");
+		for (const secret of ["eA==", "read stamps", local.localToken])
+			expect(stolen).not.toContain(secret);
+	});
+
+	it("drops an answer that does not decrypt for this request", async () => {
 		const server = localServer({
-			tamper: (body) => body.replace('"engine":"claude"', '"engine":"codex"'),
+			tamper: (body) => {
+				const value = JSON.parse(body);
+				if (typeof value.data !== "string") return body;
+				const bytes = Uint8Array.from(atob(value.data), (c) => c.charCodeAt(0));
+				bytes[0] = (bytes[0] ?? 0) ^ 1;
+				return JSON.stringify({
+					...value,
+					data: btoa(String.fromCharCode(...bytes)),
+				});
+			},
 		});
 		await expect(
 			createLocalClient({
 				fetchImpl: server.fetchImpl,
 				encodeImage,
 			}).askAboutImage(local, question),
-		).rejects.toThrow("did not prove");
+		).rejects.toThrow("could not be decrypted");
 	});
 
 	it("says when voyput-local is not running, refuses the token or fails", async () => {
@@ -188,7 +250,7 @@ describe("local AI client", () => {
 	it("reads the health states: found, wrong token, not running", async () => {
 		expect(await checkLocalHealth(local, localServer().fetchImpl)).toEqual({
 			state: "found",
-			version: "2",
+			version: "3",
 			engines: ["claude", "codex"],
 			maxJobs: 3,
 		});
@@ -287,7 +349,7 @@ describe("Settings AI card", () => {
 		window.history.replaceState(null, "", "/settings#local=tok-abcdefgh");
 		const ai = withHealth(() => ({
 			state: "found",
-			version: "2",
+			version: "3",
 			engines: ["codex"],
 			maxJobs: 3,
 		}));
@@ -298,7 +360,7 @@ describe("Settings AI card", () => {
 		expect((screen.getByLabelText(/^Local/) as HTMLInputElement).checked).toBe(
 			true,
 		);
-		expect(await screen.findByText(/Found · v2 · Codex CLI/)).toBeTruthy();
+		expect(await screen.findByText(/Found · v3 · Codex CLI/)).toBeTruthy();
 		expect(window.location.hash).toBe("");
 		expect(ai.asked).toContain("tok-abcdefgh");
 		await waitFor(() =>

@@ -356,7 +356,7 @@ function LocalFields() {
 				type="password"
 				value={settings.localToken}
 				onChange={(token) => update({ localToken: token.trim() })}
-				description="Stored in this browser only and never sent: each request is signed with it, and voyput-local must prove it knows it before a photo is sent."
+				description="Stored in this browser only and never sent: requests are signed with it, photos and answers are encrypted with it, and voyput-local must prove it knows it before a photo is sent."
 			/>
 			<div className="ai-local-row">
 				<label className="vp-field">

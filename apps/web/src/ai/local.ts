@@ -1,6 +1,16 @@
 import { DEFAULT_SETTINGS, type LocalEngine } from "../settings/settings";
 import { photoDataUrl } from "./image";
-import { AUTH_HEADER, proofMatches, signRequest } from "./localAuth";
+import {
+	AUTH_HEADER,
+	proofMatches,
+	randomNonce,
+	requestAad,
+	responseAad,
+	seal,
+	sealKey,
+	signRequest,
+	unseal,
+} from "./localAuth";
 import type { AiClient, AiSettings, ImageEncoder } from "./openrouter";
 
 /** The script's end-to-end deadline (10 minutes, queue included) plus a minute. */
@@ -125,13 +135,34 @@ export function createLocalClient({
 			// Prove the server is ours before the photo leaves the browser.
 			const health = await checkLocalHealth(settings, fetchImpl);
 			if (health.state !== "found") throw new Error(refusal(health, port));
-			const body = JSON.stringify({
-				engine: wanted,
-				system: question.system,
-				text: question.text,
-				image: await encodeImage(question.image.blob, question.image.rotation),
-			});
-			const signed = await signRequest(token, "POST", "/extract", body);
+			// The photo travels encrypted and bound to this request, so whatever
+			// holds the port when it arrives learns nothing without the token.
+			const now = Date.now();
+			const nonce = randomNonce();
+			const key = await sealKey(token);
+			const body = JSON.stringify(
+				await seal(
+					key,
+					JSON.stringify({
+						engine: wanted,
+						system: question.system,
+						text: question.text,
+						image: await encodeImage(
+							question.image.blob,
+							question.image.rotation,
+						),
+					}),
+					requestAad("POST", "/extract", String(now), nonce),
+				),
+			);
+			const signed = await signRequest(
+				token,
+				"POST",
+				"/extract",
+				body,
+				now,
+				nonce,
+			);
 			let response: Response;
 			try {
 				response = await fetchImpl(`${baseUrl(port)}/extract`, {
@@ -155,22 +186,21 @@ export function createLocalClient({
 				throw new Error(
 					`voyput-local error ${response.status}: ${errorOf(answer) || response.statusText}`,
 				);
-			const text = isObject(answer) ? answer.text : null;
-			const engine = isObject(answer) ? answer.engine : null;
+			const opened = await unseal(key, answer, responseAad(nonce));
+			if (opened === null)
+				throw new Error(
+					"voyput-local's answer could not be decrypted with the pairing token; it was dropped.",
+				);
+			let result: unknown = null;
+			try {
+				result = JSON.parse(opened);
+			} catch {}
+			const text = isObject(result) ? result.text : null;
+			const engine = isObject(result) ? result.engine : null;
 			if (typeof text !== "string" || !text.trim())
 				throw new Error("the model returned no text");
-			if (
-				typeof engine !== "string" ||
-				!(await proofMatches(
-					token,
-					signed.nonce,
-					`${engine}\n${text}`,
-					isObject(answer) ? answer.proof : null,
-				))
-			)
-				throw new Error(
-					"voyput-local's answer did not prove it knows the pairing token; it was dropped.",
-				);
+			if (typeof engine !== "string")
+				throw new Error("voyput-local did not name its engine");
 			return { text, cost: null, model: `local/${engine}` };
 		},
 		listImageModels: () => Promise.resolve([]),

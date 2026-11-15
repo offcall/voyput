@@ -9,15 +9,19 @@
  *   node voyput-local.mjs [--port 47615] [--codex] [--new-token]
  *
  * It listens on 127.0.0.1 only. The pairing token it prints never travels:
- * each request carries an HMAC made with it, and each answer proves the
- * server knows it too. The image goes to the CLI's own provider (Anthropic or
+ * each request carries an HMAC made with it, the photo and the answer are
+ * encrypted with AES-256-GCM under a key derived from it, and /health proves
+ * the server knows it. The image goes to the CLI's own provider (Anthropic or
  * OpenAI) under your account; nothing goes to voyput.
  * See docs/adr/0026-local-ai-engine.md.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import {
+	createCipheriv,
+	createDecipheriv,
 	createHash,
 	createHmac,
+	hkdfSync,
 	randomBytes,
 	timingSafeEqual,
 } from "node:crypto";
@@ -29,18 +33,18 @@ import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-export const VERSION = "2";
+export const VERSION = "3";
 export const DEFAULT_PORT = 47615;
 export const SITE_ORIGIN = "https://voyput.app.offcall.link";
 export const AUTH_HEADER = "x-voyput-auth";
 export const MAX_BODY_BYTES = 30 * 1024 * 1024;
-/** Bytes of request bodies held in memory at once, over all uploads. */
+/** Bytes of request bodies held at once, from admission until the answer is sent. */
 export const MAX_BUFFERED_BYTES = 64 * 1024 * 1024;
 /** From the request's arrival to the answer, queue time included. */
 export const JOB_DEADLINE_MS = 10 * 60_000;
 /** CLI runs at once; matches the app's Extract concurrency (3). */
 export const MAX_JOBS = 3;
-/** Requests that may wait for a free run; more get 503. */
+/** Admitted requests beyond the running ones (uploading or waiting); more get 503. */
 export const MAX_WAITING = 6;
 /** How far a request's timestamp may be from this clock. */
 export const MAX_SKEW_MS = 60_000;
@@ -77,15 +81,24 @@ export class NonceGuard {
 	}
 }
 
+/**
+ * Room for one admitted request: a place in the job line and its body bytes,
+ * held from admission until `release()` after the answer is sent.
+ */
+export interface Slot {
+	/** Runs the job once, waiting in line when every run is busy. */
+	run(job: ExtractJob, signal: AbortSignal, deadline: number): Promise<string>;
+	release(): void;
+}
+
 export interface Deps {
 	token: string;
 	port: number;
 	/** Engines that may run, in "auto" order. */
 	engines: readonly Engine[];
-	runner: Runner;
 	nonces: NonceGuard;
-	/** True when no request may wait for a run any more. */
-	busy: () => boolean;
+	/** Reserves room for a POST of `bytes`, or null when there is none. */
+	reserve: (bytes: number) => Slot | null;
 }
 
 export interface HeadRequest {
@@ -103,8 +116,11 @@ export interface PlainResponse {
 /** A request whose headers passed every check; its body is still unread. */
 export interface Admitted {
 	nonce: string;
+	timestamp: string;
 	bodyHash: string;
 	cors: Record<string, string>;
+	/** Held for a POST; the caller releases it once the answer is sent. */
+	slot: Slot | null;
 }
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -116,18 +132,80 @@ export const sha256Hex = (data: string | Buffer) =>
 const hmac = (token: string, lines: readonly string[]) =>
 	createHmac("sha256", token).update(lines.join("\n")).digest("base64url");
 
-/** What the app signs for each request (same text in `apps/web/src/ai/local.ts`). */
+/** What the app signs for each request (same text in `apps/web/src/ai/localAuth.ts`). */
 export const requestLines = (
 	method: string,
 	path: string,
 	timestamp: string,
 	nonce: string,
 	bodyHash: string,
-) => ["voyput-local/2 request", method, path, timestamp, nonce, bodyHash];
+) => ["voyput-local/3 request", method, path, timestamp, nonce, bodyHash];
 
-/** Proof that this server knows the token, bound to the request nonce and the answer. */
+/** Proof that this server knows the token, bound to the request nonce. */
 export const responseProof = (token: string, nonce: string, content: string) =>
-	hmac(token, ["voyput-local/2 response", nonce, sha256Hex(content)]);
+	hmac(token, ["voyput-local/3 response", nonce, sha256Hex(content)]);
+
+/** The AES-256-GCM key both sides derive from the token (HKDF-SHA256). */
+export const sealKey = (token: string): Buffer =>
+	Buffer.from(hkdfSync("sha256", token, "voyput-local/3", "aes-256-gcm", 32));
+
+/** Associated data that binds an encrypted request to its signed header. */
+export const requestAad = (
+	method: string,
+	path: string,
+	timestamp: string,
+	nonce: string,
+) => ["voyput-local/3 request", method, path, timestamp, nonce].join("\n");
+
+/** Associated data that binds an encrypted answer to its request. */
+export const responseAad = (nonce: string) =>
+	["voyput-local/3 response", nonce].join("\n");
+
+/** An AES-256-GCM message: 12-byte IV and ciphertext with its 16-byte tag, base64. */
+export interface Sealed {
+	iv: string;
+	data: string;
+}
+
+export function seal(key: Buffer, plaintext: string, aad: string): Sealed {
+	const iv = randomBytes(12);
+	const cipher = createCipheriv("aes-256-gcm", key, iv);
+	cipher.setAAD(Buffer.from(aad));
+	const data = Buffer.concat([
+		cipher.update(plaintext, "utf8"),
+		cipher.final(),
+		cipher.getAuthTag(),
+	]);
+	return { iv: iv.toString("base64"), data: data.toString("base64") };
+}
+
+/** The plaintext, or null when the message is malformed, forged or bound to other data. */
+export function unseal(
+	key: Buffer,
+	value: unknown,
+	aad: string,
+): string | null {
+	if (
+		!isObject(value) ||
+		typeof value.iv !== "string" ||
+		typeof value.data !== "string"
+	)
+		return null;
+	const iv = Buffer.from(value.iv, "base64");
+	const data = Buffer.from(value.data, "base64");
+	if (iv.length !== 12 || data.length < 16) return null;
+	try {
+		const decipher = createDecipheriv("aes-256-gcm", key, iv);
+		decipher.setAAD(Buffer.from(aad));
+		decipher.setAuthTag(data.subarray(data.length - 16));
+		return Buffer.concat([
+			decipher.update(data.subarray(0, data.length - 16)),
+			decipher.final(),
+		]).toString("utf8");
+	} catch {
+		return null;
+	}
+}
 
 /** The public site, and any localhost port for a dev server or a clone. */
 export function isAllowedOrigin(origin: string): boolean {
@@ -147,7 +225,7 @@ const safeEqual = (a: string, b: string) => {
 };
 
 const AUTH =
-	/^v2\.(\d{1,16})\.([A-Za-z0-9_-]{16,64})\.([0-9a-f]{64})\.([A-Za-z0-9_-]{43})$/;
+	/^v3\.(\d{1,16})\.([A-Za-z0-9_-]{16,64})\.([0-9a-f]{64})\.([A-Za-z0-9_-]{43})$/;
 
 /** Checks an `x-voyput-auth` header: format, age, MAC, then marks the nonce used. */
 export function verifyAuth(
@@ -156,7 +234,7 @@ export function verifyAuth(
 	path: string,
 	deps: Pick<Deps, "token" | "nonces">,
 	now: number,
-): { nonce: string; bodyHash: string } | null {
+): { nonce: string; timestamp: string; bodyHash: string } | null {
 	const match = header ? AUTH.exec(header) : null;
 	if (!match) return null;
 	const [, timestamp = "", nonce = "", bodyHash = "", mac = ""] = match;
@@ -167,7 +245,7 @@ export function verifyAuth(
 	);
 	if (!safeEqual(expected, mac)) return null;
 	if (!deps.nonces.use(nonce, now)) return null;
-	return { nonce, bodyHash };
+	return { nonce, timestamp, bodyHash };
 }
 
 const json = (
@@ -187,7 +265,8 @@ const ROUTES = new Set(["GET /health", "POST /extract"]);
 
 /**
  * Everything decided from the headers alone, before any body byte is read:
- * host, origin, preflight, route, MAC, replay, size and queue room.
+ * host, origin, preflight, route, MAC, replay, size, and a reserved slot
+ * (queue place and body bytes) that the caller must release.
  */
 export function admit(
 	request: HeadRequest,
@@ -235,17 +314,19 @@ export function admit(
 			return { response: json(411, { error: "content-length needed" }, cors) };
 		if (length > MAX_BODY_BYTES)
 			return { response: json(413, { error: "body too large" }, cors) };
-		if (deps.busy())
+		const slot = deps.reserve(length);
+		if (!slot)
 			return {
 				response: json(503, { error: "busy: too many photos waiting" }, cors),
 			};
+		return { ...auth, cors, slot };
 	}
-	return { ...auth, cors };
+	return { ...auth, cors, slot: null };
 }
 
 const DATA_URL = /^data:(image\/(?:jpeg|png));base64,([A-Za-z0-9+/=]+)$/;
 
-/** Validates a POST /extract body. */
+/** Validates a decrypted POST /extract body. */
 export function parseExtractBody(
 	body: string,
 	engines: readonly Engine[],
@@ -302,7 +383,7 @@ export async function respond(
 	signal: AbortSignal,
 	deadline: number,
 ): Promise<PlainResponse> {
-	const { cors, nonce } = admitted;
+	const { cors, nonce, timestamp } = admitted;
 	if (sha256Hex(request.body) !== admitted.bodyHash)
 		return json(400, { error: "body does not match its signature" }, cors);
 	if (request.path === "/health")
@@ -317,19 +398,28 @@ export async function respond(
 			},
 			cors,
 		);
-	const parsed = parseExtractBody(request.body, deps.engines);
+	if (!admitted.slot) return json(500, { error: "no slot reserved" }, cors);
+	const key = sealKey(deps.token);
+	let sealed: unknown = null;
+	try {
+		sealed = JSON.parse(request.body);
+	} catch {}
+	const plaintext = unseal(
+		key,
+		sealed,
+		requestAad(request.method, request.path, timestamp, nonce),
+	);
+	if (plaintext === null)
+		return json(400, { error: "body could not be decrypted" }, cors);
+	const parsed = parseExtractBody(plaintext, deps.engines);
 	if ("error" in parsed)
 		return json(parsed.status, { error: parsed.error }, cors);
 	const { engine } = parsed.job;
 	try {
-		const text = await deps.runner.run(parsed.job, signal, deadline);
+		const text = await admitted.slot.run(parsed.job, signal, deadline);
 		return json(
 			200,
-			{
-				text,
-				engine,
-				proof: responseProof(deps.token, nonce, `${engine}\n${text}`),
-			},
+			seal(key, JSON.stringify({ text, engine }), responseAad(nonce)),
 			cors,
 		);
 	} catch (error) {
@@ -338,7 +428,7 @@ export async function respond(
 	}
 }
 
-/** `admit` then `respond`, for callers that already hold the body. */
+/** `admit`, `respond`, then release the slot, for callers that already hold the body. */
 export async function handle(
 	request: HeadRequest & { body: string },
 	deps: Deps,
@@ -347,64 +437,159 @@ export async function handle(
 ): Promise<PlainResponse> {
 	const admitted = admit(request, deps, now);
 	if ("response" in admitted) return admitted.response;
-	return respond(request, admitted, deps, signal, now + JOB_DEADLINE_MS);
+	try {
+		return await respond(
+			request,
+			admitted,
+			deps,
+			signal,
+			now + JOB_DEADLINE_MS,
+		);
+	} finally {
+		admitted.slot?.release();
+	}
 }
 
 const aborted = (reason: string) =>
 	Object.assign(new Error(reason), { name: "AbortError" });
 
+/** The job line: reservations, waiting jobs and running jobs. */
+export interface JobLine {
+	/** A place in the line, or null when `limit + maxWaiting` are already held. */
+	reserve(): Slot | null;
+	/** Refuses new work and rejects every waiting job; running jobs go on. */
+	close(): void;
+	/** Resolves when no job is running. */
+	idle(): Promise<void>;
+}
+
 /**
- * Lets at most `limit` jobs run at once; up to `maxWaiting` wait in order.
- * A waiting job leaves the line when its client goes away or its deadline passes.
+ * Lets at most `limit` jobs run at once. Every admitted request first reserves
+ * a place; at most `limit + maxWaiting` are held, so the line never grows past
+ * `maxWaiting`. A waiting job leaves the line when its client goes away, its
+ * deadline passes or the line closes.
  */
 export function limitJobs(
 	runner: Runner,
 	limit: number,
 	maxWaiting: number,
 	now: () => number = Date.now,
-): Runner & { busy(): boolean } {
+): JobLine {
 	let running = 0;
-	const waiting: { start: () => void }[] = [];
+	let reserved = 0;
+	let closed = false;
+	const waiting: { start: () => void; cancel: (reason: string) => void }[] = [];
+	const idlers: (() => void)[] = [];
 	const next = () => {
-		while (running < limit && waiting.length) waiting.shift()?.start();
+		while (!closed && running < limit && waiting.length)
+			waiting.shift()?.start();
 	};
-	return {
-		busy: () => running >= limit && waiting.length >= maxWaiting,
-		run(job, signal, deadline) {
-			return new Promise<string>((resolve, reject) => {
-				const timer = setTimeout(
-					() => leave("deadline passed while waiting for a free run"),
-					Math.max(0, deadline - now()),
-				);
-				const entry = {
-					start: () => {
-						clearTimeout(timer);
-						signal.removeEventListener("abort", onAbort);
-						if (signal.aborted) return reject(aborted("client went away"));
-						running++;
-						runner
-							.run(job, signal, deadline)
-							.then(resolve, reject)
-							.finally(() => {
-								running--;
-								next();
-							});
-					},
-				};
-				const leave = (reason: string) => {
-					const index = waiting.indexOf(entry);
-					if (index < 0) return;
-					waiting.splice(index, 1);
+	const enqueue = (job: ExtractJob, signal: AbortSignal, deadline: number) =>
+		new Promise<string>((resolve, reject) => {
+			if (closed) return reject(aborted("voyput-local is shutting down"));
+			const timer = setTimeout(
+				() => leave("deadline passed while waiting for a free run"),
+				Math.max(0, deadline - now()),
+			);
+			const entry = {
+				start: () => {
 					clearTimeout(timer);
 					signal.removeEventListener("abort", onAbort);
-					reject(aborted(reason));
-				};
-				const onAbort = () => leave("client went away");
-				signal.addEventListener("abort", onAbort);
-				waiting.push(entry);
-				next();
-			});
+					if (signal.aborted) return reject(aborted("client went away"));
+					running++;
+					runner
+						.run(job, signal, deadline)
+						.then(resolve, reject)
+						.finally(() => {
+							running--;
+							next();
+							if (running === 0) for (const idle of idlers.splice(0)) idle();
+						});
+				},
+				cancel: (reason: string) => leave(reason),
+			};
+			const leave = (reason: string) => {
+				const index = waiting.indexOf(entry);
+				if (index < 0) return;
+				waiting.splice(index, 1);
+				clearTimeout(timer);
+				signal.removeEventListener("abort", onAbort);
+				reject(aborted(reason));
+			};
+			const onAbort = () => leave("client went away");
+			signal.addEventListener("abort", onAbort);
+			waiting.push(entry);
+			next();
+		});
+	return {
+		reserve() {
+			if (closed || reserved >= limit + maxWaiting) return null;
+			reserved++;
+			let used = false;
+			let released = false;
+			return {
+				run(job, signal, deadline) {
+					if (used) return Promise.reject(new Error("slot already used"));
+					used = true;
+					return enqueue(job, signal, deadline);
+				},
+				release() {
+					if (released) return;
+					released = true;
+					reserved--;
+				},
+			};
 		},
+		close() {
+			closed = true;
+			for (const entry of [...waiting])
+				entry.cancel("voyput-local is shutting down");
+		},
+		idle: () =>
+			running === 0
+				? Promise.resolve()
+				: new Promise<void>((resolve) => idlers.push(resolve)),
+	};
+}
+
+/** Counts body bytes held at once. */
+export function byteBudget(max: number) {
+	let used = 0;
+	return {
+		take(bytes: number): boolean {
+			if (used + bytes > max) return false;
+			used += bytes;
+			return true;
+		},
+		give(bytes: number) {
+			used -= bytes;
+		},
+		used: () => used,
+	};
+}
+
+/** `Deps.reserve`: a job place and the body's bytes, taken together or not at all. */
+export function reserveFrom(
+	line: JobLine,
+	budget: ReturnType<typeof byteBudget>,
+): Deps["reserve"] {
+	return (bytes) => {
+		if (!budget.take(bytes)) return null;
+		const slot = line.reserve();
+		if (!slot) {
+			budget.give(bytes);
+			return null;
+		}
+		let released = false;
+		return {
+			run: slot.run,
+			release() {
+				if (released) return;
+				released = true;
+				slot.release();
+				budget.give(bytes);
+			},
+		};
 	};
 }
 
@@ -629,6 +814,8 @@ function killTree(child: ChildProcess) {
 
 /** Jobs running now: their CLI process and temp dir, for shutdown. */
 const active = new Map<string, ChildProcess | null>();
+/** Set on shutdown: no CLI may start after it. */
+let closing = false;
 
 function runProcess(
 	path: string,
@@ -639,6 +826,7 @@ function runProcess(
 ): Promise<string> {
 	const windows = process.platform === "win32";
 	return new Promise((resolve, reject) => {
+		if (closing) return reject(aborted("voyput-local is shutting down"));
 		const child = spawn(
 			windows ? quoteForCmd(path) : path,
 			windows ? command.args.map(quoteForCmd) : command.args,
@@ -706,6 +894,7 @@ export function cliRunner(paths: Partial<Record<Engine, string>>): Runner {
 			);
 			active.set(dir, null);
 			try {
+				if (closing) throw aborted("voyput-local is shutting down");
 				const files = jobFiles(dir, job.image.mediaType);
 				await writeFile(files.image, job.image.data, { mode: 0o600 });
 				await writeFile(files.system, job.system, { mode: 0o600 });
@@ -753,9 +942,17 @@ async function removeStaleDirs() {
 	}
 }
 
-/** Kills running CLIs and deletes every temp dir, then exits. */
-async function shutdown(code: number) {
+/**
+ * Stops the line (waiting jobs are rejected, none start), kills running CLI
+ * trees, waits for their jobs to delete their temp dirs, removes any left,
+ * then exits.
+ */
+async function shutdown(line: JobLine, code: number) {
+	if (closing) return;
+	closing = true;
+	line.close();
 	for (const child of active.values()) if (child) killTree(child);
+	await line.idle();
 	await Promise.all(
 		[...active.keys()].map((dir) =>
 			rm(dir, { recursive: true, force: true }).catch(() => {}),
@@ -797,18 +994,11 @@ Usage: node voyput-local.mjs [--port <n>] [--codex] [--new-token]
   --help         Show this text.
 `;
 
-/** Bytes of request bodies in memory now, over all uploads. */
-let buffered = 0;
-
+/** Reads exactly the admitted length; null when the upload is cut off or longer. */
 function readBody(
 	request: IncomingMessage,
 	length: number,
 ): Promise<string | null> {
-	if (buffered + length > MAX_BUFFERED_BYTES) {
-		request.resume();
-		return Promise.resolve(null);
-	}
-	buffered += length;
 	return new Promise<string | null>((resolve) => {
 		const chunks: Buffer[] = [];
 		let size = 0;
@@ -824,8 +1014,6 @@ function readBody(
 		request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
 		request.on("error", () => resolve(null));
 		request.on("close", () => resolve(null));
-	}).finally(() => {
-		buffered -= length;
 	});
 }
 
@@ -864,14 +1052,13 @@ async function main() {
 	if (codexOff) delete paths.codex;
 	const engines = ENGINES.filter((engine) => paths[engine]);
 	const token = loadToken(values["new-token"] === true);
-	const runner = limitJobs(cliRunner(paths), MAX_JOBS, MAX_WAITING);
+	const line = limitJobs(cliRunner(paths), MAX_JOBS, MAX_WAITING);
 	const deps: Deps = {
 		token,
 		port,
 		engines,
-		runner,
 		nonces: new NonceGuard(),
-		busy: runner.busy,
+		reserve: reserveFrom(line, byteBudget(MAX_BUFFERED_BYTES)),
 	};
 
 	const server = createServer(async (request, response) => {
@@ -891,24 +1078,36 @@ async function main() {
 			result = admitted.response;
 			request.resume();
 		} else {
-			const length = Number(request.headers["content-length"] ?? 0);
-			const body = await readBody(request, length);
-			result =
-				body === null
-					? {
-							status: 503,
-							headers: { ...admitted.cors, "content-type": "application/json" },
-							body: JSON.stringify({ error: "upload refused or cut off" }),
-						}
-					: await respond(
-							{ ...head, body },
-							admitted,
-							deps,
-							controller.signal,
-							started + JOB_DEADLINE_MS,
-						);
+			// The slot (queue place and body bytes) is held until the answer is sent.
+			try {
+				const length = Number(request.headers["content-length"] ?? 0);
+				const body = await readBody(request, length);
+				result =
+					body === null
+						? {
+								status: 400,
+								headers: {
+									...admitted.cors,
+									"content-type": "application/json",
+								},
+								body: JSON.stringify({ error: "upload cut off" }),
+							}
+						: await respond(
+								{ ...head, body },
+								admitted,
+								deps,
+								controller.signal,
+								started + JOB_DEADLINE_MS,
+							);
+				if (!response.destroyed) {
+					response.writeHead(result.status, result.headers);
+					response.end(result.body);
+				}
+			} finally {
+				admitted.slot?.release();
+			}
 		}
-		if (!response.destroyed) {
+		if ("response" in admitted && !response.destroyed) {
 			response.writeHead(result.status, result.headers);
 			response.end(result.body);
 		}
@@ -930,7 +1129,7 @@ async function main() {
 	for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const)
 		process.on(signal, () => {
 			server.close();
-			void shutdown(0);
+			void shutdown(line, 0);
 		});
 	server.listen(port, "127.0.0.1", () => {
 		process.stdout.write(
