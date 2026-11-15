@@ -16,6 +16,8 @@ export interface RunState {
  */
 export class ExtractionRuns {
 	private state: RunState = { active: new Set(), progress: null };
+	/** Bumped by `cancel`; queued work of an older generation is skipped. */
+	private generation = 0;
 	private readonly listeners = new Set<() => void>();
 
 	subscribe = (listener: () => void): (() => void) => {
@@ -35,6 +37,7 @@ export class ExtractionRuns {
 		photos: readonly P[],
 		work: (photo: P) => Promise<void>,
 	): Promise<void> {
+		const generation = this.generation;
 		const fresh = photos.filter((photo) => !this.state.active.has(photo.id));
 		if (fresh.length === 0) return;
 		const running = this.state.active.size > 0 && this.state.progress;
@@ -45,20 +48,34 @@ export class ExtractionRuns {
 				: { done: 0, total: fresh.length },
 		});
 		await mapConcurrent(fresh, CONCURRENCY, async (photo) => {
+			if (generation !== this.generation) return;
 			try {
 				await work(photo);
 			} catch {
 				// `work` records its own failures; a throw here must not stop the queue.
 			} finally {
-				const active = new Set(this.state.active);
-				active.delete(photo.id);
-				const progress = this.state.progress;
-				this.set({
-					active,
-					progress: progress && { ...progress, done: progress.done + 1 },
-				});
+				// After `cancel` the run is forgotten; a late answer must not touch the new state.
+				if (generation === this.generation) {
+					const active = new Set(this.state.active);
+					active.delete(photo.id);
+					const progress = this.state.progress;
+					this.set({
+						active,
+						progress: progress && { ...progress, done: progress.done + 1 },
+					});
+				}
 			}
 		});
+	}
+
+	/**
+	 * Drops every queued photo and forgets the running ones: no new request starts.
+	 * A request already sent still answers; `extractPhoto` then stores nothing for a
+	 * photo that is gone.
+	 */
+	cancel(): void {
+		this.generation += 1;
+		this.set({ active: new Set(), progress: null });
 	}
 }
 

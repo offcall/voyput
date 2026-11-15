@@ -15,7 +15,8 @@ const errorMessage = (error: unknown): string =>
  * Reads the stamps on one photo and stores the result. Never throws: a failure is
  * stored as a "failed" extraction, and the photo's earlier stamps are kept.
  * A success replaces the photo's earlier unreviewed AI stamps; reviewed stamps and
- * stamps added by hand stay.
+ * stamps added by hand stay. Nothing is stored once the photo is gone (deleted
+ * while the model was answering).
  */
 export async function extractPhoto(
 	db: VoyputDb,
@@ -53,18 +54,28 @@ export async function extractPhoto(
 			source: "ai",
 			reviewed: false,
 		}));
-		await db.transaction("rw", db.stamps, db.extractions, async () => {
-			await db.stamps
-				.where("photoId")
-				.equals(photo.id)
-				.filter((stamp) => stamp.source === "ai" && !stamp.reviewed)
-				.delete();
-			await db.stamps.bulkAdd(stamps);
-			await db.extractions.put(finish("ok", result.notes));
-		});
+		await db.transaction(
+			"rw",
+			db.photos,
+			db.stamps,
+			db.extractions,
+			async () => {
+				if (!(await db.photos.get(photo.id))) return;
+				await db.stamps
+					.where("photoId")
+					.equals(photo.id)
+					.filter((stamp) => stamp.source === "ai" && !stamp.reviewed)
+					.delete();
+				await db.stamps.bulkAdd(stamps);
+				await db.extractions.put(finish("ok", result.notes));
+			},
+		);
 	} catch (error) {
 		try {
-			await db.extractions.put(finish("failed", errorMessage(error)));
+			await db.transaction("rw", db.photos, db.extractions, async () => {
+				if (await db.photos.get(photo.id))
+					await db.extractions.put(finish("failed", errorMessage(error)));
+			});
 		} catch {
 			// Storage is broken too; the photo simply shows as not extracted.
 		}

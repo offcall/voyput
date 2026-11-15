@@ -13,7 +13,7 @@ Accepted. Supersedes the "`/` opens the first step not done" part of ADR 0016 an
 - `/` always renders the home page (`features/home`): a hero on `PixelSky` ("Your data stays in your browser", with the one exception named next to it: page images go to the AI the user picks, with their own key, when they read stamps), three "How it works" steps drawn with kit sprites, the Collect "What do you have?" choice (`SourcesChoice`, with "Try with demo data") plus a GitHub link, and a Privacy section.
 - With any stored data (`plan.hasData`) a "Welcome back" card comes first: "Continue → <next action>" to `plan.next` (Insights once every step is done), a countries · stays line, and links to Stays and Insights. The rest of the page stays below it.
 - Privacy states only what the code does: IndexedDB and localStorage of this browser, no backend, no analytics, cookies or trackers, stamps read by OpenRouter only with the user's own key, straight from the browser. Readers are a list (`STAMP_READERS`), so a local engine is one more entry. The public OpenRouter model list loaded by Settings is named too.
-- "Delete everything" clears every IndexedDB table after a confirm; settings, the key and the theme in localStorage stay.
+- "Delete everything" cancels queued stamp reads, then clears every IndexedDB table after a confirm; settings, the key and the theme in localStorage stay. A read already sent still answers, but stores nothing for a photo that is gone.
 - The sidebar logo links to `/`. No new nav item.
 - The repository URL is one constant, `SOURCE_URL` in `features/home/HomePage.tsx`.
 
