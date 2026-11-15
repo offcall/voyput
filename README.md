@@ -37,3 +37,7 @@ npm run build   # static site in apps/web/dist; serve index.html for unknown pat
 ```
 
 Code: `apps/web` app · `packages/core` logic · `packages/ui` components · `packages/local` voyput-local · `tools/photos-export` CSV exporter. Decisions: [`docs/adr/`](docs/adr/README.md).
+
+## License
+
+[MIT](LICENSE). Wikimedia Commons sample pages in the demo keep their own licences: [credits](apps/web/public/demo/CREDITS.md).
