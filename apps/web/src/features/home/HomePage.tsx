@@ -78,6 +78,7 @@ function HomeContent() {
 			<Hero />
 			{plan?.hasData ? <Continue plan={plan} /> : null}
 			<HowItWorks />
+			<OwnKey />
 			<Start plan={plan} />
 			<Privacy />
 		</div>
@@ -99,10 +100,13 @@ function Hero() {
 				<p className="home-promise">
 					<PixelArt name="star" scale={2} />
 					<span>
-						<strong>Your data stays in your browser.</strong>{" "}
+						<strong>
+							Bring your own key. Your data stays in your browser.
+						</strong>{" "}
 						<span className="home-promise-note">
-							Only when you read stamps with AI are page images sent: with your
-							own key, straight to the AI you choose.
+							Stamps are read by the AI you choose: OpenRouter with your key, or
+							your Claude Code / Codex subscription on this computer. Only then
+							are page images sent, straight to that AI.
 						</span>
 					</span>
 				</p>
@@ -175,6 +179,53 @@ function HowItWorks() {
 					</li>
 				))}
 			</ol>
+		</section>
+	);
+}
+
+/** The command that downloads and starts voyput-local (ADR 0026). */
+const LOCAL_COMMAND =
+	"curl -fsSL https://voyput.app.offcall.link/voyput-local.mjs -o voyput-local.mjs && node voyput-local.mjs";
+
+/** Bring your own key: the two ways to read stamps, and where to set them up. */
+function OwnKey() {
+	return (
+		<section className="home-section" aria-labelledby="home-key">
+			<h2 id="home-key" className="home-heading">
+				Bring your own key
+			</h2>
+			<p className="collect-muted">
+				voyput has no AI of its own and no account. Pick how stamps are read;
+				photo locations need no AI at all.
+			</p>
+			<ul className="home-steps">
+				<li className="home-step">
+					<span className="home-step-art" aria-hidden="true">
+						<PixelArt name="plane" scale={3} />
+					</span>
+					<span className="home-step-title">OpenRouter key</span>
+					<span className="home-step-text">
+						Paste your key in Settings. Default model Gemini 3.8 Flash, about
+						$0.015 per page, billed by OpenRouter to you.
+					</span>
+				</li>
+				<li className="home-step">
+					<span className="home-step-art" aria-hidden="true">
+						<PixelArt name="stamp" scale={3} />
+					</span>
+					<span className="home-step-title">Your subscription, locally</span>
+					<span className="home-step-text">
+						Run voyput-local on your computer and pair it in Settings; it reads
+						stamps with the Claude Code or Codex CLI you already pay for.
+					</span>
+					<code className="home-command">{LOCAL_COMMAND}</code>
+				</li>
+			</ul>
+			<p>
+				<Link to="/settings" className="vp-button" data-variant="primary">
+					Set up your key →
+				</Link>
+			</p>
 		</section>
 	);
 }

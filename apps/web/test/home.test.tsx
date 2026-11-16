@@ -75,11 +75,17 @@ describe("home page", () => {
 			level: 1,
 			name: "Your travel history from passport stamps and iPhone photo locations",
 		});
-		expect(screen.getByText("Your data stays in your browser.")).toBeTruthy();
 		expect(
-			screen.getByText(
-				/Only when you read stamps with AI are page images sent/,
-			),
+			screen.getByText("Bring your own key. Your data stays in your browser."),
+		).toBeTruthy();
+		// Bring your own key comes before the demo: it leads to Settings.
+		expect(
+			screen
+				.getByRole("link", { name: "Set up your key →" })
+				.getAttribute("href"),
+		).toBe("/settings");
+		expect(
+			screen.getByText(/Only then\s+are page images sent, straight to that AI/),
 		).toBeTruthy();
 		// Privacy names both stamp readers and where each sends page images.
 		expect(screen.getByText(/straight to OpenRouter/)).toBeTruthy();

@@ -193,3 +193,13 @@
 		min-height: 44px;
 	}
 }
+
+.home-command {
+	display: block;
+	padding: var(--vp-space-2);
+	border-radius: var(--vp-radius);
+	background: var(--vp-bg);
+	font-size: var(--vp-text-xs, 12px);
+	overflow-wrap: anywhere;
+	user-select: all;
+}
