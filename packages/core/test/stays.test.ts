@@ -18,6 +18,7 @@ import {
 	type TravelStay,
 	usableStamps,
 	withBirthStay,
+	withoutEvidence,
 	withoutTransitRows,
 } from "../src/index";
 
@@ -351,7 +352,7 @@ describe("transit photos on the day of the next entry stamp", () => {
 		]);
 	});
 
-	it("makes an overnight Doha connection without stamps one transit", () => {
+	it("keeps an overnight Doha connection without stamps a stay: it may be a hotel night", () => {
 		const stays = suggest(
 			[
 				stamp("out", "2023-11-02", "UA", "exit"),
@@ -366,10 +367,12 @@ describe("transit photos on the day of the next entry stamp", () => {
 		);
 		expect(brief(stays)).toEqual([
 			["UA", "2023-11-02", "2023-11-02", "estimated/stamp", "stay"],
-			["QA", "2023-11-02", "2023-11-03", "estimated/estimated", "transit"],
+			["QA", "2023-11-02", "2023-11-03", "estimated/estimated", "stay"],
 			["TH", "2023-11-03", null, "stamp/estimated", "stay"],
 		]);
+		// Both Doha photos stay together, before the Bangkok entry.
 		expect(stays[1]?.photoIds).toHaveLength(2);
+		expect(stays[1]?.departure.method).toBe("plane");
 	});
 
 	it("keeps an overnight stop with its own stamps a stay", () => {
@@ -895,5 +898,25 @@ describe("stays after their evidence changed", () => {
 		]);
 		expect(after[2]?.departure).toEqual(kept[1]?.departure);
 		expect(resuggestStay(kept, "ro", source([]))).toEqual([kept[0]]);
+	});
+
+	it("keeps the user's stays on both sides of removed demo evidence apart", () => {
+		const before = stay("es1", "ES", "2020-02-01", "2020-02-05", {
+			approved: true,
+			edited: true,
+			place: "Madrid",
+			stampIds: ["mine-1"],
+		});
+		const demo = stay("demo", "UA", "2020-02-05", "2020-02-10", {
+			stampIds: ["demo-1"],
+		});
+		const after = stay("es2", "ES", "2020-02-10", "2020-02-20", {
+			stampIds: ["mine-2"],
+		});
+		const left = withoutEvidence([before, demo, after], {
+			stamp: (id) => id.startsWith("demo-"),
+			photo: () => false,
+		});
+		expect(left).toEqual([before, after]);
 	});
 });

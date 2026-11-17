@@ -407,8 +407,7 @@ function withIds(list: readonly Omit<TravelStay, "id">[]): TravelStay[] {
  * passport gives the backbone, photos subdivide it and fill the time between
  * stamps. Days without evidence are left as gaps; nothing is assumed about
  * them. The last stay stays open while nothing ends it. A stay entered and
- * left by plane the same day, or overnight with no stamp of its own, is
- * suggested as a transit.
+ * left by plane the same day is suggested as a transit.
  */
 export function suggestStays(evidence: StayEvidence): TravelStay[] {
 	const stamps = new Map(evidence.stamps.map((s) => [s.id, s]));
@@ -437,16 +436,15 @@ export function suggestStays(evidence: StayEvidence): TravelStay[] {
 }
 
 /**
- * Entered and left by plane (a method a neighbouring crossing gave counts),
- * on one day, or overnight without a stamp of its own (airside).
+ * Entered and left by plane on the same day (a method a neighbouring
+ * crossing gave counts). An overnight stop may be a hotel night, so it stays
+ * a stay for the user to mark.
  */
-function isTransit(s: TravelStay): boolean {
-	const { arrival, departure } = s;
-	if (arrival.method !== "plane" || departure.method !== "plane") return false;
-	if (arrival.date === null || departure.date === null) return false;
-	const nights = day(departure.date) - day(arrival.date);
-	return nights === 0 || (nights === 1 && s.stampIds.length === 0);
-}
+const isTransit = (s: TravelStay): boolean =>
+	s.arrival.method === "plane" &&
+	s.departure.method === "plane" &&
+	s.arrival.date !== null &&
+	s.arrival.date === s.departure.date;
 
 const NEVER = "0000-00-00";
 const ALWAYS = "9999-99-99";
@@ -676,37 +674,27 @@ export function replaceBySuggestion(
 /**
  * The history without some evidence (removed demo data): a stay whose
  * stamps and photos were all removed goes; others keep their own evidence,
- * and an edge read from a removed stamp becomes an estimate. Stays of one
- * country that a removed stay separated join, approved only if both were.
+ * dates, edits and approval, and an edge read from a removed stamp becomes
+ * an estimate. The days a removed stay covered are left as a gap.
  */
 export function withoutEvidence(
 	stays: readonly TravelStay[],
 	removed: { stamp: (id: string) => boolean; photo: (id: string) => boolean },
 ): TravelStay[] {
-	const out: TravelStay[] = [];
-	let dropped = false;
 	const unstamped = (e: StayEdge) => withoutStamp(e, removed.stamp);
-	for (const stay of stays) {
+	return stays.flatMap((stay): TravelStay[] => {
 		const stampIds = stay.stampIds.filter((id) => !removed.stamp(id));
 		const photoIds = stay.photoIds.filter((id) => !removed.photo(id));
 		const had = stay.stampIds.length + stay.photoIds.length;
-		if (had > 0 && stampIds.length + photoIds.length === 0) {
-			dropped = true;
-			continue;
-		}
-		const s: TravelStay = {
-			...stay,
-			stampIds,
-			photoIds,
-			arrival: unstamped(stay.arrival),
-			departure: unstamped(stay.departure),
-		};
-		const last = out.at(-1);
-		if (dropped && last && last.countryCode === s.countryCode) {
-			joinInto(last, s);
-			last.approved = last.approved && s.approved;
-		} else out.push(s);
-		dropped = false;
-	}
-	return out;
+		if (had > 0 && stampIds.length + photoIds.length === 0) return [];
+		return [
+			{
+				...stay,
+				stampIds,
+				photoIds,
+				arrival: unstamped(stay.arrival),
+				departure: unstamped(stay.departure),
+			},
+		];
+	});
 }
