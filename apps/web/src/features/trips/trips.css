@@ -158,6 +158,11 @@
 	.vp-trips-pane[data-sheet] .vp-stay-approve .vp-button {
 		min-height: 48px;
 	}
+	/* In the queue the bottom bar holds Approve & next and Skip; the top row goes. */
+	.vp-trips-pane[data-sheet] .vp-stay-queue {
+		display: none;
+	}
+
 	/* A form opened low in the sheet scrolls clear of the Approve bar. */
 	.vp-trips-pane[data-sheet] .vp-stay-add {
 		scroll-margin-bottom: 90px;
@@ -198,6 +203,27 @@
 }
 @media (min-width: 1180px) {
 	.vp-trips-next-narrow {
+		display: none;
+	}
+}
+
+/* "3 / 12 to check" in the sheet head, on its own line under the dates. */
+.vp-stay-queue-count {
+	display: block;
+}
+
+/* The sheet's bottom bar in the queue: Approve & next wide, Skip beside it. */
+.vp-stay-approve-queue {
+	display: flex;
+	gap: 8px;
+}
+.vp-stay-approve-queue > .vp-button:first-child {
+	flex: 1;
+}
+/* Wide screens approve from the row at the top of the panel, with the count. */
+@media (min-width: 1180px) {
+	.vp-stay-approve-queue,
+	.vp-stay-queue-count {
 		display: none;
 	}
 }

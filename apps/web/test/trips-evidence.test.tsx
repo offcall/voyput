@@ -298,17 +298,17 @@ describe("stays after evidence changes", () => {
 		const panel = within(
 			await screen.findByRole("region", { name: "Stay: Moldova" }),
 		);
-		const approve = panel.getByRole("button", { name: "✓ Approve" });
-		expect((approve as HTMLButtonElement).disabled).toBe(true);
+		const approve = () =>
+			panel.getAllByRole<HTMLButtonElement>("button", {
+				name: "✓ Approve & next",
+			})[0];
+		expect(approve()?.disabled).toBe(true);
 		panel.getByText(/Evidence changed: re-suggest or keep it/);
 
 		await user.click(
 			screen.getByRole("button", { name: "Keep Moldova as is" }),
 		);
-		expect(
-			(panel.getByRole("button", { name: "✓ Approve" }) as HTMLButtonElement)
-				.disabled,
-		).toBe(false);
+		expect(approve()?.disabled).toBe(false);
 	});
 
 	it("cleans stays when a re-extraction replaces a stamp the user unmarked", async () => {

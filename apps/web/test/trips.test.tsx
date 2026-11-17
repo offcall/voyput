@@ -303,21 +303,29 @@ describe("trips", () => {
 		let panel = within(
 			await screen.findByRole("region", { name: "Stay: Vietnam" }),
 		);
-		expect(panel.getByText("1 / 3 to check")).toBeTruthy();
+		// (jsdom shows the top row and the sheet head alike: two counts, two buttons.)
+		expect(panel.getAllByText("1 / 3 to check")).toHaveLength(2);
+		expect(panel.queryByRole("button", { name: "✓ Approve" })).toBeNull();
 
-		await user.click(panel.getByRole("button", { name: "Skip →" }));
+		await user.click(
+			panel.getAllByRole("button", { name: "Skip →" })[0] as HTMLElement,
+		);
 		panel = within(
 			await screen.findByRole("region", { name: "Stay: Cambodia" }),
 		);
-		expect(panel.getByText("2 / 3 to check")).toBeTruthy();
+		expect(panel.getAllByText("2 / 3 to check")).toHaveLength(2);
 		await user.type(panel.getByRole("textbox", { name: "Place" }), "Siem Reap");
-		await user.click(panel.getByRole("button", { name: "✓ Approve & next" }));
+		await user.click(
+			panel.getAllByRole("button", {
+				name: "✓ Approve & next",
+			})[0] as HTMLElement,
+		);
 
 		// Cambodia is approved with the place typed, and Thailand opens.
 		panel = within(
 			await screen.findByRole("region", { name: "Stay: Thailand" }),
 		);
-		expect(panel.getByText("2 / 2 to check")).toBeTruthy();
+		expect(panel.getAllByText("2 / 2 to check")).toHaveLength(2);
 		await waitFor(async () => {
 			const cambodia = (await storedStays(db)).find(
 				(s) => s.countryCode === "KH",
@@ -420,9 +428,11 @@ describe("trips", () => {
 		expect((await row(4, "Japan")).getAttribute("aria-label")).toMatch(
 			/has an error$/,
 		);
+		// In the review queue, Approve & next is the one approve button.
 		expect(
-			detail.getByRole<HTMLButtonElement>("button", { name: "✓ Approve" })
-				.disabled,
+			detail
+				.getAllByRole<HTMLButtonElement>("button", { name: "✓ Approve & next" })
+				.every((b) => b.disabled),
 		).toBe(true);
 
 		await user.click(
@@ -436,12 +446,18 @@ describe("trips", () => {
 				source: "manual",
 			}),
 		);
-		// Approve is the panel's main button.
-		await user.click(detail.getByRole("button", { name: "✓ Approve" }));
+		await user.click(
+			detail.getAllByRole("button", {
+				name: "✓ Approve & next",
+			})[0] as HTMLElement,
+		);
 		await waitFor(async () =>
 			expect((await storedStays(db))[3]?.approved).toBe(true),
 		);
-		expect(detail.getByRole("button", { name: "↩ Reopen" })).toBeTruthy();
+		// Out of the queue, the panel's one button reopens it.
+		const japan = await open(user, 4, "Japan");
+		expect(japan.getByRole("button", { name: "↩ Reopen" })).toBeTruthy();
+		expect(japan.queryByRole("button", { name: /Approve & next/ })).toBeNull();
 	});
 
 	it("takes the birth country and date from Settings: the first stay is there since birth", async () => {
@@ -616,8 +632,10 @@ describe("trips", () => {
 			last.getByRole<HTMLButtonElement>("button", { name: "Next stay" })
 				.disabled,
 		).toBe(true);
-		// The Approve button is in the panel whatever the screen width.
-		expect(last.getByRole("button", { name: "✓ Approve" })).toBeTruthy();
+		// An approve button is in the panel whatever the screen width.
+		expect(
+			last.getAllByRole("button", { name: "✓ Approve & next" }).length,
+		).toBeGreaterThan(0);
 
 		const backdrop = document.querySelector(".vp-trips-backdrop");
 		expect(backdrop).not.toBeNull();

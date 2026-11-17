@@ -258,6 +258,30 @@ export function StayDetail({
 		lastSave.current = { from: stay.place, to: next };
 		queue?.onApproveNext({ ...stay, place: next, approved: true });
 	};
+	const queueButtons = (q: ReviewQueue, size: "sm" | "md") => (
+		<>
+			<Button
+				size={size}
+				variant="primary"
+				disabled={error || !!stay.evidenceChanged}
+				title={
+					error
+						? "Fix the errors first"
+						: stay.evidenceChanged
+							? "Its evidence changed: re-suggest it or keep it as is first"
+							: "Approve this stay and open the next one to check"
+				}
+				onClick={approveAndNext}
+			>
+				✓ Approve &amp; next
+			</Button>
+			{q.onSkip ? (
+				<Button size={size} variant="ghost" onClick={q.onSkip}>
+					Skip →
+				</Button>
+			) : null}
+		</>
+	);
 	const [form, setForm] = useState<PanelForm>(null);
 	const swipe = useSheetSwipe({
 		close: onClose,
@@ -293,6 +317,12 @@ export function StayDetail({
 						{stayRange(stay.arrival.date ?? birth, stay.departure.date)}
 						<span className="vp-trips-dot">·</span>
 						{days === null ? "— days" : plural(days, "day")}
+						{queue ? (
+							// The sheet's place in the queue; wide screens show it in the top row.
+							<span className="vp-stay-queue-count">
+								{queue.position} / {queue.total} to check
+							</span>
+						) : null}
 					</div>
 				</div>
 				<span className="vp-stay-badges">
@@ -338,27 +368,9 @@ export function StayDetail({
 			</header>
 
 			{queue ? (
+				// Wide screens: at the top of the panel. In the sheet the bottom bar holds them.
 				<div className="vp-stay-queue">
-					<Button
-						size="sm"
-						variant="primary"
-						disabled={error || !!stay.evidenceChanged}
-						title={
-							error
-								? "Fix the errors first"
-								: stay.evidenceChanged
-									? "Its evidence changed: re-suggest it or keep it as is first"
-									: "Approve this stay and open the next one to check"
-						}
-						onClick={approveAndNext}
-					>
-						✓ Approve &amp; next
-					</Button>
-					{queue.onSkip ? (
-						<Button size="sm" variant="ghost" onClick={queue.onSkip}>
-							Skip →
-						</Button>
-					) : null}
+					{queueButtons(queue, "sm")}
 					<span className="vp-trips-muted">
 						{queue.position} / {queue.total} to check
 					</span>
@@ -475,22 +487,30 @@ export function StayDetail({
 
 			<div className="vp-stay-panel-actions">
 				<div className="vp-stay-approve">
-					<Button
-						variant={stay.approved ? "default" : "primary"}
-						disabled={!stay.approved && (error || !!stay.evidenceChanged)}
-						title={
-							stay.approved
-								? "Review this stay again"
-								: error
-									? "Fix the errors first"
-									: stay.evidenceChanged
-										? "Its evidence changed: re-suggest it or keep it as is first"
-										: "Approve this stay"
-						}
-						onClick={() => onChange({ ...stay, approved: !stay.approved })}
-					>
-						{stay.approved ? "↩ Reopen" : "✓ Approve"}
-					</Button>
+					{queue ? (
+						// One approve button at a time: in the queue, the sheet's bottom
+						// bar approves and moves on; wide screens use the row at the top.
+						<div className="vp-stay-approve-queue">
+							{queueButtons(queue, "md")}
+						</div>
+					) : (
+						<Button
+							variant={stay.approved ? "default" : "primary"}
+							disabled={!stay.approved && (error || !!stay.evidenceChanged)}
+							title={
+								stay.approved
+									? "Review this stay again"
+									: error
+										? "Fix the errors first"
+										: stay.evidenceChanged
+											? "Its evidence changed: re-suggest it or keep it as is first"
+											: "Approve this stay"
+							}
+							onClick={() => onChange({ ...stay, approved: !stay.approved })}
+						>
+							{stay.approved ? "↩ Reopen" : "✓ Approve"}
+						</Button>
+					)}
 					{stay.evidenceChanged ? (
 						<span className="vp-stay-changed">
 							Evidence changed: re-suggest or keep it in the list first.
