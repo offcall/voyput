@@ -294,6 +294,11 @@ describe("dateMatchesText", () => {
 		["2019-06-09", "9 GIU 2019"],
 		["2019-07-10", "10 LUG 2019"],
 		["2019-10-11", "11 OUT 2019"],
+		["2019-10-12", "12 OUT 2019"],
+		["2019-05-12", "OUT 12 05 19"],
+		["2018-11-05", "IN 05 11 2018"],
+		["2023-03-24", "MAR 24 2 0 2 3"],
+		["2005-09-05", "5 9 05 4"],
 		["2019-09-12", "12 SET 2019"],
 		["2019-02-13", "13 ŞUB 2019"],
 		["2019-10-14", "14 Eki 2019"],
@@ -340,6 +345,15 @@ describe("dateMatchesText", () => {
 		["2019-07-12", "12 JUI 2019"],
 		// A Roman numeral counts only between numbers.
 		["2019-05-12", "V 12 2019"],
+		// An "OUT"/"IN" exit or entry label is not a month (Portuguese "OUT" is October).
+		["2005-10-12", "OUT 12 05 19"],
+		["2005-10-12", "OUT 12.05.19"],
+		["2019-12-05", "OUT 12 05 19"],
+		["2018-05-11", "IN 05 11 2018"],
+		// A month word only fills the month.
+		["2019-12-07", "12 JUL 2019"],
+		// A year never stops inside a run of spaced digits.
+		["2020-03-24", "MAR 24 2 0 2 3"],
 	])("rejects %s for %j", (date, text) => {
 		expect(dateMatchesText(date, text)).toBe(false);
 	});
