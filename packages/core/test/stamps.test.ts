@@ -389,6 +389,7 @@ describe("dateMatchesText", () => {
 		["2023-12-03", "2023/1/2 3"],
 		// OUT followed by a whole numeric date is the exit label.
 		["2005-10-12", "01 OUT 12.05.19"],
+		["2019-10-12", "12 OUT 1 2 2019"],
 	])("rejects %s for %j", (date, text) => {
 		expect(dateMatchesText(date, text)).toBe(false);
 	});

@@ -212,13 +212,9 @@ const betweenNumbers = (word: string, offset: number, text: string): boolean =>
 /** Month abbreviations that are also border-stamp labels: Portuguese "OUT" (outubro) is the English exit label. */
 const LABEL_MONTHS = new Set(["OUT"]);
 
-/** How many numbers follow, up to the next word; single digits printed apart count as one ("2 0 1 9"). */
+/** How many numbers follow, up to the next word; single digits count apart, so "1 2 2019" is a whole date. */
 const numbersAfter = (text: string): number =>
-	(
-		(text.split(/\p{L}/u)[0] ?? "")
-			.replace(/(?<=\b\d)[ \t]+(?=\d\b)/g, "")
-			.match(/\d+/g) ?? []
-	).length;
+	((text.split(/\p{L}/u)[0] ?? "").match(/\d+/g) ?? []).length;
 
 /**
  * How a word reads in a printed date: a month name, a Roman month, or nothing.
