@@ -196,7 +196,7 @@ type HealthView = LocalHealth | { state: "checking" } | { state: "unpaired" };
 
 const ENGINE_LABELS: Record<LocalEngine, string> = {
 	auto: "Auto (Claude Code if found, else Codex)",
-	codex: "Codex CLI (only with --codex)",
+	codex: "Codex CLI",
 	claude: "Claude Code",
 };
 
@@ -321,10 +321,10 @@ function LocalFields() {
 			<CommandLine label="Or, in a clone of voyput" command={commands.clone} />
 			<p className="vp-field-description">
 				It prints a pairing link: open it, or paste the token below. It needs
-				Claude Code installed and logged in. Codex CLI is off unless you add{" "}
-				<code>--codex</code>: it runs without a shell, but keeps a few tools
-				that cannot be turned off, so it is less confined than Claude Code,
-				which gets no tools at all.
+				Claude Code or Codex CLI installed and logged in. Codex runs without a
+				shell but keeps a few tools that cannot be turned off, so it is less
+				confined than Claude Code, which gets no tools at all; add{" "}
+				<code>--no-codex</code> to leave it out.
 			</p>
 			<div className="ai-status" aria-live="polite">
 				<span className="vp-field-label">Status</span>

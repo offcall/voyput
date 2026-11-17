@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Adds a second provider next to OpenRouter (ADR 0008); OpenRouter stays the default. Revised in the same block after three security reviews (signed and encrypted requests, Codex opt-in, cleanup, atomic queue, process groups and deadlines).
+Accepted; Codex opt-in superseded by ADR 0032. Adds a second provider next to OpenRouter (ADR 0008); OpenRouter stays the default. Revised in the same block after three security reviews (signed and encrypted requests, Codex opt-in, cleanup, atomic queue, process groups and deadlines).
 
 ## Context
 

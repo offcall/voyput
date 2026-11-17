@@ -7,6 +7,7 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import {
 	admit,
+	banner,
 	byteBudget,
 	childEnv,
 	claudeAnswer,
@@ -251,6 +252,29 @@ describe("voyput-local checks before the body", () => {
 		);
 	});
 
+	it("shows a tokenless page at / to a person, not to other sites", () => {
+		const page = admit(
+			{ method: "GET", path: "/", headers: { host: BASE_HEADERS.host } },
+			depsWith(),
+			NOW,
+		);
+		if (!("response" in page)) throw new Error("expected a page");
+		expect(page.response.status).toBe(200);
+		expect(page.response.headers["content-type"]).toContain("text/html");
+		expect(page.response.headers["content-security-policy"]).toContain(
+			"default-src 'none'",
+		);
+		expect(page.response.body).toContain("voyput-local is running");
+		expect(page.response.body).not.toContain(TOKEN);
+		expect(statusOf(request("GET", "/"))).toBe(404);
+		const rebound = admit(
+			{ method: "GET", path: "/", headers: { host: "evil.example" } },
+			depsWith(),
+			NOW,
+		);
+		expect("response" in rebound && rebound.response.status).toBe(403);
+	});
+
 	it("refuses unknown paths, missing or oversized lengths and a full queue", () => {
 		expect(statusOf(request("GET", "/files"))).toBe(404);
 		expect(
@@ -317,7 +341,7 @@ describe("voyput-local extraction", () => {
 			NOW,
 		);
 		expect(off.status).toBe(503);
-		expect(JSON.parse(off.body).error).toContain("--codex");
+		expect(JSON.parse(off.body).error).toContain("--no-codex");
 	});
 
 	it("turns a runner failure into 502 with its message", async () => {
@@ -823,5 +847,34 @@ describe("voyput-local commands", () => {
 		expect(pairingLink("abc", 5000)).toBe(
 			"https://voyput.app.offcall.link/settings#local=abc&port=5000",
 		);
+	});
+});
+
+describe("voyput-local banner", () => {
+	const info = {
+		port: DEFAULT_PORT,
+		token: TOKEN,
+		engines: { claude: "ready", codex: "ready" },
+	} as const;
+
+	it("puts the pairing link first and lists both engines", () => {
+		const text = banner(info, false);
+		expect(text.indexOf(pairingLink(TOKEN, DEFAULT_PORT))).toBeLessThan(
+			text.indexOf("Engines"),
+		);
+		expect(text).toContain("● Claude Code   ● Codex");
+		expect(text).toContain("ready");
+		expect(text).not.toContain("\x1b[");
+	});
+
+	it("says why an engine is missing and colours only on request", () => {
+		const text = banner(
+			{ ...info, engines: { claude: "missing", codex: "off" } },
+			false,
+		);
+		expect(text).toContain("Claude Code (not installed)");
+		expect(text).toContain("Codex (off: --no-codex)");
+		expect(text).toContain("no engine");
+		expect(banner(info, true)).toContain("\x1b[");
 	});
 });

@@ -1,12 +1,12 @@
 /**
  * voyput-local: reads passport stamps for the voyput app with the Claude Code
- * CLI (or, opt-in, the Codex CLI) already installed and logged in here.
+ * or Codex CLI already installed and logged in here.
  *
  * One file, Node >= 22.12 built-ins only. The site serves it as JavaScript
  * (types stripped at build time); from a clone, run this .ts file with
  * `node --experimental-strip-types`.
  *
- *   node voyput-local.mjs [--port 47615] [--codex] [--new-token]
+ *   node voyput-local.mjs [--port 47615] [--no-codex] [--new-token]
  *
  * It listens on 127.0.0.1 only. The pairing token it prints never travels:
  * each request carries an HMAC made with it, the photo and the answer are
@@ -267,6 +267,33 @@ const corsHeaders = (origin: string | undefined): Record<string, string> =>
 const ROUTES = new Set(["GET /health", "POST /extract"]);
 
 /**
+ * What a person who opens the server's address in a browser sees: a pointer
+ * back to the app. It holds no token and loads nothing.
+ */
+const HOME_PAGE = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>voyput-local</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 1.5rem;color:#1d1d1f}h1{font-size:1.4rem}code{background:#f2f2f2;padding:.1em .3em;border-radius:4px}a{color:#0a66c2}</style>
+</head><body>
+<h1>voyput-local is running</h1>
+<p>This is the local helper that lets voyput read passport stamps with your Claude Code or Codex subscription. It has no page of its own.</p>
+<p>To pair, open the <b>pairing link</b> printed in your terminal, or paste the token there into <a href="${SITE_ORIGIN}/settings">voyput → Settings → AI → Local</a>.</p>
+</body></html>
+`;
+
+const homePage = (): PlainResponse => ({
+	status: 200,
+	headers: {
+		"content-type": "text/html; charset=utf-8",
+		"content-security-policy":
+			"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+		"x-frame-options": "DENY",
+		"referrer-policy": "no-referrer",
+	},
+	body: HOME_PAGE,
+});
+
+/**
  * Everything decided from the headers alone, before any body byte is read:
  * host, origin, preflight, route, MAC, replay, size, and a reserved slot
  * (queue place and body bytes) that the caller must release.
@@ -296,6 +323,8 @@ export function admit(
 			preflight["access-control-allow-private-network"] = "true";
 		return { response: { status: 204, headers: preflight, body: "" } };
 	}
+	if (request.method === "GET" && request.path === "/" && origin === undefined)
+		return { response: homePage() };
 	if (!ROUTES.has(`${request.method} ${request.path}`))
 		return { response: json(404, { error: "not found" }, cors) };
 
@@ -360,9 +389,9 @@ export function parseExtractBody(
 			status: 503,
 			error:
 				wanted === "auto"
-					? "no engine found: install Claude Code (or Codex CLI and start with --codex) and log in"
+					? "no engine found: install Claude Code or Codex CLI, log in and restart voyput-local"
 					: wanted === "codex"
-						? "Codex is off: start voyput-local with --codex (see Settings)"
+						? "Codex is off: it was not found on PATH when voyput-local started, or it was started with --no-codex"
 						: "claude was not found on PATH when voyput-local started",
 		};
 	return {
@@ -626,7 +655,7 @@ export const jobFiles = (dir: string, mediaType: MediaType) => ({
  * files, no user config or rules, the temp dir as working root, the image
  * attached, the prompt on stdin. Codex still offers a filesystem-less
  * JavaScript `exec`, `apply_patch` (blocked by the read-only sandbox) and
- * sub-agent tools that no flag turns off, so Codex is opt-in (`--codex`).
+ * sub-agent tools that no flag turns off (ADR 0032: on unless `--no-codex`).
  */
 export function codexCommand(dir: string, job: ExtractJob): Command {
 	const files = jobFiles(dir, job.image.mediaType);
@@ -1035,12 +1064,12 @@ export function pairingLink(token: string, port: number): string {
 
 const HELP = `voyput-local ${VERSION}: read passport stamps for voyput with your Claude Code or Codex CLI.
 
-Usage: node voyput-local.mjs [--port <n>] [--codex] [--new-token]
+Usage: node voyput-local.mjs [--port <n>] [--no-codex] [--new-token]
 
   --port <n>     Port on 127.0.0.1 (default ${DEFAULT_PORT}).
-  --codex        Also offer the Codex CLI. Codex keeps a few tools that cannot be
-                 turned off (see docs/adr/0026-local-ai-engine.md); Claude Code
-                 runs with none.
+  --no-codex     Do not offer the Codex CLI. Codex keeps a few tools that cannot
+                 be turned off (see docs/adr/0032-codex-on-by-default.md); Claude
+                 Code runs with none.
   --new-token    Forget the stored pairing token and make a new one.
   --help         Show this text.
 `;
@@ -1087,6 +1116,65 @@ export function readBody(
 	});
 }
 
+const ENGINE_NAMES: Record<Engine, string> = {
+	claude: "Claude Code",
+	codex: "Codex",
+};
+
+/** How each engine stands at start: ready, turned off with --no-codex, or missing. */
+export type EngineState = "ready" | "off" | "missing";
+
+/**
+ * The text printed on start, pairing link first. `color` adds ANSI styles
+ * (only for a terminal that wants them).
+ */
+export function banner(
+	info: {
+		port: number;
+		token: string;
+		engines: Record<Engine, EngineState>;
+	},
+	color: boolean,
+): string {
+	const style = (code: string) => (text: string) =>
+		color ? `\x1b[${code}m${text}\x1b[0m` : text;
+	const bold = style("1");
+	const dim = style("2");
+	const green = style("32");
+	const yellow = style("33");
+	const cyan = style("36;4");
+	const ready = ENGINES.some((engine) => info.engines[engine] === "ready");
+	const engineLine = ENGINES.map((engine) => {
+		const state = info.engines[engine];
+		const name = ENGINE_NAMES[engine];
+		if (state === "ready") return `${green("●")} ${name}`;
+		if (state === "off") return dim(`○ ${name} (off: --no-codex)`);
+		return dim(`○ ${name} (not installed)`);
+	}).join("   ");
+	const label = (text: string) => dim(text.padEnd(9));
+	return [
+		"",
+		`  ${bold("voyput-local")} ${dim(`v${VERSION}`)}  ${ready ? green("ready") : yellow("no engine")}`,
+		"",
+		`  ${bold("Pair:")} open this link in the browser where you use voyput`,
+		`    ${cyan(pairingLink(info.token, info.port))}`,
+		`  ${dim("or paste the token in Settings → AI → Local:")} ${info.token}`,
+		"",
+		`  ${label("Engines")}${engineLine}`,
+		...(ready
+			? []
+			: [
+					`  ${" ".repeat(9)}${yellow("Install Claude Code or Codex CLI, log in, then restart.")}`,
+				]),
+		`  ${label("Server")}127.0.0.1:${info.port} ${dim("· this computer only · the app talks to it, no need to open it")}`,
+		`  ${label("Privacy")}photos go only to Anthropic or OpenAI, under your own account`,
+		`  ${label("Stop")}Ctrl+C ${dim("· deletes any photo still in a temp folder")}`,
+		"",
+		dim("  Requests:"),
+		"",
+	].join("\n");
+}
+
 const headerMap = (request: IncomingMessage) => {
 	const headers: Record<string, string | undefined> = {};
 	for (const [key, value] of Object.entries(request.headers))
@@ -1099,6 +1187,7 @@ async function main() {
 		options: {
 			port: { type: "string" },
 			codex: { type: "boolean" },
+			"no-codex": { type: "boolean" },
 			"new-token": { type: "boolean" },
 			help: { type: "boolean" },
 		},
@@ -1118,8 +1207,9 @@ async function main() {
 		const path = findOnPath(engine, process.env, process.platform);
 		if (path) paths[engine] = path;
 	}
-	const codexOff = Boolean(paths.codex) && values.codex !== true;
-	if (codexOff) delete paths.codex;
+	const found = { ...paths };
+	// `--codex` is accepted for old commands; Codex is on unless --no-codex.
+	if (values["no-codex"] === true) delete paths.codex;
 	const engines = ENGINES.filter((engine) => paths[engine]);
 	const token = loadToken(values["new-token"] === true);
 	const line = limitJobs(cliRunner(paths), MAX_JOBS, MAX_WAITING);
@@ -1184,7 +1274,7 @@ async function main() {
 		// Never log bodies: they hold passport photos and model answers.
 		const seconds = ((Date.now() - started) / 1000).toFixed(1);
 		process.stdout.write(
-			`${head.method} ${head.path} ${result.status} ${seconds}s\n`,
+			`  ${head.method} ${head.path} ${result.status} ${seconds}s\n`,
 		);
 	});
 	server.requestTimeout = JOB_DEADLINE_MS + 60_000;
@@ -1202,25 +1292,12 @@ async function main() {
 			void shutdown(line, 0);
 		});
 	server.listen(port, "127.0.0.1", () => {
-		process.stdout.write(
-			[
-				`voyput-local ${VERSION} on http://127.0.0.1:${port} (this computer only)`,
-				`Engines: ${engines.length ? engines.join(", ") : "none found. Install Claude Code (or Codex CLI, with --codex), log in, restart."}`,
-				...(codexOff
-					? [
-							"Codex CLI found but off: it keeps a few tools that cannot be turned off. Start with --codex to use it.",
-						]
-					: []),
-				"",
-				"Pair voyput with this server: open",
-				`  ${pairingLink(token, port)}`,
-				`or paste this token in Settings → AI → Local: ${token}`,
-				"",
-				"Photos go only to the CLI's own provider (Anthropic or OpenAI) under your account.",
-				"Ctrl+C stops and deletes any photo still in a temp folder.",
-				"",
-			].join("\n"),
-		);
+		const state = (engine: Engine): EngineState =>
+			paths[engine] ? "ready" : found[engine] ? "off" : "missing";
+		const engineStates = { claude: state("claude"), codex: state("codex") };
+		const color =
+			process.stdout.isTTY === true && process.env.NO_COLOR === undefined;
+		process.stdout.write(banner({ port, token, engines: engineStates }, color));
 	});
 }
 

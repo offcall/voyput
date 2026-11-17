@@ -35,7 +35,7 @@ const STAMP_READERS: { name: string; text: string }[] = [
 	},
 	{
 		name: "Local",
-		text: "only if you run voyput-local on your own computer and pair it in Settings. Then each page image goes, encrypted, from this browser to that script, which passes it to your own Claude Code (or, if you turn it on, Codex) CLI; the CLI sends it to Anthropic or OpenAI under your account.",
+		text: "only if you run voyput-local on your own computer and pair it in Settings. Then each page image goes, encrypted, from this browser to that script, which passes it to your own Claude Code or Codex CLI; the CLI sends it to Anthropic or OpenAI under your account.",
 	},
 ];
 
