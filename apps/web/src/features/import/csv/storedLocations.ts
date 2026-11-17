@@ -1,4 +1,8 @@
-import { type LocationSummary, summarizeLocations } from "@voyput/core";
+import {
+	countryNameOf,
+	type LocationSummary,
+	summarizeLocations,
+} from "@voyput/core";
 import type { VoyputDb } from "../../../db/db";
 import { DEMO_LOCATION_PREFIX } from "../../demo/loadDemo";
 
@@ -87,7 +91,8 @@ export async function summarizeStoredLocations(
 	for (const row of rows) {
 		const entry = countries.get(row.countryCode) ?? {
 			code: row.countryCode,
-			name: row.country || row.countryCode,
+			// The export script writes no names (ADR 0033): the code names it.
+			name: row.country || countryNameOf(row.countryCode),
 			rows: 0,
 		};
 		entry.rows++;

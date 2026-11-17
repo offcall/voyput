@@ -157,6 +157,17 @@ function EdgeEditor({
 /** A form open in the panel. */
 type PanelForm = "split" | "add" | null;
 
+/** The open stay's place in the review queue (stays not approved and not ready). */
+export interface ReviewQueue {
+	/** From 1. */
+	position: number;
+	total: number;
+	/** Saves the stay as given (approved, with its place) and opens the next one. */
+	onApproveNext: (saved: TravelStay) => void;
+	/** Opens the next one; unset when this is the only one. */
+	onSkip: (() => void) | undefined;
+}
+
 /**
  * The selected stay, to the right of the list (a bottom sheet on narrow
  * screens, with arrows and swipes to the stays around it): country, place,
@@ -181,6 +192,7 @@ export function StayDetail({
 	onPrevious,
 	onNext,
 	flushRef,
+	queue,
 }: {
 	stay: TravelStay;
 	/** Position in the history, from 1. */
@@ -217,6 +229,8 @@ export function StayDetail({
 	 * for the page to call before it closes this stay or opens another.
 	 */
 	flushRef?: RefObject<(() => void) | null>;
+	/** Set while this stay is in the review queue. */
+	queue?: ReviewQueue | undefined;
 }) {
 	const colorOf = useCountryColour();
 	const span = staySpan(stay, birth, today);
@@ -239,6 +253,11 @@ export function StayDetail({
 			flushRef.current = null;
 		};
 	});
+	const approveAndNext = () => {
+		const next = place.trim();
+		lastSave.current = { from: stay.place, to: next };
+		queue?.onApproveNext({ ...stay, place: next, approved: true });
+	};
 	const [form, setForm] = useState<PanelForm>(null);
 	const swipe = useSheetSwipe({
 		close: onClose,
@@ -317,6 +336,34 @@ export function StayDetail({
 					</Button>
 				</span>
 			</header>
+
+			{queue ? (
+				<div className="vp-stay-queue">
+					<Button
+						size="sm"
+						variant="primary"
+						disabled={error || !!stay.evidenceChanged}
+						title={
+							error
+								? "Fix the errors first"
+								: stay.evidenceChanged
+									? "Its evidence changed: re-suggest it or keep it as is first"
+									: "Approve this stay and open the next one to check"
+						}
+						onClick={approveAndNext}
+					>
+						✓ Approve &amp; next
+					</Button>
+					{queue.onSkip ? (
+						<Button size="sm" variant="ghost" onClick={queue.onSkip}>
+							Skip →
+						</Button>
+					) : null}
+					<span className="vp-trips-muted">
+						{queue.position} / {queue.total} to check
+					</span>
+				</div>
+			) : null}
 
 			<div className="vp-stay-form">
 				<label className="vp-field">

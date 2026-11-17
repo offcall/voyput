@@ -99,7 +99,11 @@ export {
 	suggestStays,
 	withoutEvidence,
 } from "./trips/build";
-export { COUNTRY_CODES, isCountryCode } from "./trips/countries";
+export {
+	COUNTRY_CODES,
+	countryNameOf,
+	isCountryCode,
+} from "./trips/countries";
 export {
 	addStay,
 	canSplitAt,

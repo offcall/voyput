@@ -193,26 +193,76 @@ export function stayCounts(
 	};
 }
 
+/** Days between the last evidence on one side of a crossing and the first on the other that still confirm it. */
+const MEET_DAYS = 1;
+
+/** The first and last day of a stay's photos, by `LocationRow.uuid`. */
+function photoSpan(
+	stay: TravelStay,
+	photoDays: ReadonlyMap<string, string>,
+): { first: string; last: string } | null {
+	let first: string | null = null;
+	let last: string | null = null;
+	for (const id of stay.photoIds) {
+		const d = photoDays.get(id);
+		if (!d) continue;
+		if (first === null || d < first) first = d;
+		if (last === null || d > last) last = d;
+	}
+	return first && last ? { first, last } : null;
+}
+
+const exact = (source: string) => source === "stamp" || source === "manual";
+
 /**
- * Stays "Approve clear" approves: no error or warning, no changed evidence,
- * and both edges exact (a stamp or set by hand). The first arrival counts once
- * the birth date is known; the last departure may stay open.
+ * A crossing dated by photos is confirmed when evidence on both sides meets:
+ * the last stamp or photo before it and the first after it are at most a day
+ * apart (ADR 0034). A week without photos between two countries is not.
+ */
+function photosMeet(
+	before: TravelStay | undefined,
+	after: TravelStay | undefined,
+	photoDays: ReadonlyMap<string, string>,
+): boolean {
+	if (!before || !after) return false;
+	const out = before.departure;
+	const into = after.arrival;
+	if (out.source === "estimated" || into.source === "estimated") return false;
+	const lastBefore = exact(out.source)
+		? out.date
+		: (photoSpan(before, photoDays)?.last ?? null);
+	const firstAfter = exact(into.source)
+		? into.date
+		: (photoSpan(after, photoDays)?.first ?? null);
+	if (lastBefore === null || firstAfter === null) return false;
+	const days = day(firstAfter) - day(lastBefore);
+	return days >= 0 && days <= MEET_DAYS;
+}
+
+/**
+ * Stays "Approve" approves in bulk: no error or warning, no changed evidence,
+ * and both edges confirmed: a stamp, set by hand, or photos that meet the
+ * evidence across the border (`photoDays`, see `photosMeet`). The first
+ * arrival counts once the birth date is known; the last departure may stay open.
  */
 export function clearStayIds(
 	stays: readonly TravelStay[],
 	hints: readonly (readonly StayHint[])[],
 	birth: string | null,
+	photoDays: ReadonlyMap<string, string> = new Map(),
 ): string[] {
-	const exact = (source: string) => source === "stamp" || source === "manual";
 	return stays.flatMap((s, i) => {
 		if (s.approved || s.evidenceChanged) return [];
 		if (hints[i]?.some((h) => h.severity !== "info")) return [];
 		const arrival =
 			exact(s.arrival.source) ||
-			(i === 0 && s.arrival.date === null && !!birth);
+			(i === 0 && s.arrival.date === null && !!birth) ||
+			(s.arrival.source === "photos" && photosMeet(stays[i - 1], s, photoDays));
 		const departure =
 			exact(s.departure.source) ||
-			(i === stays.length - 1 && s.departure.date === null);
+			(i === stays.length - 1 && s.departure.date === null) ||
+			(s.departure.source === "photos" &&
+				photosMeet(s, stays[i + 1], photoDays));
 		return arrival && departure ? [s.id] : [];
 	});
 }

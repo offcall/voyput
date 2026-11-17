@@ -69,9 +69,11 @@ describe("routing", () => {
 	it("shows the list for an unknown stay id", async () => {
 		renderApp("/collect/trips/nope", { db: await tripsDb() });
 		expect(await row("Portugal")).toBeTruthy();
+		// No stay open: the panel (and, on narrow screens, the note above the
+		// list) offers the first stay to check instead.
 		expect(
-			screen.getByText("Pick a stay to see its days, edges and stamps."),
-		).toBeTruthy();
+			screen.getAllByRole("button", { name: "Check the first one →" }),
+		).toHaveLength(2);
 	});
 
 	it("puts the selected stay in the path and follows back and forward", async () => {

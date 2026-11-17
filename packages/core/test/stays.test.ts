@@ -532,6 +532,34 @@ describe("stayHints", () => {
 		expect(clearStayIds(stays, hints, null)).toEqual(["b", "d"]);
 		expect(clearStayIds(stays, hints, "1990-01-01")).toEqual(["a", "b", "d"]);
 	});
+
+	it("counts a photo crossing as confirmed when photos on both sides meet within a day", () => {
+		const days = (from: number, to: number, cc: string) =>
+			Array.from({ length: to - from + 1 }, (_, k) =>
+				photo(`2020-01-${String(from + k).padStart(2, "0")}`, cc),
+			);
+		const locations = [
+			...days(1, 5, "TH"),
+			...days(6, 9, "LA"),
+			// Same day as the last photo in Laos: still meets.
+			...days(9, 12, "KH"),
+			// Eight days without photos after Cambodia.
+			...days(20, 22, "VN"),
+		];
+		const stays = suggest([], locations);
+		expect(stays.map((s) => s.countryCode)).toEqual(["TH", "LA", "KH", "VN"]);
+		const photoDays = new Map(
+			locations.map((r) => [r.uuid, r.date.slice(0, 10)]),
+		);
+		const hints = stayHints(stays, { stamps: [], passports: [], birth: null });
+		const ids = (list: string[]) =>
+			list.map((id) => stays.find((s) => s.id === id)?.countryCode);
+		// Thailand starts the history without a birth date; Cambodia's departure
+		// and Vietnam's arrival face the eight days without photos.
+		expect(ids(clearStayIds(stays, hints, null, photoDays))).toEqual(["LA"]);
+		// Without photo days, photo edges never count.
+		expect(clearStayIds(stays, hints, null)).toEqual([]);
+	});
 });
 
 describe("mergeKept", () => {

@@ -284,7 +284,10 @@ function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
 					}
 				/>
 				<Stat label="Countries" value={stored.countryCount} />
-				<Stat label="Cities" value={stored.cityCount} />
+				{/* Files from the export script have no cities. */}
+				{stored.cityCount > 0 ? (
+					<Stat label="Cities" value={stored.cityCount} />
+				) : null}
 			</StatGroup>
 			<ul className="import-countries" aria-label="Stored countries">
 				{stored.countries.map((country) => (

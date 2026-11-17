@@ -265,6 +265,74 @@ describe("trips", () => {
 		expect(screen.queryByText(/Your first change saves it/)).toBeNull();
 	});
 
+	it("counts photos that meet across a border as ready and walks the rest one by one", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-queue");
+		const days = (from: number, to: number, cc: string, name: string) =>
+			Array.from({ length: to - from + 1 }, (_, k) =>
+				photo(`2024-01-${String(from + k).padStart(2, "0")}`, cc, name),
+			);
+		await db.locations.bulkPut([
+			...days(1, 5, "TH", "Thailand"),
+			...days(6, 9, "LA", "Laos"),
+			...days(10, 12, "KH", "Cambodia"),
+			// Seven days without photos before Vietnam.
+			...days(20, 22, "VN", "Vietnam"),
+		]);
+		renderApp("/collect/trips", { db });
+
+		// Laos: the last photo in Thailand and the first in Laos are a day apart,
+		// as are the last in Laos and the first in Cambodia.
+		expect((await row(2, "Laos")).getAttribute("aria-label")).toMatch(/ready$/);
+		expect(summary()).toBe("1 ready · 3 to check · 0 errors");
+		expect(screen.getByRole("button", { name: "✓ Approve 1" })).toBeTruthy();
+		const travels = screen.getAllByRole("link", { name: /travels →$/ });
+		expect(travels[0]?.getAttribute("href")).toBe("/insights/journey");
+		expect(travels[0]?.dataset.variant).toBe("ghost");
+
+		// With no stay open, the panel offers the first to check, newest first.
+		// (jsdom shows both the panel and the note above the list for narrow screens.)
+		const next = screen.getAllByText(/3 stays to check\./);
+		expect(next).toHaveLength(2);
+		expect(next[0]?.parentElement?.textContent).toContain("Next: 🇻🇳 Vietnam");
+		const [checkFirst] = screen.getAllByRole("button", {
+			name: "Check the first one →",
+		});
+		if (!checkFirst) throw new Error("no Check the first one button");
+		await user.click(checkFirst);
+		let panel = within(
+			await screen.findByRole("region", { name: "Stay: Vietnam" }),
+		);
+		expect(panel.getByText("1 / 3 to check")).toBeTruthy();
+
+		await user.click(panel.getByRole("button", { name: "Skip →" }));
+		panel = within(
+			await screen.findByRole("region", { name: "Stay: Cambodia" }),
+		);
+		expect(panel.getByText("2 / 3 to check")).toBeTruthy();
+		await user.type(panel.getByRole("textbox", { name: "Place" }), "Siem Reap");
+		await user.click(panel.getByRole("button", { name: "✓ Approve & next" }));
+
+		// Cambodia is approved with the place typed, and Thailand opens.
+		panel = within(
+			await screen.findByRole("region", { name: "Stay: Thailand" }),
+		);
+		expect(panel.getByText("2 / 2 to check")).toBeTruthy();
+		await waitFor(async () => {
+			const cambodia = (await storedStays(db)).find(
+				(s) => s.countryCode === "KH",
+			);
+			expect(cambodia).toMatchObject({ approved: true, place: "Siem Reap" });
+		});
+
+		// Once nothing is ready, the way to the results is the main button.
+		await user.click(screen.getByRole("button", { name: "✓ Approve 1" }));
+		expect(screen.queryByRole("button", { name: /^✓ Approve \d/ })).toBeNull();
+		expect(
+			screen.getAllByRole("link", { name: /travels →$/ })[0]?.dataset.variant,
+		).toBe("primary");
+	});
+
 	it("marks a transit, edits methods and deletes in the panel; undo and redo by keyboard and menu", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-edit");

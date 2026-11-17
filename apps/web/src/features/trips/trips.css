@@ -179,6 +179,36 @@
 .vp-trips-empty p:last-child {
 	margin: 0;
 }
+/* The first stay to check, with the way to open it or to skip the review. */
+.vp-trips-next {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 10px;
+	margin: 0 0 12px;
+	color: var(--vp-text);
+}
+.vp-trips-next p {
+	margin: 0;
+}
+
+/* The same, above the list, where no panel sits beside it. */
+.vp-trips-next-narrow .vp-trips-next {
+	margin: 0;
+}
+@media (min-width: 1180px) {
+	.vp-trips-next-narrow {
+		display: none;
+	}
+}
+
+/* The review queue on the open stay: approve and go on, or skip. */
+.vp-stay-queue {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
 
 /* Detail */
 .vp-trips-detail {
@@ -931,6 +961,10 @@
 	.vp-stays-bar {
 		gap: 6px;
 		padding: 6px 8px 6px 12px;
+	}
+	/* One main button: the quiet "See travels" link waits in the note below. */
+	.vp-stays-bar > a[data-variant="ghost"] {
+		display: none;
 	}
 	.vp-stays-summary {
 		flex: 1 1 auto;

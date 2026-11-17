@@ -37,3 +37,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0031](0031-stays-flag-changed-evidence.md) | Stays Flag Changed Evidence | Accepted |
 | [0032](0032-codex-on-by-default.md) | Codex On by Default | Accepted |
 | [0033](0033-photo-export-in-plain-sh.md) | Photo Export in Plain sh | Accepted |
+| [0034](0034-photo-crossings-count-as-confirmed.md) | Photo Crossings Count as Confirmed | Accepted |

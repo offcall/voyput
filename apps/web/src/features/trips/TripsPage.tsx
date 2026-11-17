@@ -42,9 +42,9 @@ import {
 import { LegacyTrips } from "./LegacyTrips";
 import { MoreMenu } from "./MoreMenu";
 import { buildPhotoDays } from "./photoDays";
-import { StayDetail } from "./StayDetail";
+import { type ReviewQueue, StayDetail } from "./StayDetail";
 import { AddStayForm } from "./StayForms";
-import { StayRow, type StayStatus } from "./StayRow";
+import { STATUS_NAMES, StayRow, type StayStatus } from "./StayRow";
 import { defaultOpenYears, type Item, yearGroups } from "./stayGroups";
 import "./trips.css";
 import {
@@ -116,6 +116,66 @@ const isTyping = (target: EventTarget | null) =>
 		["INPUT", "SELECT", "TEXTAREA"].includes(target.tagName));
 
 const staysWord = (n: number) => plural(n, "stay");
+
+/** Where the open stay is in the review queue, and the stay after it (wrapping). */
+function reviewQueue(
+	queue: readonly string[],
+	openId: string,
+	actions: {
+		approveNext: (saved: TravelStay, next: string | null) => void;
+		skip: (next: string) => void;
+	},
+): ReviewQueue | undefined {
+	const at = queue.indexOf(openId);
+	if (at < 0) return undefined;
+	const rest = [...queue.slice(at + 1), ...queue.slice(0, at)];
+	const next = rest[0] ?? null;
+	return {
+		position: at + 1,
+		total: queue.length,
+		onApproveNext: (saved) => actions.approveNext(saved, next),
+		onSkip: next ? () => actions.skip(next) : undefined,
+	};
+}
+
+/** With no stay open: the first one to check, or the way to the results. */
+function NextToCheck({
+	stay,
+	status,
+	left,
+	birth,
+	onOpen,
+}: {
+	stay: TravelStay | undefined;
+	status: StayStatus | undefined;
+	left: number;
+	birth: string | null;
+	onOpen: () => void;
+}) {
+	const travels = (
+		<Link to="/insights/$view" params={{ view: "journey" }}>
+			See my travels →
+		</Link>
+	);
+	if (!stay) return <p>Every stay is approved or ready. {travels}</p>;
+	return (
+		<div className="vp-trips-next">
+			<p>
+				<strong>{plural(left, "stay")} to check.</strong> Next:{" "}
+				<span aria-hidden="true">{flagOf(stay.countryCode)}</span>{" "}
+				{countryName(stay.countryCode)},{" "}
+				{stayRange(stay.arrival.date ?? birth, stay.departure.date)}
+				{status ? ` · ${STATUS_NAMES[status]}` : ""}
+			</p>
+			<Button variant="primary" onClick={onOpen}>
+				Check the first one →
+			</Button>
+			<p className="vp-trips-muted">
+				Or skip the review: Insights already use these stays. {travels}
+			</p>
+		</div>
+	);
+}
 
 export function TripsPage() {
 	const db = useDb();
@@ -258,7 +318,16 @@ export function TripsPage() {
 		[stays, usable, data, birth],
 	);
 	const counts = stayCounts(stays, hints);
-	const clear = clearStayIds(stays, hints, birth);
+	const evidenceDays = useMemo(
+		() => ({
+			stamps: new Map(usable.map((s) => [s.id, s.date])),
+			photos: new Map(
+				(data?.locations ?? []).map((r) => [r.uuid, r.date.slice(0, 10)]),
+			),
+		}),
+		[usable, data],
+	);
+	const clear = clearStayIds(stays, hints, birth, evidenceDays.photos);
 	const statuses: StayStatus[] = stays.map((s, i) =>
 		s.evidenceChanged
 			? "changed"
@@ -271,18 +340,15 @@ export function TripsPage() {
 	const toCheck = statuses.filter(
 		(st, i) => st === "check" && !stays[i]?.approved,
 	).length;
+	/** Stays still to look at one by one, in list order: not approved and not ready. */
+	const queue = stays
+		.map((s, i) => ({ s, i }))
+		.filter(({ s, i }) => !s.approved && statuses[i] !== "ok")
+		.map(({ s }) => s.id);
+	if (order === "newest") queue.reverse();
 	const photoDays = useMemo(
 		() => buildPhotoDays(data?.locations ?? []),
 		[data],
-	);
-	const evidenceDays = useMemo(
-		() => ({
-			stamps: new Map(usable.map((s) => [s.id, s.date])),
-			photos: new Map(
-				(data?.locations ?? []).map((r) => [r.uuid, r.date.slice(0, 10)]),
-			),
-		}),
-		[usable, data],
 	);
 	const countries = new Set(
 		stays.filter((s) => s.kind === "stay").map((s) => s.countryCode),
@@ -497,15 +563,28 @@ export function TripsPage() {
 						+ Add <span className="vp-stays-wide">stay</span>
 					</span>
 				</Button>
-				<Button
-					size="sm"
-					variant="primary"
-					disabled={clear.length === 0}
-					title="Approve stays with stamp or hand-set edges and no errors"
-					onClick={approveClear}
+				{clear.length > 0 ? (
+					<Button
+						size="sm"
+						variant="primary"
+						title="Approve stays whose edges a stamp, your edit or photos on both sides confirm, without errors"
+						onClick={approveClear}
+					>
+						✓ Approve {clear.length}
+					</Button>
+				) : null}
+				{/* Insights already use every stay, approved or not: review can wait. */}
+				<Link
+					to="/insights/$view"
+					params={{ view: "journey" }}
+					className="vp-button"
+					data-variant={clear.length > 0 ? "ghost" : "primary"}
+					data-size="sm"
 				>
-					{clear.length > 0 ? `✓ Approve ${clear.length}` : "✓ Approve"}
-				</Button>
+					<span>
+						See <span className="vp-stays-wide">my </span>travels →
+					</span>
+				</Link>
 				<MoreMenu
 					label="More stay actions"
 					items={[
@@ -542,6 +621,19 @@ export function TripsPage() {
 					stay by hand.
 				</Notice>
 			)}
+
+			{stays.length > 0 && !selected ? (
+				// Narrow screens have no panel beside the list: the next stay goes above it.
+				<div className="vp-trips-note vp-trips-next-narrow">
+					<NextToCheck
+						stay={stays.find((s) => s.id === queue[0])}
+						status={statuses[stays.findIndex((s) => s.id === queue[0])]}
+						left={queue.length}
+						birth={birth}
+						onOpen={() => leaveFor(queue[0] ?? null)}
+					/>
+				</div>
+			) : null}
 
 			<LegacyTrips
 				trips={data.legacy}
@@ -642,6 +734,14 @@ export function TripsPage() {
 							}}
 							onClose={() => leaveFor(null)}
 							flushRef={flushDetail}
+							queue={reviewQueue(queue, selected.id, {
+								// The panel hands over the stay with its unsaved place: no flush here.
+								approveNext: (saved, next) => {
+									change(saved);
+									select(next);
+								},
+								skip: (next) => leaveFor(next),
+							})}
 							onPrevious={
 								index > 0
 									? () => leaveFor(stays[index - 1]?.id ?? null)
@@ -660,7 +760,13 @@ export function TripsPage() {
 								{plural(countries.size, "country", "countries")} ·{" "}
 								{counts.approved} approved
 							</p>
-							<p>Pick a stay to see its days, edges and stamps.</p>
+							<NextToCheck
+								stay={stays.find((s) => s.id === queue[0])}
+								status={statuses[stays.findIndex((s) => s.id === queue[0])]}
+								left={queue.length}
+								birth={birth}
+								onOpen={() => leaveFor(queue[0] ?? null)}
+							/>
 							<p>
 								{birth && birthCountry ? (
 									<>

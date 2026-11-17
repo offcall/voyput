@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderApp } from "./renderApp";
@@ -86,6 +86,18 @@ describe("import location CSV", () => {
 			["u1", "FR", false],
 			["u2", "PT", true],
 		]);
+		// The file names no countries and no cities: chips name the code, no Cities stat.
+		const stored = screen.getByRole("region", {
+			name: "Stored photo locations",
+		});
+		await waitFor(() =>
+			expect(
+				within(stored)
+					.getAllByRole("listitem")
+					.map((item) => item.textContent),
+			).toEqual(["🇫🇷FRFrance", "🇵🇹PTPortugal"]),
+		);
+		expect(within(stored).queryByText("Cities")).toBeNull();
 	});
 
 	it("keeps stored locations when a file is unusable", async () => {
