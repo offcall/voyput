@@ -34,5 +34,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0028](0028-phone-shell-and-sheet.md) | Phone Shell and Bottom Sheet | Accepted |
 | [0029](0029-realistic-demo-passport.md) | Realistic Demo Passport | Accepted; Review part superseded by 0030 |
 | [0030](0030-day-aware-photo-location-check.md) | Day-Aware Photo Location Check | Accepted |
-| [0029](0029-realistic-demo-passport.md) | Realistic Demo Passport | Accepted |
 | [0031](0031-stays-flag-changed-evidence.md) | Stays Flag Changed Evidence | Accepted |
