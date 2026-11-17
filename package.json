@@ -15,7 +15,8 @@
 		"storybook": "npm run storybook -w @voyput/ui",
 		"check": "biome check . && tsc --noEmit && vitest run",
 		"test": "vitest run",
-		"demo:generate": "node --experimental-strip-types scripts/demo/generate.ts && biome format --write apps/web/public/demo"
+		"demo:generate": "node --experimental-strip-types scripts/demo/generate.ts && biome format --write apps/web/public/demo",
+		"world:generate": "node --experimental-strip-types scripts/world/generate.ts && biome format --write packages/core/src/viz/worldTable.generated.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.15",

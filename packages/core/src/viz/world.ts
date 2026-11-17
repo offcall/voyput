@@ -1,64 +1,16 @@
 import { projectEquirect } from "./geo";
+import { WORLD_NAME_TO_CODE } from "./worldTable.generated";
+
+export { WORLD_NAME_TO_CODE };
 
 /** Land outlines ready to draw: SVG paths on the 1000 × 500 plate carrée box, rings for the globe. */
 export interface WorldShapes {
 	landPath: string;
-	/** SVG path per ISO country code, only for countries we can map. */
+	/** SVG path per ISO country code, for every outline. */
 	countryPaths: Record<string, string>;
 	/** Decimated outlines as `[lat, lon]` for the globe. */
 	rings: [number, number][][];
 }
-
-// Natural Earth 110m names → ISO 3166-1 alpha-2, for the countries seen in exports so far.
-const WORLD_NAME_TO_CODE: Record<string, string> = {
-	"United Arab Emirates": "AE",
-	Albania: "AL",
-	Armenia: "AM",
-	Argentina: "AR",
-	Austria: "AT",
-	Australia: "AU",
-	"Bosnia and Herzegovina": "BA",
-	Chile: "CL",
-	China: "CN",
-	Colombia: "CO",
-	"Czech Republic": "CZ",
-	Germany: "DE",
-	Denmark: "DK",
-	Spain: "ES",
-	France: "FR",
-	"United Kingdom": "GB",
-	Georgia: "GE",
-	Hungary: "HU",
-	Indonesia: "ID",
-	Ireland: "IE",
-	India: "IN",
-	Italy: "IT",
-	Jamaica: "JM",
-	Japan: "JP",
-	Kyrgyzstan: "KG",
-	Kazakhstan: "KZ",
-	Laos: "LA",
-	Moldova: "MD",
-	Madagascar: "MG",
-	Macedonia: "MK",
-	Mexico: "MX",
-	Malaysia: "MY",
-	Netherlands: "NL",
-	Peru: "PE",
-	Poland: "PL",
-	Qatar: "QA",
-	Romania: "RO",
-	"Republic of Serbia": "RS",
-	Russia: "RU",
-	Thailand: "TH",
-	Turkey: "TR",
-	Taiwan: "TW",
-	Ukraine: "UA",
-	Uruguay: "UY",
-	Vietnam: "VN",
-	Kosovo: "XK",
-	"South Africa": "ZA",
-};
 
 const GLOBE_RING_POINTS = 60;
 

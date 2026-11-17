@@ -9,6 +9,7 @@ import {
 	projectEquirect,
 } from "@voyput/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import worldText from "../src/features/visualize/assets/world-countries.geojson?raw";
 import { GlobeChart } from "../src/features/visualize/charts/GlobeChart";
 import {
 	clampTilt,
@@ -346,5 +347,62 @@ describe("globe with outlines", () => {
 		expect(live?.textContent).toBe("Romania: 2 photos");
 		await user.keyboard("{Escape}");
 		expect(live?.textContent).toBe("");
+	});
+
+	it("outlines, fills and steps to countries far from the old exports", async () => {
+		const { calls, frame } = recordingContext();
+		const user = userEvent.setup();
+		const sample = [
+			["PE", "Peru"],
+			["KE", "Kenya"],
+			["NZ", "New Zealand"],
+			["IS", "Iceland"],
+			["MN", "Mongolia"],
+			["FJ", "Fiji"],
+			["XK", "Kosovo"],
+			["MV", "Maldives"],
+		] as const;
+		// Spots 5° south of each centroid, so hovering the centroid hits the outline.
+		const farData = buildVizData([
+			sample.map(([code, name]) => {
+				const [lat, lon] = COUNTRY_CENTROIDS[code] ?? [0, 0];
+				return photo(code, name, lat - 5, lon);
+			}),
+		]);
+		const realWorld = buildWorldShapes(JSON.parse(worldText));
+		render(<GlobeChart data={farData} world={realWorld} />);
+		await user.click(screen.getByRole("button", { name: "Pause" }));
+		const canvas = screen.getByRole("img", { name: "Globe" });
+		canvas.focus();
+		const tip = () => document.querySelector(".vp-chart-tip")?.textContent;
+		const palette = countryPalette([]);
+		const paint = makePainter(document.body);
+		const seen: string[] = [];
+		for (let i = 0; i < sample.length; i++) {
+			// Escape lets go, so the next → starts again from the first country.
+			await user.keyboard("{Escape}");
+			for (let k = 0; k <= i; k++) await user.keyboard("{ArrowRight}");
+			const name = tip()?.replace(/1 photo$/, "") ?? "";
+			const [code] = sample.find(([, n]) => n === name) ?? [];
+			if (!code) throw new Error(`unexpected tip ${tip()}`);
+			seen.push(code);
+			calls.length = 0;
+			frame(150);
+			await user.keyboard("{Escape}");
+			if (code === "MV") continue; // no outline at 110m: spot and arcs only
+			expect(
+				calls
+					.filter((call) => call.name === "fill")
+					.map((call) => call.fillStyle),
+				code,
+			).toContain(fade(paint(palette(code)), 0.85));
+			const c = COUNTRY_CENTROIDS[code];
+			if (!c) throw new Error(`no centroid for ${code}`);
+			pointer(canvas, "pointermove", ...at(c[0], c[1], c));
+			expect(tip(), code).toBe(`${name}1 photo`);
+			pointer(canvas, "pointerleave", 0, 0);
+			canvas.focus();
+		}
+		expect(seen.sort()).toEqual(sample.map(([code]) => code).sort());
 	});
 });

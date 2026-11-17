@@ -26,7 +26,11 @@ import {
 	ZOOM_PRESETS,
 	zoomView,
 } from "../../src/route";
-import { projectEquirect, WORLD_WIDTH } from "../../src/viz/geo";
+import {
+	COUNTRY_CENTROIDS,
+	projectEquirect,
+	WORLD_WIDTH,
+} from "../../src/viz/geo";
 
 const row = (overrides: Partial<LocationRow>): LocationRow => ({
 	date: "2024-01-01T10:00:00",
@@ -139,22 +143,25 @@ describe("waypoints", () => {
 		const { waypoints, skipped } = stayWaypoints(
 			[
 				{ countryCode: "MD", start: "2024-01-01", end: "2024-01-10" },
-				{ countryCode: "FJ", start: "2024-01-11", end: "2024-01-12" },
+				{ countryCode: "ZY", start: "2024-01-11", end: "2024-01-12" },
 				{ countryCode: "ZZ", start: "2024-01-13", end: "2024-01-13" },
 				{ countryCode: "MD", start: "2024-01-14", end: "2024-01-20" },
 			],
 			[
-				row({ countryCode: "FJ", lat: -17, lon: 178 }),
-				row({ countryCode: "FJ", lat: -18, lon: 179 }),
+				// ZY is unassigned, so it has no centroid; FJ now has one.
+				row({ countryCode: "ZY", lat: -17, lon: 178 }),
+				row({ countryCode: "ZY", lat: -18, lon: 179 }),
 			],
 		);
 		expect(skipped).toBe(1);
 		expect(waypoints.map((w) => [w.countryCode, w.days])).toEqual([
 			["MD", 10],
-			["FJ", 2],
+			["ZY", 2],
 			["MD", 7],
 		]);
-		expect([waypoints[0]?.lat, waypoints[0]?.lon]).toEqual([47.3, 28.3]);
+		expect([waypoints[0]?.lat, waypoints[0]?.lon]).toEqual(
+			COUNTRY_CENTROIDS.MD,
+		);
 		expect(waypoints[1]).toMatchObject({ lat: -17.5, lon: 178.5 });
 		expect([waypoints[1]?.x, waypoints[1]?.y]).toEqual(
 			projectEquirect(-17.5, 178.5),
