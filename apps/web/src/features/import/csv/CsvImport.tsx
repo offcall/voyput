@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
+import { staysAfterEvidenceChange } from "../../trips/evidenceChange";
 import { useLiveQuery } from "../photos/useLiveQuery";
 import { LocationStrip } from "./LocationStrip";
 import {
@@ -35,7 +36,10 @@ type ImportState =
 	| { kind: "demo"; summary: LocationSummary }
 	| { kind: "error"; message: string };
 
-/** Parses the file and replaces all stored locations in one transaction. */
+/**
+ * Parses the file and replaces all stored locations in one transaction;
+ * stored stays lose the photos the new file no longer has, and are marked.
+ */
 async function importLocationCsv(
 	db: VoyputDb,
 	file: File,
@@ -57,9 +61,14 @@ async function importLocationCsv(
 			message: `${file.name} has no valid rows (${result.skipped} skipped). Nothing was changed.`,
 		};
 	}
-	await db.transaction("rw", db.locations, async () => {
+	await db.transaction("rw", db.locations, db.stays, db.stamps, async () => {
+		const kept = new Set(result.rows.map((row) => row.uuid));
+		const old = await db.locations.toCollection().primaryKeys();
 		await db.locations.clear();
 		await db.locations.bulkPut(result.rows);
+		const removedPhotos = new Set(old.filter((uuid) => !kept.has(uuid)));
+		if (removedPhotos.size > 0)
+			await staysAfterEvidenceChange(db, { removedPhotos });
 	});
 	return {
 		kind: "done",

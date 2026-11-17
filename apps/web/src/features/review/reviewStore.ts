@@ -1,13 +1,10 @@
-import type {
-	NoteKind,
-	ReadStamp,
-	Rotation,
-	Stamp,
-	TravelStay,
-} from "@voyput/core";
+import type { NoteKind, ReadStamp, Rotation, Stamp } from "@voyput/core";
 import type { VoyputDb } from "../../db/db";
 import {
+	NO_STAYS_UNDO,
 	restoreStays,
+	STAY_FIELDS,
+	type StaysUndo,
 	staysAfterEvidenceChange,
 } from "../trips/evidenceChange";
 import { type ReviewView, viewFromStored } from "./queue";
@@ -62,15 +59,6 @@ export function problemAfterEdit(
 	return left.length ? left.join("; ") : null;
 }
 
-/** Fields that place a stamp in a stay: changing one marks its stays. */
-const STAY_FIELDS = [
-	"date",
-	"countryCode",
-	"direction",
-	"borderCrossing",
-	"reviewed",
-] as const;
-
 /**
  * Saves only the edited fields, so two quick saves never undo each other. The
  * first date change also keeps the old date as `readDate`. Stays built on the
@@ -119,11 +107,11 @@ export async function setDismissed(
 	});
 }
 
-/** Deletes the stamp and marks the stays built on it; returns those stays as they were, for Undo. */
+/** Deletes the stamp and marks the stays built on it; returns what Undo needs to take that back. */
 export async function deleteStamp(
 	db: VoyputDb,
 	stamp: Stamp,
-): Promise<TravelStay[]> {
+): Promise<StaysUndo> {
 	return db.transaction("rw", db.stamps, db.stays, async () => {
 		await db.stamps.delete(stamp.id);
 		return staysAfterEvidenceChange(db, {
@@ -136,11 +124,11 @@ export async function deleteStamp(
 export async function restoreStamp(
 	db: VoyputDb,
 	stamp: Stamp,
-	stays: readonly TravelStay[] = [],
+	undo: StaysUndo = NO_STAYS_UNDO,
 ): Promise<void> {
 	await db.transaction("rw", db.stamps, db.stays, async () => {
 		await db.stamps.put(stamp);
-		await restoreStays(db, stays);
+		await restoreStays(db, undo);
 	});
 }
 

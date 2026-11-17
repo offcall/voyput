@@ -7,7 +7,6 @@ import {
 	nearbyPhotos,
 	type PhotoIndex,
 	type Stamp,
-	type TravelStay,
 } from "@voyput/core";
 import { Button, EmptyState, Notice, PixelArt } from "@voyput/ui";
 import { type Dispatch, type SetStateAction, useMemo } from "react";
@@ -16,6 +15,7 @@ import { aiSetupNeeded } from "../../ai/client";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
 import { describeFailure } from "../extract/failure";
+import type { StaysUndo } from "../trips/evidenceChange";
 import { errorMessage } from "./format";
 import { PhotoList } from "./PhotoList";
 import { PhotoViewer } from "./PhotoViewer";
@@ -71,7 +71,7 @@ export function PhotoReview({
 	focusSeq: number;
 	onSelect: (photoId: string) => void;
 	/** With the stays the delete changed, for Undo. */
-	onDeleted: (stamp: Stamp, stays: TravelStay[]) => void;
+	onDeleted: (stamp: Stamp, stays: StaysUndo) => void;
 	/** Open or closed per stamp id; kept by the page so a tab switch keeps it. */
 	expanded: Record<string, boolean>;
 	setExpanded: Dispatch<SetStateAction<Record<string, boolean>>>;

@@ -4,12 +4,12 @@ import {
 	checkStamp,
 	type PhotoIndex,
 	type Stamp,
-	type TravelStay,
 } from "@voyput/core";
 import { Button, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
+import type { StaysUndo } from "../trips/evidenceChange";
 import { errorMessage, formatDay } from "./format";
 import { PhotoReview } from "./PhotoReview";
 import {
@@ -87,7 +87,7 @@ export function ReviewPage() {
 	/** The last deleted stamp and the stays its delete changed, for Undo. */
 	const [deleted, setDeleted] = useState<{
 		stamp: Stamp;
-		stays: TravelStay[];
+		stays: StaysUndo;
 	} | null>(null);
 	/** Open tab and photo live in the URL (`?tab=timeline&photo=<id>`); an unknown photo falls back to the first. */
 	const search = useSearch({ from: "/collect/$step" });

@@ -58,7 +58,7 @@ export interface TravelStay {
 	edited?: boolean;
 	/**
 	 * A stamp or photo behind the stay was deleted, or a stamp's date, country,
-	 * direction or crossing changed, since it was built (ADR 0030). Stays until
+	 * direction or crossing changed, since it was built (ADR 0031). Stays until
 	 * the user re-suggests the stay or keeps it as is.
 	 */
 	evidenceChanged?: boolean;

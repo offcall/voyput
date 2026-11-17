@@ -430,18 +430,25 @@ export function StayDetail({
 				<div className="vp-stay-approve">
 					<Button
 						variant={stay.approved ? "default" : "primary"}
-						disabled={!stay.approved && error}
+						disabled={!stay.approved && (error || !!stay.evidenceChanged)}
 						title={
 							stay.approved
 								? "Review this stay again"
 								: error
 									? "Fix the errors first"
-									: "Approve this stay"
+									: stay.evidenceChanged
+										? "Its evidence changed: re-suggest it or keep it as is first"
+										: "Approve this stay"
 						}
 						onClick={() => onChange({ ...stay, approved: !stay.approved })}
 					>
 						{stay.approved ? "↩ Reopen" : "✓ Approve"}
 					</Button>
+					{stay.evidenceChanged ? (
+						<span className="vp-stay-changed">
+							Evidence changed: re-suggest or keep it in the list first.
+						</span>
+					) : null}
 				</div>
 				<div className="vp-stay-panel-more">
 					<Button

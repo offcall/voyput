@@ -14,6 +14,8 @@ import {
 } from "../src/features/review/reviewStore";
 import { renderApp } from "./renderApp";
 
+const PICKER = "Drop photo_locations.csv here or pick it";
+
 const stamp = (
 	id: string,
 	date: string,
@@ -98,11 +100,90 @@ describe("stays after evidence changes", () => {
 		});
 		expect(await allStampIds(db)).not.toContain("s3");
 		expect(await db.stays.count()).toBe(3);
-		expect(changed.map((s) => s.id)).toEqual([before.id]);
+		expect(changed.stays.map((s) => s.id)).toEqual([before.id]);
 
 		await restoreStamp(db, STAMPS[2] as Stamp, changed);
 		expect(await db.stamps.get("s3")).toBeTruthy();
 		expect(await romania(db)).toEqual(before);
+	});
+
+	it("undoes only the delete's own cleanup and keeps later changes", async () => {
+		const db = await seed();
+		const id = (await romania(db)).id;
+		const undo = await deleteStamp(db, STAMPS[2] as Stamp);
+		// Later: the other stamp of the stay is edited, and the place is set elsewhere.
+		await updateStamp(db, "s2", { date: "2024-03-02" });
+		await db.stays.update(id, { place: "Bucharest" });
+
+		await restoreStamp(db, STAMPS[2] as Stamp, undo);
+		expect(await romania(db)).toMatchObject({
+			place: "Bucharest",
+			stampIds: ["s2", "s3"],
+			departure: { date: "2024-03-05", source: "stamp", stampId: "s3" },
+			evidenceChanged: true,
+			approved: true,
+		});
+
+		// Without a later evidence change the flag goes with the Undo.
+		const plain = await seed();
+		const undoPlain = await deleteStamp(plain, STAMPS[2] as Stamp);
+		await plain.stays.update(id, { place: "Bucharest" });
+		await restoreStamp(plain, STAMPS[2] as Stamp, undoPlain);
+		const back = await romania(plain);
+		expect(back).toMatchObject({ place: "Bucharest", stampIds: ["s2", "s3"] });
+		expect(back.evidenceChanged).toBeUndefined();
+	});
+
+	it("drops the photos a replacing CSV no longer has from stored stays", async () => {
+		const user = userEvent.setup();
+		const db = await seed(false);
+		const row = (uuid: string, date: string, countryCode: string) => ({
+			date: `${date}T12:00:00+02:00`,
+			lat: 0,
+			lon: 0,
+			countryCode,
+			country: countryCode,
+			city: "",
+			source: "apple",
+			isVideo: false,
+			filename: `${uuid}.jpg`,
+			uuid,
+		});
+		await db.locations.bulkPut([
+			row("u1", "2024-05-10", "JP"),
+			row("u2", "2024-05-11", "JP"),
+		]);
+		await db.stays.put({
+			id: "jp",
+			countryCode: "JP",
+			place: "",
+			kind: "stay",
+			arrival: { date: "2024-05-10", source: "photos", method: "unknown" },
+			departure: { date: "2024-05-11", source: "photos", method: "unknown" },
+			stampIds: [],
+			photoIds: ["u1", "u2"],
+			approved: true,
+		});
+		renderApp("/collect/locations", { db });
+		await user.upload(
+			await screen.findByLabelText(PICKER),
+			new File(
+				[
+					[
+						"date,lat,lon,country_code,country,city,source,is_video,filename,uuid",
+						"2024-05-11T12:00:00,35,139,JP,Japan,Tokyo,apple,False,b.jpg,u2",
+					].join("\n"),
+				],
+				"photo_locations.csv",
+				{ type: "text/csv" },
+			),
+		);
+		await screen.findByText(/Imported 1 location/);
+		expect(await db.stays.get("jp")).toMatchObject({
+			photoIds: ["u2"],
+			evidenceChanged: true,
+			approved: true,
+		});
 	});
 
 	it("flags the stays of a stamp whose date or country is edited, not of other edits", async () => {
@@ -197,5 +278,29 @@ describe("stays after evidence changes", () => {
 				evidenceChanged: true,
 			}),
 		);
+	});
+
+	it("does not approve a flagged stay from its panel until it is resolved", async () => {
+		const user = userEvent.setup();
+		const db = await seed();
+		await deleteStamp(db, STAMPS[0] as Stamp);
+		renderApp("/collect/trips", { db });
+		await user.click(
+			await screen.findByRole("button", { name: /^1\. Moldova,/ }),
+		);
+		const panel = within(
+			await screen.findByRole("region", { name: "Stay: Moldova" }),
+		);
+		const approve = panel.getByRole("button", { name: "✓ Approve" });
+		expect((approve as HTMLButtonElement).disabled).toBe(true);
+		panel.getByText(/Evidence changed: re-suggest or keep it/);
+
+		await user.click(
+			screen.getByRole("button", { name: "Keep Moldova as is" }),
+		);
+		expect(
+			(panel.getByRole("button", { name: "✓ Approve" }) as HTMLButtonElement)
+				.disabled,
+		).toBe(false);
 	});
 });
