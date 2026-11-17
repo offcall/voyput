@@ -279,6 +279,35 @@ describe("dateMatchesText", () => {
 		["2026-06-07", "2026-6-7 12"],
 		["2019-12-02", "DECEMBER 2 2019"],
 		["2019-09-02", "2 SEPT 2019"],
+		// Digits printed apart.
+		["2019-07-15", "15 07 1 9 9"],
+		["2021-06-14", "1 4 0 6 21 03"],
+		// Month names in other languages, with or without accents.
+		["2019-07-12", "12 JUIL 2019"],
+		["2019-02-03", "3 FÉVR. 2019"],
+		["2019-08-15", "15 AOUT 2019"],
+		["2019-03-04", "04 MÄR 2019"],
+		["2019-10-05", "5 OKT 2019"],
+		["2019-12-06", "06.DEZ.2019"],
+		["2019-01-07", "7 ENE 2019"],
+		["2019-04-08", "08 ABR 19"],
+		["2019-06-09", "9 GIU 2019"],
+		["2019-07-10", "10 LUG 2019"],
+		["2019-10-11", "11 OUT 2019"],
+		["2019-09-12", "12 SET 2019"],
+		["2019-02-13", "13 ŞUB 2019"],
+		["2019-10-14", "14 Eki 2019"],
+		["2019-11-15", "15 KAS 2019"],
+		["2019-08-16", "16 AĞU 2019"],
+		["2019-10-17", "17 ОКТ 2019"],
+		["2019-05-18", "18 МАЯ 2019"],
+		["2019-11-19", "19 ЛИС 2019"],
+		["2019-07-20", "20 ЛИПНЯ 2019"],
+		// Roman months.
+		["2019-07-12", "12.VII.2019"],
+		["2019-11-03", "3 XI 19"],
+		["2019-04-01", "2019-IV-01"],
+		["1998-06-21", "21 JUN 1998"],
 	])("accepts %s for %j", (date, text) => {
 		expect(dateMatchesText(date, text)).toBe(true);
 	});
@@ -297,7 +326,33 @@ describe("dateMatchesText", () => {
 		// Year first only with all four digits.
 		["2026-06-07", "26/06/07"],
 		["2023-03-24", ""],
+		// Spaced digits still have to match: printed 17, read 07.
+		["2004-07-07", "JUL 1 7 2004"],
+		["2008-12-03", "DEC 3 0 2008"],
+		["2005-11-16", "2005 -11- 0 6"],
+		// A part never starts inside a run of spaced digits: "3 1" is 31, not 1.
+		["2005-05-01", "3 1 MAY 2005"],
+		["2019-07-05", "1 5 07 1 9 9 <"],
+		// Wrong month in another language or in Roman numerals.
+		["2005-06-23", "23 JUIL. 2005"],
+		["2019-11-12", "12.VII.2019"],
+		// French "JUI" could be juin or juillet.
+		["2019-07-12", "12 JUI 2019"],
+		// A Roman numeral counts only between numbers.
+		["2019-05-12", "V 12 2019"],
 	])("rejects %s for %j", (date, text) => {
 		expect(dateMatchesText(date, text)).toBe(false);
+	});
+
+	// The dated Commons sample stamps (apps/web/public/demo/samples.json) that used to warn.
+	it.each([
+		["2004-07-17", "JUL 1 7 2004"],
+		["2005-05-31", "3 1 MAY 2005"],
+		["2005-11-06", "2005 -11- 0 6"],
+		["2006-12-19", "DEC 1 9 2006"],
+		["2005-07-23", "23 JUIL. 2005"],
+		["2008-12-30", "DEC 3 0 2008"],
+	])("accepts the Commons sample %s for %j", (date, text) => {
+		expect(dateMatchesText(date, text)).toBe(true);
 	});
 });

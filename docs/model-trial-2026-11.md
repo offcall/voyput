@@ -33,7 +33,7 @@ Prices on 2026-11-13 (USD per million input / output tokens): gemini-3.8-flash $
 - **gemini-3.8-flash** found every stamp and read every scored date and country correctly. Its three direction errors are Schengen entry stamps it called exits: Barcelona, Amsterdam 04.05.06 and Roissy-CDG. It is slow on dense pages: page 21 took 122 s and $0.06.
 - **gemini-3.5-flash-lite** is about 3× cheaper and 5× faster, but it guesses more. On a faint page it invented an Iceland "Keflavik" stamp in place of Hungary's Kelebia. It read Romania's `21 08 05` as 2015, turned Philippine arrival into Thailand, and tagged a Slovenian rail stamp as German.
 - **gpt-6-sol** missed or misplaced 3 of 13 stamps on the hard pages, at about the same cost per page as gemini-3.8-flash.
-- **Date check gap (app, not model):** our date check flags correct dates when the printed digits are spaced (`JUL 1 7 2004`, `DEC 3 0 2008`, `2005 -11- 0 6`) or the month is French (`23 JUIL. 2005`). 6 of the 38 demo sample stamps show such a false "does not match printed" warning. Logged in `TODO.md`.
+- **Date check gap (app, not model):** our date check flags correct dates when the printed digits are spaced (`JUL 1 7 2004`, `DEC 3 0 2008`, `2005 -11- 0 6`) or the month is French (`23 JUIL. 2005`). 6 of the 38 demo sample stamps show such a false "does not match printed" warning. Fixed since in `packages/core/src/stamps/dates.ts`.
 
 ## Decision
 
