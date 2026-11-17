@@ -194,9 +194,9 @@ export function stayCounts(
 }
 
 /**
- * Stays "Approve clear" approves: no error or warning, and both edges exact
- * (a stamp or set by hand). The first arrival counts once the birth date is
- * known; the last departure may stay open.
+ * Stays "Approve clear" approves: no error or warning, no changed evidence,
+ * and both edges exact (a stamp or set by hand). The first arrival counts once
+ * the birth date is known; the last departure may stay open.
  */
 export function clearStayIds(
 	stays: readonly TravelStay[],
@@ -205,7 +205,7 @@ export function clearStayIds(
 ): string[] {
 	const exact = (source: string) => source === "stamp" || source === "manual";
 	return stays.flatMap((s, i) => {
-		if (s.approved) return [];
+		if (s.approved || s.evidenceChanged) return [];
 		if (hints[i]?.some((h) => h.severity !== "info")) return [];
 		const arrival =
 			exact(s.arrival.source) ||

@@ -4,10 +4,12 @@ import {
 	applyDismissed,
 	canSplitAt,
 	clearStayIds,
+	flagChangedEvidence,
 	gapBetween,
 	type LocationRow,
 	legacyTripStays,
 	mergeKept,
+	resuggestStay,
 	type Stamp,
 	splitStay,
 	stayCounts,
@@ -799,3 +801,99 @@ describe("editing stays", () => {
 	});
 });
 
+describe("stays after their evidence changed", () => {
+	const stamps = [
+		stamp("out", "2024-03-01", "MD", "exit"),
+		stamp("in", "2024-03-01", "RO", "entry"),
+		stamp("leave", "2024-03-05", "RO", "exit"),
+		stamp("back", "2024-03-05", "MD", "entry"),
+	];
+	const source = (list: Stamp[], locations: LocationRow[] = []) => ({
+		stamps: list,
+		locations,
+		birthCountry: null,
+		birth: null,
+		dismissed: [],
+	});
+
+	it("keeps an approved stay whose stamp was deleted, flagged and without the id", () => {
+		const stays = suggest(stamps).map((s) =>
+			s.countryCode === "RO" ? { ...s, approved: true } : s,
+		);
+		const next = flagChangedEvidence(stays, {
+			removedStamps: new Set(["leave"]),
+		});
+		expect(next[1]).toMatchObject({
+			countryCode: "RO",
+			approved: true,
+			evidenceChanged: true,
+			stampIds: ["in"],
+			arrival: { date: "2024-03-01", source: "stamp", stampId: "in" },
+			departure: { date: "2024-03-05", source: "estimated", method: "plane" },
+		});
+		expect(next[1]?.departure.stampId).toBeUndefined();
+		// The others did not use the stamp: the same objects come back.
+		expect(next[0]).toBe(stays[0]);
+		expect(next[2]).toBe(stays[2]);
+		// A flagged stay is never approved in bulk.
+		const unapproved = next.map((s) => ({ ...s, approved: false }));
+		expect(clearStayIds(unapproved, [[], [], []], null)).not.toContain(
+			next[1]?.id,
+		);
+	});
+
+	it("flags a stay whose stamp was edited, and one that lost a photo", () => {
+		const stays = suggest(stamps);
+		expect(
+			flagChangedEvidence(stays, { changedStamps: new Set(["in"]) }).map(
+				(s) => s.evidenceChanged ?? false,
+			),
+		).toEqual([false, true, false]);
+		const withPhoto = [
+			stay("a", "JP", "2024-05-10", null, { photoIds: ["p1", "p2"] }),
+		];
+		expect(
+			flagChangedEvidence(withPhoto, { removedPhotos: new Set(["p1"]) })[0],
+		).toMatchObject({ photoIds: ["p2"], evidenceChanged: true });
+	});
+
+	it("suggests one stay again within its own days and leaves the rest", () => {
+		const before = flagChangedEvidence(
+			suggest(stamps).map((s) => ({ ...s, approved: true })),
+			{ removedStamps: new Set(["leave"]) },
+		);
+		const left = stamps.filter((s) => s.id !== "leave");
+		const after = resuggestStay(before, before[1]?.id ?? "", source(left));
+		expect(after[0]).toBe(before[0]);
+		expect(after[2]).toBe(before[2]);
+		expect(after[1]).toMatchObject({
+			countryCode: "RO",
+			approved: false,
+			stampIds: ["in"],
+			arrival: { date: "2024-03-01", source: "stamp" },
+			departure: { date: "2024-03-05" },
+		});
+		expect(after[1]?.evidenceChanged).toBeUndefined();
+	});
+
+	it("cuts a re-suggestion to the stay's days and drops a stay with no evidence left", () => {
+		const kept = [
+			stay("md", "MD", "2024-01-01", "2024-03-01", { approved: true }),
+			stay("ro", "RO", "2024-03-01", "2024-03-05", { evidenceChanged: true }),
+		];
+		// Photos say Romania until 7 March, past the stay's own last day.
+		const photos = [
+			photo("2024-03-02", "RO"),
+			photo("2024-03-03", "BG"),
+			photo("2024-03-07", "BG"),
+		];
+		const after = resuggestStay(kept, "ro", source([], photos));
+		expect(brief(after).map((s) => [s[0], s[1], s[2]])).toEqual([
+			["MD", "2024-01-01", "2024-03-01"],
+			["RO", "2024-03-01", "2024-03-03"],
+			["BG", "2024-03-03", "2024-03-05"],
+		]);
+		expect(after[2]?.departure).toEqual(kept[1]?.departure);
+		expect(resuggestStay(kept, "ro", source([]))).toEqual([kept[0]]);
+	});
+});

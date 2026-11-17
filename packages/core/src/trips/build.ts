@@ -207,8 +207,7 @@ const inSlot = (slot: Slot, d: string) =>
 
 /** A stay entered by an entry stamp on `d`. */
 const enteredOn = (slot: Slot | undefined, d: string) =>
-	slot?.stay?.arrival.source === "stamp" &&
-	slot.stay.arrival.date === d;
+	slot?.stay?.arrival.source === "stamp" && slot.stay.arrival.date === d;
 
 /**
  * Photos per slot. A border day lies in two slots; its photo goes to the one
@@ -580,6 +579,100 @@ export function applyDismissed(
 	return out;
 }
 
+/** An edge read from a removed stamp becomes an estimate on the same day. */
+function withoutStamp(e: StayEdge, removed: (id: string) => boolean): StayEdge {
+	if (!e.stampId || !removed(e.stampId)) return e;
+	const { stampId: _, ...rest } = e;
+	return { ...rest, source: "estimated" };
+}
+
+/** Evidence the user deleted or changed after stays were built from it. */
+export interface EvidenceChange {
+	removedStamps?: ReadonlySet<string>;
+	/** Stamps whose date, country, direction or crossing changed. */
+	changedStamps?: ReadonlySet<string>;
+	/** Photo locations (`LocationRow.uuid`). */
+	removedPhotos?: ReadonlySet<string>;
+}
+
+/**
+ * Stays after the user deleted or edited their evidence. Ids of deleted
+ * stamps and photos go, and an edge read from a deleted stamp becomes an
+ * estimate on the same day. A stay that lost evidence or holds a changed
+ * stamp is marked `evidenceChanged`. No stay is deleted, moved or
+ * unapproved: the user re-suggests it or keeps it as is. Untouched stays are
+ * returned as they were.
+ */
+export function flagChangedEvidence(
+	stays: readonly TravelStay[],
+	change: EvidenceChange,
+): TravelStay[] {
+	const none = new Set<string>();
+	const { removedStamps = none, changedStamps = none } = change;
+	const removedPhotos = change.removedPhotos ?? none;
+	const gone = (id: string) => removedStamps.has(id);
+	return stays.map((stay) => {
+		const stampIds = stay.stampIds.filter((id) => !gone(id));
+		const photoIds = stay.photoIds.filter((id) => !removedPhotos.has(id));
+		const arrival = withoutStamp(stay.arrival, gone);
+		const departure = withoutStamp(stay.departure, gone);
+		const changed =
+			stampIds.length < stay.stampIds.length ||
+			photoIds.length < stay.photoIds.length ||
+			arrival !== stay.arrival ||
+			departure !== stay.departure ||
+			[...stay.stampIds, stay.arrival.stampId, stay.departure.stampId].some(
+				(id) => id !== undefined && changedStamps.has(id),
+			);
+		if (!changed) return stay;
+		return {
+			...stay,
+			stampIds,
+			photoIds,
+			arrival,
+			departure,
+			evidenceChanged: true,
+		};
+	});
+}
+
+/**
+ * The history with the stay `id` replaced by what `suggested` holds for its
+ * days; every other stay stays as it is. Suggestions are cut back to the
+ * other stays (`mergeKept`) and to the stay's own first and last day, so
+ * nothing outside it moves. With no evidence left there, the stay just goes.
+ */
+export function replaceBySuggestion(
+	stays: readonly TravelStay[],
+	id: string,
+	suggested: readonly TravelStay[],
+): TravelStay[] {
+	const target = stays.find((s) => s.id === id);
+	if (!target) return [...stays];
+	const others = stays.filter((s) => s.id !== id);
+	const used = new Set(others.map((s) => s.id));
+	const from = fromOf(target);
+	const to = toOf(target);
+	const fresh = mergeKept(suggested, others).flatMap((s): TravelStay[] => {
+		if (used.has(s.id)) return [];
+		const a = fromOf(s);
+		const d = toOf(s);
+		if (!((a < to && d > from) || (a >= from && d <= to))) return [];
+		let freeId = s.id;
+		for (let n = 2; used.has(freeId); n++) freeId = `${s.id}-${n}`;
+		used.add(freeId);
+		return [
+			{
+				...s,
+				id: freeId,
+				arrival: a < from ? { ...target.arrival } : s.arrival,
+				departure: d > to ? { ...target.departure } : s.departure,
+			},
+		];
+	});
+	return sortStays([...others, ...fresh]);
+}
+
 /**
  * The history without some evidence (removed demo data): a stay whose
  * stamps and photos were all removed goes; others keep their own evidence,
@@ -592,11 +685,7 @@ export function withoutEvidence(
 ): TravelStay[] {
 	const out: TravelStay[] = [];
 	let dropped = false;
-	const unstamped = (e: StayEdge): StayEdge => {
-		if (!e.stampId || !removed.stamp(e.stampId)) return e;
-		const { stampId: _, ...rest } = e;
-		return { ...rest, source: "estimated" };
-	};
+	const unstamped = (e: StayEdge) => withoutStamp(e, removed.stamp);
 	for (const stay of stays) {
 		const stampIds = stay.stampIds.filter((id) => !removed.stamp(id));
 		const photoIds = stay.photoIds.filter((id) => !removed.photo(id));

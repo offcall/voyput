@@ -5,6 +5,7 @@ import {
 	rotateBy,
 } from "@voyput/core";
 import type { PhotoRecord, VoyputDb } from "../../../db/db";
+import { staysAfterEvidenceChange } from "../../trips/evidenceChange";
 
 export interface PassportInput {
 	name: string;
@@ -38,18 +39,18 @@ export async function updatePassport(
 	await db.passports.update(id, { ...input });
 }
 
-/** Removes the passport with its photos, their extractions and stamps. */
+/** Removes the passport with its photos, their extractions and stamps; marks the stays built on them. */
 export async function deletePassport(db: VoyputDb, id: string): Promise<void> {
 	await db.transaction(
 		"rw",
-		[db.passports, db.photos, db.extractions, db.stamps],
+		[db.passports, db.photos, db.extractions, db.stamps, db.stays],
 		async () => {
 			const photoIds = await db.photos
 				.where("passportId")
 				.equals(id)
 				.primaryKeys();
 			await db.extractions.bulkDelete(photoIds);
-			await db.stamps.where("passportId").equals(id).delete();
+			await removeStamps(db, "passportId", id);
 			await db.photos.bulkDelete(photoIds);
 			await db.passports.delete(id);
 		},
@@ -170,14 +171,25 @@ export function storageErrorMessage(action: string, error: unknown): string {
 	return `Could not ${action}: ${error instanceof Error ? error.message : String(error)}`;
 }
 
-/** Removes the photo with its extraction and stamps. */
+/** Deletes the stamps and marks the stays built on them. */
+async function removeStamps(
+	db: VoyputDb,
+	by: "passportId" | "photoId",
+	id: string,
+): Promise<void> {
+	const ids = await db.stamps.where(by).equals(id).primaryKeys();
+	await db.stamps.bulkDelete(ids);
+	await staysAfterEvidenceChange(db, { removedStamps: new Set(ids) });
+}
+
+/** Removes the photo with its extraction and stamps; marks the stays built on them. */
 export async function deletePhoto(db: VoyputDb, id: string): Promise<void> {
 	await db.transaction(
 		"rw",
-		[db.photos, db.extractions, db.stamps],
+		[db.photos, db.extractions, db.stamps, db.stays],
 		async () => {
 			await db.extractions.delete(id);
-			await db.stamps.where("photoId").equals(id).delete();
+			await removeStamps(db, "photoId", id);
 			await db.photos.delete(id);
 		},
 	);

@@ -56,6 +56,12 @@ export interface TravelStay {
 	approved: boolean;
 	/** The user changed, split or added this stay: a rebuild keeps it. */
 	edited?: boolean;
+	/**
+	 * A stamp or photo behind the stay was deleted, or a stamp's date, country,
+	 * direction or crossing changed, since it was built (ADR 0030). Stays until
+	 * the user re-suggests the stay or keeps it as is.
+	 */
+	evidenceChanged?: boolean;
 	/** Added for the birth country and date: follows them until the user edits it. */
 	sinceBirth?: boolean;
 }

@@ -1,13 +1,17 @@
 import { spanLength, staySpan, type TravelStay } from "@voyput/core";
 import { countryName, flagOf, plural, stayRange } from "./format";
 
-/** How a stay stands: approved or ready to approve, needs a look, or has an error. */
-export type StayStatus = "ok" | "check" | "error";
+/**
+ * How a stay stands: approved or ready to approve, needs a look, has an
+ * error, or its stamps or photos were deleted or edited since it was built.
+ */
+export type StayStatus = "ok" | "check" | "error" | "changed";
 
 export const STATUS_NAMES: Readonly<Record<StayStatus, string>> = {
 	ok: "ready",
 	check: "needs a look",
 	error: "has an error",
+	changed: "evidence changed",
 };
 
 /** One stay in the list: what, where, when, how long, and its status. Editing is in the panel. */
@@ -33,7 +37,8 @@ export function StayRow({
 	const name = countryName(stay.countryCode);
 	const range = stayRange(stay.arrival.date ?? birth, stay.departure.date);
 	const place = stay.place.split(",")[0]?.trim() ?? "";
-	const statusName = stay.approved ? "approved" : STATUS_NAMES[status];
+	const statusName =
+		stay.approved && status !== "changed" ? "approved" : STATUS_NAMES[status];
 	return (
 		<button
 			type="button"
@@ -56,7 +61,12 @@ export function StayRow({
 					) : null}
 					{place ? <span className="vp-stay-place"> · {place}</span> : null}
 				</span>
-				<span className="vp-stay-dates">{range}</span>
+				<span className="vp-stay-dates">
+					{range}
+					{status === "changed" ? (
+						<span className="vp-stay-changed"> · evidence changed</span>
+					) : null}
+				</span>
 			</span>
 			<span
 				className="vp-stay-days"

@@ -7,6 +7,7 @@ import {
 	nearbyPhotos,
 	type PhotoIndex,
 	type Stamp,
+	type TravelStay,
 } from "@voyput/core";
 import { Button, EmptyState, Notice, PixelArt } from "@voyput/ui";
 import { type Dispatch, type SetStateAction, useMemo } from "react";
@@ -69,7 +70,8 @@ export function PhotoReview({
 	/** Grows each time a stamp is opened, so the same stamp scrolls into view again. */
 	focusSeq: number;
 	onSelect: (photoId: string) => void;
-	onDeleted: (stamp: Stamp) => void;
+	/** With the stays the delete changed, for Undo. */
+	onDeleted: (stamp: Stamp, stays: TravelStay[]) => void;
 	/** Open or closed per stamp id; kept by the page so a tab switch keeps it. */
 	expanded: Record<string, boolean>;
 	setExpanded: Dispatch<SetStateAction<Record<string, boolean>>>;
@@ -269,8 +271,8 @@ export function PhotoReview({
 								void updateStamp(db, item.stamp.id, edit);
 							}}
 							onDelete={() =>
-								void deleteStamp(db, item.stamp).then(() =>
-									onDeleted(item.stamp),
+								void deleteStamp(db, item.stamp).then((stays) =>
+									onDeleted(item.stamp, stays),
 								)
 							}
 							onDismiss={(kind, value) =>

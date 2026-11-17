@@ -87,10 +87,13 @@ export {
 } from "./stamps/visits";
 export {
 	applyDismissed,
+	type EvidenceChange,
+	flagChangedEvidence,
 	mergeKept,
 	methodOf,
 	type Period,
 	periodsOf,
+	replaceBySuggestion,
 	type StayEvidence,
 	sortStays,
 	suggestStays,
@@ -123,6 +126,7 @@ export {
 } from "./trips/hints";
 export {
 	type HistorySource,
+	resuggestStay,
 	type StaySpan,
 	spanLength,
 	staySpan,

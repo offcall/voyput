@@ -4,6 +4,7 @@ import {
 	checkStamp,
 	type PhotoIndex,
 	type Stamp,
+	type TravelStay,
 } from "@voyput/core";
 import { Button, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useState } from "react";
@@ -83,7 +84,11 @@ export function ReviewPage() {
 	const { settings } = useSettings();
 	const [ui, setUi] = useState<ReviewUiState | null>(null);
 	const [uiError, setUiError] = useState<string | null>(null);
-	const [deleted, setDeleted] = useState<Stamp | null>(null);
+	/** The last deleted stamp and the stays its delete changed, for Undo. */
+	const [deleted, setDeleted] = useState<{
+		stamp: Stamp;
+		stays: TravelStay[];
+	} | null>(null);
 	/** Open tab and photo live in the URL (`?tab=timeline&photo=<id>`); an unknown photo falls back to the first. */
 	const search = useSearch({ from: "/collect/$step" });
 	const navigate = useNavigate({ from: "/collect/$step" });
@@ -230,7 +235,7 @@ export function ReviewPage() {
 									rescans={rescans}
 									setRescans={setRescans}
 									onSelect={setCurrentId}
-									onDeleted={setDeleted}
+									onDeleted={(stamp, stays) => setDeleted({ stamp, stays })}
 									expanded={expanded}
 									setExpanded={setExpanded}
 									validations={validations}
@@ -264,12 +269,14 @@ export function ReviewPage() {
 			{deleted ? (
 				<div className="review-toast" role="status">
 					<span>
-						Stamp deleted ({deleted.country ?? "unknown country"},{" "}
-						{deleted.date ? formatDay(deleted.date) : "no date"}).
+						Stamp deleted ({deleted.stamp.country ?? "unknown country"},{" "}
+						{deleted.stamp.date ? formatDay(deleted.stamp.date) : "no date"}).
 					</span>
 					<Button
 						onClick={() =>
-							void restoreStamp(db, deleted).then(() => setDeleted(null))
+							void restoreStamp(db, deleted.stamp, deleted.stays).then(() =>
+								setDeleted(null),
+							)
 						}
 					>
 						Undo

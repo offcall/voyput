@@ -1,7 +1,13 @@
 import { spanDays } from "../explore/dates";
 import type { LocationRow } from "../locations/types";
 import type { Stamp } from "../stamps/types";
-import { applyDismissed, mergeKept, type Period, suggestStays } from "./build";
+import {
+	applyDismissed,
+	mergeKept,
+	type Period,
+	replaceBySuggestion,
+	suggestStays,
+} from "./build";
 import { withBirthStay } from "./edit";
 import { locationDay, usableStamps } from "./evidence";
 import type { TravelStay } from "./types";
@@ -78,10 +84,26 @@ export function suggestHistory(
 	source: HistorySource,
 	kept: readonly TravelStay[] = [],
 ): TravelStay[] {
-	const stamps = usableStamps(source.stamps);
-	const suggested = applyDismissed(
-		suggestStays({ stamps, locations: source.locations }),
+	return withBirthStay(mergeKept(suggestedOf(source), kept), source);
+}
+
+const suggestedOf = (source: HistorySource) =>
+	applyDismissed(
+		suggestStays({
+			stamps: usableStamps(source.stamps),
+			locations: source.locations,
+		}),
 		source.dismissed,
 	);
-	return withBirthStay(mergeKept(suggested, kept), source);
+
+/**
+ * The history with one stay suggested again from today's evidence, within
+ * its own days; the other stays stay as they are (`replaceBySuggestion`).
+ */
+export function resuggestStay(
+	stays: readonly TravelStay[],
+	id: string,
+	source: HistorySource,
+): TravelStay[] {
+	return replaceBySuggestion(stays, id, suggestedOf(source));
 }

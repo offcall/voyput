@@ -1,5 +1,15 @@
-import type { NoteKind, ReadStamp, Rotation, Stamp } from "@voyput/core";
+import type {
+	NoteKind,
+	ReadStamp,
+	Rotation,
+	Stamp,
+	TravelStay,
+} from "@voyput/core";
 import type { VoyputDb } from "../../db/db";
+import {
+	restoreStays,
+	staysAfterEvidenceChange,
+} from "../trips/evidenceChange";
 import { type ReviewView, viewFromStored } from "./queue";
 
 /** Fields of a stamp the user edits on Review. */
@@ -52,16 +62,27 @@ export function problemAfterEdit(
 	return left.length ? left.join("; ") : null;
 }
 
+/** Fields that place a stamp in a stay: changing one marks its stays. */
+const STAY_FIELDS = [
+	"date",
+	"countryCode",
+	"direction",
+	"borderCrossing",
+	"reviewed",
+] as const;
+
 /**
  * Saves only the edited fields, so two quick saves never undo each other. The
- * first date change also keeps the old date as `readDate`.
+ * first date change also keeps the old date as `readDate`. Stays built on the
+ * stamp are marked when its date, country, direction, crossing or review
+ * changes.
  */
 export async function updateStamp(
 	db: VoyputDb,
 	id: string,
 	edit: StampEdit,
 ): Promise<void> {
-	await db.transaction("rw", db.stamps, async () => {
+	await db.transaction("rw", db.stamps, db.stays, async () => {
 		const stamp = await db.stamps.get(id);
 		if (!stamp) return;
 		const problem = problemAfterEdit(stamp.problem, edit);
@@ -75,6 +96,8 @@ export async function updateStamp(
 			...keepRead,
 			...(problem === stamp.problem ? {} : { problem }),
 		});
+		if (STAY_FIELDS.some((f) => f in edit && edit[f] !== stamp[f]))
+			await staysAfterEvidenceChange(db, { changedStamps: new Set([id]) });
 	});
 }
 
@@ -96,13 +119,29 @@ export async function setDismissed(
 	});
 }
 
-export async function deleteStamp(db: VoyputDb, stamp: Stamp): Promise<void> {
-	await db.stamps.delete(stamp.id);
+/** Deletes the stamp and marks the stays built on it; returns those stays as they were, for Undo. */
+export async function deleteStamp(
+	db: VoyputDb,
+	stamp: Stamp,
+): Promise<TravelStay[]> {
+	return db.transaction("rw", db.stamps, db.stays, async () => {
+		await db.stamps.delete(stamp.id);
+		return staysAfterEvidenceChange(db, {
+			removedStamps: new Set([stamp.id]),
+		});
+	});
 }
 
-/** Puts a deleted stamp back as it was. */
-export async function restoreStamp(db: VoyputDb, stamp: Stamp): Promise<void> {
-	await db.stamps.put(stamp);
+/** Puts a deleted stamp back as it was, with the stays its delete changed. */
+export async function restoreStamp(
+	db: VoyputDb,
+	stamp: Stamp,
+	stays: readonly TravelStay[] = [],
+): Promise<void> {
+	await db.transaction("rw", db.stamps, db.stays, async () => {
+		await db.stamps.put(stamp);
+		await restoreStays(db, stays);
+	});
 }
 
 export async function addManualStamp(

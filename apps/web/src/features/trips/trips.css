@@ -564,6 +564,26 @@
 	font-family: var(--vp-font-pixel);
 	text-transform: uppercase;
 }
+/* A stay whose stamps or photos changed: Re-suggest or Keep under its row. */
+.vp-stay-evidence {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 12px;
+	margin: 0 14px;
+	padding: 0 8px;
+	border-left: 2px solid var(--vp-warn);
+	font-size: var(--vp-text-xs);
+	color: var(--vp-muted);
+}
+.vp-stay-evidence .vp-button {
+	min-height: 0;
+	padding-block: 0;
+}
+.vp-stay-changed {
+	font-size: var(--vp-text-xs);
+	color: var(--vp-warn);
+}
 /* Add and split forms. */
 .vp-stay-add {
 	display: flex;
@@ -863,6 +883,7 @@
 @media (max-width: 860px), (pointer: coarse) {
 	.vp-stays-bar .vp-button,
 	.vp-stay-gap .vp-button,
+	.vp-stay-evidence .vp-button,
 	.vp-stay-form-actions .vp-button,
 	.vp-stay-panel-more .vp-button,
 	.vp-stay-edge .vp-button,

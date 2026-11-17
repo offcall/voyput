@@ -7,6 +7,7 @@ import {
 	legacyTripStays,
 	mergeKept,
 	type NewStay,
+	resuggestStay,
 	type StayGap,
 	splitStay,
 	stayCounts,
@@ -259,11 +260,13 @@ export function TripsPage() {
 	const counts = stayCounts(stays, hints);
 	const clear = clearStayIds(stays, hints, birth);
 	const statuses: StayStatus[] = stays.map((s, i) =>
-		hints[i]?.some((h) => h.severity === "error")
-			? "error"
-			: s.approved || clear.includes(s.id)
-				? "ok"
-				: "check",
+		s.evidenceChanged
+			? "changed"
+			: hints[i]?.some((h) => h.severity === "error")
+				? "error"
+				: s.approved || clear.includes(s.id)
+					? "ok"
+					: "check",
 	);
 	const toCheck = statuses.filter(
 		(st, i) => st === "check" && !stays[i]?.approved,
@@ -314,6 +317,35 @@ export function TripsPage() {
 				);
 			})
 			.catch(fail);
+	// A stay whose stamps or photos changed: suggested again within its days, the rest stays.
+	const resuggest = (stay: TravelStay) =>
+		loadTripsData(db)
+			.then((fresh) => {
+				setData(fresh);
+				if (stay.id === selectedId) select(null);
+				edit(
+					{
+						stays: resuggestStay(stays, stay.id, {
+							...fresh,
+							birth,
+							birthCountry,
+						}),
+					},
+					`Re-suggested ${countryName(stay.countryCode)}`,
+				);
+			})
+			.catch(fail);
+	const keepAsIs = (stay: TravelStay) => {
+		const { evidenceChanged: _, ...kept } = stay;
+		edit(
+			{
+				stays: stays.map((s) =>
+					s.id === stay.id ? { ...kept, edited: true } : s,
+				),
+			},
+			`Kept ${countryName(stay.countryCode)} as is`,
+		);
+	};
 	const add = (stay: NewStay) => {
 		const next = addStay(stays, stay);
 		edit({ stays: next.stays }, `Added ${countryName(stay.countryCode)}`);
@@ -384,7 +416,7 @@ export function TripsPage() {
 			);
 		}
 		const stay = stays[item.index] as TravelStay;
-		return (
+		const row = (
 			<StayRow
 				key={stay.id}
 				stay={stay}
@@ -395,6 +427,32 @@ export function TripsPage() {
 				selected={stay.id === selectedId}
 				onSelect={() => leaveFor(stay.id === selectedId ? null : stay.id)}
 			/>
+		);
+		if (!stay.evidenceChanged) return row;
+		const name = countryName(stay.countryCode);
+		return (
+			<div key={stay.id} className="vp-stay-block">
+				{row}
+				<div className="vp-stay-evidence">
+					<span>A stamp or photo of this stay was deleted or edited.</span>
+					<Button
+						size="sm"
+						variant="ghost"
+						aria-label={`Re-suggest ${name} from the evidence`}
+						onClick={() => void resuggest(stay)}
+					>
+						Re-suggest this stay
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						aria-label={`Keep ${name} as is`}
+						onClick={() => keepAsIs(stay)}
+					>
+						Keep as is
+					</Button>
+				</div>
+			</div>
 		);
 	};
 
