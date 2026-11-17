@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Changes what the generated demo of ADR 0010 shows; ADR 0021 (Commons samples) is unchanged.
+Accepted. Changes what the generated demo of ADR 0010 shows; ADR 0021 (Commons samples) is unchanged. The Review part is superseded by [ADR 0030](0030-day-aware-photo-location-check.md).
 
 ## Context
 

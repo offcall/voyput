@@ -121,10 +121,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-03",
@@ -158,10 +155,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-05",
@@ -178,10 +172,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-06",
@@ -232,10 +223,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-09",
@@ -269,10 +257,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-11",
@@ -306,10 +291,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-13",
@@ -326,10 +308,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-14",
@@ -363,10 +342,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-16",
@@ -417,10 +393,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-19",
@@ -471,10 +444,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-22",
@@ -508,10 +478,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-24",
@@ -519,16 +486,16 @@
 			"photoId": "demo-photo-4",
 			"direction": "entry",
 			"borderCrossing": "plane",
-			"dateText": "05.07.18",
-			"date": "2018-07-05",
+			"dateText": "03.07.18",
+			"date": "2018-07-03",
 			"country": "Italy",
 			"countryCode": "IT",
 			"location": "Rome Fiumicino Airport",
-			"confidence": 95,
-			"notes": "",
+			"confidence": 63,
+			"notes": "Day digit is smudged; 03 or 05.",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true
+			"reviewed": false
 		},
 		{
 			"id": "demo-stamp-25",
@@ -545,10 +512,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-26",
@@ -582,10 +546,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-28",
@@ -670,10 +631,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-33",
@@ -690,10 +648,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-34",
@@ -727,10 +682,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-36",
@@ -764,10 +716,7 @@
 			"notes": "Direction word smudged; entry or exit not readable.",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": false
 		},
 		{
 			"id": "demo-stamp-38",
@@ -835,10 +784,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-42",
@@ -872,10 +818,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-44",
@@ -909,10 +852,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-46",
@@ -946,10 +886,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-48",
@@ -1034,10 +971,7 @@
 			"notes": "Faint stamp; the checkpoint name is not readable.",
 			"problem": null,
 			"source": "ai",
-			"reviewed": false,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": false
 		},
 		{
 			"id": "demo-stamp-53",
@@ -1071,10 +1005,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-55",
@@ -1091,10 +1022,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-56",
@@ -1213,10 +1141,7 @@
 			"notes": "Faint ink.",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-63",
@@ -1233,10 +1158,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-64",
@@ -1287,10 +1209,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-67",
@@ -1307,10 +1226,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-68",
@@ -1361,10 +1277,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-71",
@@ -1381,10 +1294,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-72",
@@ -1418,10 +1328,7 @@
 			"notes": "",
 			"problem": null,
 			"source": "ai",
-			"reviewed": true,
-			"dismissed": {
-				"icloudCheck": true
-			}
+			"reviewed": true
 		},
 		{
 			"id": "demo-stamp-74",

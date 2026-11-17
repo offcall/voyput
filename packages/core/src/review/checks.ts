@@ -1,3 +1,4 @@
+import type { Direction } from "../stamps/types";
 import { dayIso, dayNumber, lowerBound } from "./days";
 import { countryLabel, type PhotoIndex } from "./photoIndex";
 
@@ -55,54 +56,105 @@ export const nearbyPhotos = (
 	return result;
 };
 
-/** The photo in `code` closest to `target` within `window` days, if any. */
-const nearestInCountry = (
+interface FoundPhoto {
+	gap: number;
+	date: string;
+	filename: string;
+	countryCode: string;
+}
+
+/** The photo closest to `target` within `window` days that `match` accepts; the earlier one on a tie. */
+const nearestWhere = (
 	index: PhotoIndex,
 	target: number,
-	code: string,
-	window = SUGGEST_WINDOW,
-): { gap: number; date: string; filename: string } | null => {
+	window: number,
+	match: (code: string) => boolean,
+): FoundPhoto | null => {
 	const end = lowerBound(index.days, target + window + 1);
-	let best: { gap: number; date: string; filename: string } | null = null;
+	let best: FoundPhoto | null = null;
 	for (let i = lowerBound(index.days, target - window); i < end; i++) {
-		if (index.countryCodes[i] !== code) continue;
+		const code = index.countryCodes[i] ?? "";
+		if (!match(code)) continue;
 		const day = index.days[i] ?? 0;
 		const gap = Math.abs(day - target);
 		if (!best || gap < best.gap)
-			best = { gap, date: dayIso(day), filename: index.filenames[i] ?? "" };
+			best = {
+				gap,
+				date: dayIso(day),
+				filename: index.filenames[i] ?? "",
+				countryCode: code,
+			};
 	}
 	return best;
 };
 
 /**
- * Compares a stamp with the nearest photo in time. A photo in another country
- * within `window` days (10 by default) is a warning; the suggestion points to the nearest photo in
- * the stamp's own country within 30 days, which hints at a misread date.
+ * Days around the stamp date (as offsets) on which a photo in the stamp's
+ * country confirms it. An entry may be followed by photos only the next day
+ * (a night arrival); an exit may follow the last photos of the day before
+ * (a night departure). Photos in other countries on those days, such as
+ * home before a morning flight or an airside transit, do not count against it.
+ */
+const confirmingDays = (
+	direction: Direction | null | undefined,
+): [number, number] =>
+	direction === "entry" ? [0, 1] : direction === "exit" ? [-1, 0] : [-1, 1];
+
+const hasPhotoIn = (
+	index: PhotoIndex,
+	code: string,
+	from: number,
+	to: number,
+): boolean => {
+	const end = lowerBound(index.days, to + 1);
+	for (let i = lowerBound(index.days, from); i < end; i++)
+		if (index.countryCodes[i] === code) return true;
+	return false;
+};
+
+/**
+ * Checks a stamp against the photo locations around its date. It agrees when
+ * the stamp's country has a photo on its confirming days (`confirmingDays`).
+ * Otherwise the nearest photo in another country within `window` days (10 by
+ * default) is a warning; with none, nothing contradicts the stamp. The
+ * suggestion points to the nearest photo in the stamp's own country within
+ * 30 days, which hints at a misread date.
  */
 export const checkStamp = (
 	index: PhotoIndex,
-	stamp: { date: string | null; countryCode: string | null },
+	stamp: {
+		date: string | null;
+		countryCode: string | null;
+		direction?: Direction | null;
+	},
 	window = STAMP_CHECK_WINDOW,
 ): StampCheck => {
 	const code = (stamp.countryCode ?? "").toUpperCase();
 	const target = stamp.date ? dayNumber(stamp.date) : null;
 	if (!code || target === null) return NO_CHECK;
-	const [nearest] = nearbyPhotos(index, stamp.date, 1);
-	if (!nearest || nearest.countryCode === code || nearest.gap > window)
-		return NO_CHECK;
+	const [from, to] = confirmingDays(stamp.direction);
+	if (hasPhotoIn(index, code, target + from, target + to)) return NO_CHECK;
+	const nearest = nearestWhere(index, target, window, (c) => c !== code);
+	if (!nearest) return NO_CHECK;
+	const country = countryLabel(index, nearest.countryCode);
 	const photo = `photo${nearest.filename ? ` "${nearest.filename}"` : ""}`;
 	const stampCountry = countryLabel(index, code);
-	const confirm = nearestInCountry(index, target, code);
+	const confirm = nearestWhere(
+		index,
+		target,
+		SUGGEST_WINDOW,
+		(c) => c === code,
+	);
 
 	if (nearest.gap <= NEAR_DAYS)
 		return {
-			icloudCheck: `${nearest.gap} day(s) from the stamp date, a ${photo} was taken in ${nearest.country}, not ${stampCountry}`,
+			icloudCheck: `${nearest.gap} day(s) from the stamp date, a ${photo} was taken in ${country}, not ${stampCountry}`,
 			suggestion: confirm
 				? `Possible correct date is around ${confirm.date} (photo "${confirm.filename}" in ${stampCountry}, ${confirm.gap} day(s) from the stamp date)`
-				: `No photos in ${stampCountry} within ${SUGGEST_WINDOW} days: the country may be misread (nearby photos show ${nearest.country})`,
+				: `No photos in ${stampCountry} within ${SUGGEST_WINDOW} days: the country may be misread (nearby photos show ${country})`,
 		};
 	return {
-		icloudCheck: `Possible inaccuracy: the nearest ${photo} (${nearest.gap} day(s) away) is in ${nearest.country}`,
+		icloudCheck: `Possible inaccuracy: the nearest ${photo} (${nearest.gap} day(s) away) is in ${country}`,
 		suggestion: confirm
 			? `There is also a photo in ${stampCountry} on ${confirm.date} ("${confirm.filename}", ${confirm.gap} day(s) away); check which date is right`
 			: `No photos in ${stampCountry} within ${SUGGEST_WINDOW} days: check by hand`,

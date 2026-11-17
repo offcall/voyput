@@ -402,8 +402,6 @@ export interface StampPlan {
 		confidence: number;
 		notes: string;
 	};
-	/** A correct stamp the photo locations put on another day; its warning stays open. */
-	keepWarning?: boolean;
 }
 
 /**
@@ -560,7 +558,17 @@ export const TRIPS: Trip[] = [
 		],
 		stamps: [
 			s("KBP", "exit", "2018-07-05"),
-			s("FCO", "entry", "2018-07-05"),
+			// Planted: a smudged 5 read as 3, so the entry lands two days before the flight.
+			s("FCO", "entry", "2018-07-05", {
+				smudge: "date",
+				read: {
+					date: "2018-07-03",
+					dateText: "03.07.18",
+					reviewed: false,
+					confidence: 63,
+					notes: "Day digit is smudged; 03 or 05.",
+				},
+			}),
 			s("NCE", "exit", "2018-07-15"),
 			s("KBP", "entry", "2018-07-15"),
 		],
@@ -704,8 +712,8 @@ export const TRIPS: Trip[] = [
 			s("KORCZOWA", "entry", "2023-01-11"),
 			s("WAW", "exit", "2023-01-12"),
 			s("BKK", "entry", "2023-01-13"),
-			// Planted: a 01:50 flight; the photos say the day before.
-			s("BKK", "exit", "2023-02-11", { keepWarning: true }),
+			// A 01:50 flight: the last photos in Thailand are from the day before.
+			s("BKK", "exit", "2023-02-11"),
 			// Planted: faint, its checkpoint not readable.
 			s("WAW", "entry", "2023-02-11", {
 				faint: true,

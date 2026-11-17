@@ -193,7 +193,7 @@ describe("demo data", () => {
 			"TH 2018-02-09 2018-02-25 stamp/stamp",
 			"QA 2018-02-25 2018-02-26 estimated/estimated",
 			"UA 2018-02-26 2018-07-05 stamp/stamp",
-			"IT 2018-07-05 2018-07-12 stamp/photos",
+			"IT 2018-07-05 2018-07-12 estimated/photos",
 			"FR 2018-07-12 2018-07-15 photos/stamp",
 			"UA 2018-07-15 2019-09-03 stamp/stamp",
 			"ME 2019-09-03 2019-09-10 stamp/estimated",
@@ -262,6 +262,14 @@ describe("demo data", () => {
 				check.suggestion,
 			]);
 		expect(open).toEqual([
+			// A smudged 5 read as 3: the photos are still at home.
+			[
+				"IT",
+				"entry",
+				"2018-07-03",
+				false,
+				expect.stringContaining("around 2018-07-05"),
+			],
 			// A smudged 10 read as 16: the photos are back home by then.
 			[
 				"ME",
@@ -272,17 +280,16 @@ describe("demo data", () => {
 			],
 			// The entry/exit word is smudged.
 			["TR", "unknown", "2021-07-24", false, expect.any(String)],
-			// A 01:50 flight: right stamp, but the last photo in Thailand is a day earlier.
-			[
-				"TH",
-				"exit",
-				"2023-02-11",
-				true,
-				expect.stringContaining("around 2023-02-10"),
-			],
 			// Faint, checkpoint unreadable.
 			["PL", "entry", "2023-02-11", false, expect.any(String)],
 		]);
+		// No warning ships dismissed: every travel day passes the check on its
+		// own, the 01:50 Bangkok exit included.
+		expect(stamps.filter((stamp) => stamp.dismissed)).toEqual([]);
+		const bangkokExit = stamps.find(
+			(stamp) => stamp.countryCode === "TH" && stamp.date === "2023-02-11",
+		);
+		expect(bangkokExit && checkStamp(index, bangkokExit).icloudCheck).toBe("");
 	});
 
 	it("removes only the stays built on demo data, not the user's own", async () => {

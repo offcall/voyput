@@ -88,13 +88,13 @@ pages.forEach((pageStamps, i) => {
 			source: "ai",
 			reviewed: read?.reviewed ?? true,
 		};
-		// The traveller already marked the usual travel-day warnings as fine;
-		// only the planted problems stay open.
+		// Only a planted misread date may warn; travel days must pass the check.
 		const warning = warns(stamp);
-		const planted = Boolean(plan.keepWarning || read?.date);
-		if (planted && !warning)
-			throw new Error(`${stamp.id} should show a photo location warning`);
-		if (warning && !planted) stamp.dismissed = { icloudCheck: true };
+		const planted = Boolean(read?.date);
+		if (planted !== warning)
+			throw new Error(
+				`${stamp.id} ${planted ? "should" : "should not"} show a photo location warning`,
+			);
 		stamps.push(stamp);
 	}
 });
