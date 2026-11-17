@@ -404,5 +404,6 @@ describe("globe with outlines", () => {
 			canvas.focus();
 		}
 		expect(seen.sort()).toEqual(sample.map(([code]) => code).sort());
-	});
+		// Real world geometry: ~4 s alone, slower under a full parallel run.
+	}, 30_000);
 });
