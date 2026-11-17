@@ -11,7 +11,8 @@
 			"!**/dist",
 			"!**/node_modules",
 			"!**/coverage",
-			"!**/storybook-static"
+			"!**/storybook-static",
+			"!apps/web/src/features/import/csv/assets"
 		]
 	},
 	"formatter": {

@@ -18,8 +18,8 @@ import { useCountryColour } from "../../../app/countryColours";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
 import { staysAfterEvidenceChange } from "../../trips/evidenceChange";
-import { loadCountryLocator } from "../../visualize/useWorld";
 import { useLiveQuery } from "../photos/useLiveQuery";
+import { loadCountryLocator } from "./countryLocator";
 import { LocationStrip } from "./LocationStrip";
 import {
 	focusStoredLocations,
@@ -241,9 +241,8 @@ export function HowToGetFile({
 				<code>city</code>, <code>source</code>, <code>is_video</code>,{" "}
 				<code>filename</code>, <code>uuid</code>. <code>date</code> is ISO 8601.
 				Without <code>country_code</code>, voyput finds the country from the
-				coordinates, here in your browser; near a border it can pick the
-				neighbour, and places too small for its map (Singapore, Hong Kong,
-				Monaco, ...) get the nearest larger country.
+				coordinates, here in your browser, using detailed borders (Natural Earth
+				10m, accurate to a few hundred metres).
 			</p>
 		</Disclosure>
 	);

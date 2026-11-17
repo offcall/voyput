@@ -16,6 +16,7 @@
 		"check": "biome check . && tsc --noEmit && vitest run",
 		"test": "vitest run",
 		"demo:generate": "node --experimental-strip-types scripts/demo/generate.ts && biome format --write apps/web/public/demo",
+		"world:outlines": "node --experimental-strip-types scripts/world/outlines.ts",
 		"world:generate": "node --experimental-strip-types scripts/world/generate.ts && biome format --write packages/core/src/viz/worldTable.generated.ts"
 	},
 	"devDependencies": {

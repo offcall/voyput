@@ -1,135 +1,204 @@
-import { geometryRings, type Ring, WORLD_NAME_TO_CODE } from "./world";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null;
-
 /** The ISO code of the country at a point, or null when none is near enough. */
 export type CountryLocator = (lat: number, lon: number) => string | null;
+
+/** Outline coordinates are integers in units of 1 / OUTLINE_SCALE degree (~11 m). */
+export const OUTLINE_SCALE = 10_000;
 
 /** How far outside every outline a point may be and still get the nearest country. */
 export const NEAREST_COUNTRY_KM = 50;
 
-const KM_PER_DEGREE = 111.2;
-
-interface Country {
+/** One country's outlines as `[lon, lat]` rings in degrees. */
+export interface CountryOutline {
 	code: string;
-	rings: Ring[];
-	/** [minLon, minLat, maxLon, maxLat] */
-	box: [number, number, number, number];
+	rings: [number, number][][];
 }
 
-/** Even-odd ray casting over all rings, so holes and separate islands both count right. */
-function contains(rings: Ring[], lat: number, lon: number): boolean {
-	let inside = false;
-	for (const ring of rings) {
-		for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-			const a = ring[i];
-			const b = ring[j];
-			if (!a || !b) continue;
-			const [ax, ay] = a;
-			const [bx, by] = b;
-			if (
-				ay > lat !== by > lat &&
-				lon < ((bx - ax) * (lat - ay)) / (by - ay) + ax
-			)
-				inside = !inside;
+const KM_PER_DEGREE = 111.2;
+/** Latitude band height for the inside test, in degrees. */
+const BAND = 0.05;
+/** Grid cell size for the nearest-edge search, in degrees. */
+const CELL = 0.25;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null;
+
+/**
+ * Reads `{ scale, countries: { CODE: [ring, ...] } }`, each ring a flat list
+ * of `[lon, lat]` integer deltas (scripts/world/outlines.ts). Anything
+ * malformed is left out.
+ */
+export function decodeCountryOutlines(data: unknown): CountryOutline[] {
+	if (!isRecord(data) || !isRecord(data.countries)) return [];
+	const scale = typeof data.scale === "number" ? data.scale : OUTLINE_SCALE;
+	const outlines: CountryOutline[] = [];
+	for (const [code, rings] of Object.entries(data.countries)) {
+		if (!/^[A-Z]{2}$/.test(code) || !Array.isArray(rings)) continue;
+		const decoded: [number, number][][] = [];
+		for (const ring of rings) {
+			if (!Array.isArray(ring) || ring.length < 8 || ring.length % 2) continue;
+			let x = 0;
+			let y = 0;
+			const points: [number, number][] = [];
+			for (let i = 0; i < ring.length; i += 2) {
+				const dx = ring[i];
+				const dy = ring[i + 1];
+				if (typeof dx !== "number" || typeof dy !== "number") break;
+				x += dx;
+				y += dy;
+				points.push([x / scale, y / scale]);
+			}
+			if (points.length * 2 === ring.length) decoded.push(points);
 		}
+		if (decoded.length) outlines.push({ code, rings: decoded });
 	}
-	return inside;
+	return outlines;
 }
 
-/** Shortest distance in km from the point to the rings' edges (flat Earth near the point). */
-function distanceKm(rings: Ring[], lat: number, lon: number): number {
-	const scale = Math.cos((lat * Math.PI) / 180);
-	const project = ([pLon, pLat]: [number, number]): [number, number] => {
-		let dLon = pLon - lon;
-		if (dLon > 180) dLon -= 360;
-		if (dLon < -180) dLon += 360;
-		return [dLon * scale * KM_PER_DEGREE, (pLat - lat) * KM_PER_DEGREE];
-	};
-	let best = Number.POSITIVE_INFINITY;
-	for (const ring of rings) {
-		for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-			const a = ring[i];
-			const b = ring[j];
-			if (!a || !b) continue;
-			const [ax, ay] = project(a);
-			const [bx, by] = project(b);
-			const dx = bx - ax;
-			const dy = by - ay;
-			const length = dx * dx + dy * dy;
-			const t =
-				length === 0
-					? 0
-					: Math.max(0, Math.min(1, -(ax * dx + ay * dy) / length));
-			best = Math.min(best, Math.hypot(ax + t * dx, ay + t * dy));
-		}
-	}
-	return best;
+interface Edge {
+	country: number;
+	ax: number;
+	ay: number;
+	bx: number;
+	by: number;
 }
 
-function nearBox(country: Country, lat: number, lon: number, km: number) {
-	const [minLon, minLat, maxLon, maxLat] = country.box;
-	const latMargin = km / KM_PER_DEGREE;
-	const lonMargin =
-		latMargin /
-		Math.max(0.01, Math.cos((Math.min(89, Math.abs(lat)) * Math.PI) / 180));
-	return (
-		lat >= minLat - latMargin &&
-		lat <= maxLat + latMargin &&
-		lon >= minLon - lonMargin &&
-		lon <= maxLon + lonMargin
-	);
+function push<K>(map: Map<K, number[]>, key: K, value: number) {
+	const list = map.get(key);
+	if (list) list.push(value);
+	else map.set(key, [value]);
+}
+
+/** Distance in km from the point to an edge, on a flat Earth around the point. */
+function edgeKm(edge: Edge, lat: number, lon: number, scale: number): number {
+	const wrap = (d: number) => (d > 180 ? d - 360 : d < -180 ? d + 360 : d);
+	const ax = wrap(edge.ax - lon) * scale;
+	const ay = edge.ay - lat;
+	const bx = wrap(edge.bx - lon) * scale;
+	const by = edge.by - lat;
+	const dx = bx - ax;
+	const dy = by - ay;
+	const length = dx * dx + dy * dy;
+	const t =
+		length === 0 ? 0 : Math.max(0, Math.min(1, -(ax * dx + ay * dy) / length));
+	return Math.hypot(ax + t * dx, ay + t * dy) * KM_PER_DEGREE;
 }
 
 /**
- * Finds countries from the world outlines the app ships (Natural Earth 110m).
- * A point inside an outline gets that country; a point outside all of them
- * (a coast, a small island, a lake) gets the nearest country within
- * `maxKm`. The outlines are coarse: points near a border can land in the
- * neighbour, and states too small for the map (Monaco, Andorra, ...) are not
- * found (ADR 0033).
+ * Finds the country at a point: the outline it lies in (the smallest one
+ * when outlines nest, such as an enclave drawn without its hole), else the
+ * nearest outline within `maxKm` (a beach, a pier, a boat), else null.
+ * Answers are cached per ~11 m, since photos cluster.
  */
 export function buildCountryLocator(
-	geoJson: unknown,
+	outlines: readonly CountryOutline[],
 	maxKm = NEAREST_COUNTRY_KM,
 ): CountryLocator {
-	const features =
-		isRecord(geoJson) && Array.isArray(geoJson.features)
-			? geoJson.features
-			: [];
-	const countries: Country[] = [];
-	for (const feature of features) {
-		if (!isRecord(feature)) continue;
-		const name = isRecord(feature.properties) ? feature.properties.name : "";
-		const code =
-			typeof name === "string" ? WORLD_NAME_TO_CODE[name] : undefined;
-		const rings = geometryRings(feature.geometry);
-		if (!code || rings.length === 0) continue;
-		const box: Country["box"] = [180, 90, -180, -90];
-		for (const ring of rings)
-			for (const [lon, lat] of ring) {
-				box[0] = Math.min(box[0], lon);
-				box[1] = Math.min(box[1], lat);
-				box[2] = Math.max(box[2], lon);
-				box[3] = Math.max(box[3], lat);
+	const edges: Edge[] = [];
+	const bands = new Map<number, number[]>();
+	const cells = new Map<string, number[]>();
+	const areas: number[] = [];
+	outlines.forEach((outline, country) => {
+		let minX = 180;
+		let minY = 90;
+		let maxX = -180;
+		let maxY = -90;
+		for (const ring of outline.rings)
+			for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+				const a = ring[i];
+				const b = ring[j];
+				if (!a || !b) continue;
+				const edge = { country, ax: a[0], ay: a[1], bx: b[0], by: b[1] };
+				const index = edges.push(edge) - 1;
+				minX = Math.min(minX, a[0]);
+				maxX = Math.max(maxX, a[0]);
+				minY = Math.min(minY, a[1]);
+				maxY = Math.max(maxY, a[1]);
+				const low = Math.min(edge.ay, edge.by);
+				const high = Math.max(edge.ay, edge.by);
+				for (
+					let band = Math.floor(low / BAND);
+					band <= Math.floor(high / BAND);
+					band++
+				)
+					push(bands, band, index);
+				const left = Math.floor(Math.min(edge.ax, edge.bx) / CELL);
+				const right = Math.floor(Math.max(edge.ax, edge.bx) / CELL);
+				for (
+					let row = Math.floor(low / CELL);
+					row <= Math.floor(high / CELL);
+					row++
+				)
+					for (let column = left; column <= right; column++)
+						push(cells, `${row},${column}`, index);
 			}
-		countries.push({ code, rings, box });
-	}
-	return (lat, lon) => {
-		for (const country of countries)
-			if (nearBox(country, lat, lon, 0) && contains(country.rings, lat, lon))
-				return country.code;
-		let nearest: string | null = null;
-		let nearestKm = maxKm;
-		for (const country of countries) {
-			if (!nearBox(country, lat, lon, maxKm)) continue;
-			const km = distanceKm(country.rings, lat, lon);
-			if (km <= nearestKm) {
-				nearest = country.code;
-				nearestKm = km;
-			}
+		areas[country] = (maxX - minX) * (maxY - minY);
+	});
+
+	const inside = (lat: number, lon: number): string | null => {
+		const crossings = new Map<number, number>();
+		for (const index of bands.get(Math.floor(lat / BAND)) ?? []) {
+			const edge = edges[index];
+			if (!edge || edge.ay > lat === edge.by > lat) continue;
+			const x =
+				((edge.bx - edge.ax) * (lat - edge.ay)) / (edge.by - edge.ay) + edge.ax;
+			if (lon < x)
+				crossings.set(edge.country, (crossings.get(edge.country) ?? 0) + 1);
 		}
-		return nearest;
+		let best: number | null = null;
+		for (const [country, count] of crossings)
+			if (
+				count % 2 === 1 &&
+				(best === null || (areas[country] ?? 0) < (areas[best] ?? 0))
+			)
+				best = country;
+		return best === null ? null : (outlines[best]?.code ?? null);
+	};
+
+	const nearest = (lat: number, lon: number): string | null => {
+		const scale = Math.cos((lat * Math.PI) / 180);
+		const latReach = maxKm / KM_PER_DEGREE;
+		const lonReach = Math.min(180, latReach / Math.max(0.01, scale));
+		let best: number | null = null;
+		let bestKm = maxKm;
+		const seen = new Set<number>();
+		for (
+			let row = Math.floor((lat - latReach) / CELL);
+			row <= Math.floor((lat + latReach) / CELL);
+			row++
+		)
+			for (
+				let step = Math.floor((lon - lonReach) / CELL);
+				step <= Math.floor((lon + lonReach) / CELL);
+				step++
+			) {
+				// Columns past ±180° continue on the other side.
+				const columns = 360 / CELL;
+				const column =
+					((((step + columns / 2) % columns) + columns) % columns) -
+					columns / 2;
+				for (const index of cells.get(`${row},${column}`) ?? []) {
+					if (seen.has(index)) continue;
+					seen.add(index);
+					const edge = edges[index];
+					if (!edge) continue;
+					const km = edgeKm(edge, lat, lon, scale);
+					if (km <= bestKm) {
+						best = edge.country;
+						bestKm = km;
+					}
+				}
+			}
+		return best === null ? null : (outlines[best]?.code ?? null);
+	};
+
+	const cache = new Map<string, string | null>();
+	return (lat, lon) => {
+		const key = `${Math.round(lat * OUTLINE_SCALE)},${Math.round(lon * OUTLINE_SCALE)}`;
+		let code = cache.get(key);
+		if (code === undefined) {
+			code = inside(lat, lon) ?? nearest(lat, lon);
+			cache.set(key, code);
+		}
+		return code;
 	};
 }
