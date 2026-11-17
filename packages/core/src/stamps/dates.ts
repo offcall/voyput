@@ -212,10 +212,19 @@ const betweenNumbers = (word: string, offset: number, text: string): boolean =>
 /** Month abbreviations that are also border-stamp labels: Portuguese "OUT" (outubro) is the English exit label. */
 const LABEL_MONTHS = new Set(["OUT"]);
 
+/** How many numbers follow, up to the next word; single digits printed apart count as one ("2 0 1 9"). */
+const numbersAfter = (text: string): number =>
+	(
+		(text.split(/\p{L}/u)[0] ?? "")
+			.replace(/(?<=\b\d)[ \t]+(?=\d\b)/g, "")
+			.match(/\d+/g) ?? []
+	).length;
+
 /**
  * How a word reads in a printed date: a month name, a Roman month, or nothing.
  * Roman months and label-like names count only between two numbers, so a stray
- * "V" or an "OUT 12 05 19" exit label stays a word.
+ * "V" stays a letter. A label-like name followed by a whole numeric date
+ * (day, month, year: "01 OUT 12.05.19") is the label, not the month.
  */
 const wordMonth = (
 	word: string,
@@ -225,7 +234,9 @@ const wordMonth = (
 	const month = monthOf(word);
 	if (
 		month > 0 &&
-		(!LABEL_MONTHS.has(plainUpper(word)) || betweenNumbers(word, offset, text))
+		(!LABEL_MONTHS.has(plainUpper(word)) ||
+			(betweenNumbers(word, offset, text) &&
+				numbersAfter(text.slice(offset + word.length)) < 3))
 	)
 		return { month, kind: "name" };
 	const roman = ROMAN_MONTHS.indexOf(word) + 1;
@@ -247,19 +258,36 @@ export const monthNamesToNumbers = (text: string): string =>
 interface Group {
 	digits: string;
 	kind: "number" | "name" | "roman";
+	/** Only spaces separate it from the number before it. */
+	spaced: boolean;
 }
 
-const groupsOf = (text: string): Group[] =>
-	[...text.matchAll(/\d+|\p{L}+/gu)].flatMap((match): Group[] => {
+const groupsOf = (text: string): Group[] => {
+	const groups: Group[] = [];
+	let previousEnd = -1;
+	for (const match of text.matchAll(/\d+|\p{L}+/gu)) {
 		const token = match[0];
-		if (/^\d/.test(token)) return [{ digits: token, kind: "number" }];
+		const spaced =
+			previousEnd >= 0 && /^[ \t]+$/.test(text.slice(previousEnd, match.index));
+		previousEnd = -1;
+		if (/^\d/.test(token)) {
+			groups.push({ digits: token, kind: "number", spaced });
+			previousEnd = match.index + token.length;
+			continue;
+		}
 		const read = wordMonth(token, match.index, text);
-		return read ? [{ digits: twoDigits(read.month), kind: read.kind }] : [];
-	});
+		if (read)
+			groups.push({ digits: twoDigits(read.month), kind: read.kind, spaced });
+	}
+	return groups;
+};
 
-/** A single printed digit: several in a row are one number printed apart ("1 7" is 17). */
-const isSpaced = (group: Group | undefined): boolean =>
+const isDigit = (group: Group | undefined): boolean =>
 	group?.kind === "number" && group.digits.length === 1;
+
+/** Two single digits with only spaces between them: one number printed apart ("1 7" is 17), never "1/7". */
+const joined = (first: Group | undefined, second: Group | undefined): boolean =>
+	isDigit(first) && isDigit(second) && second?.spaced === true;
 
 /** One date part: which groups may fill it and which value it needs. */
 interface Part {
@@ -269,7 +297,7 @@ interface Part {
 
 /**
  * Can the parts be read, in order, from consecutive digit groups? A part is one
- * group, or a run of single digits printed apart: "1 7" is 17, "0 6" is 06.
+ * group, or a run of single digits with only spaces between: "1 7" is 17, "0 6" is 06.
  * A run is never cut where no part goes on: "3 1 MAY" is not day 1, and
  * "2 0 2 3" is not year 20.
  */
@@ -284,20 +312,22 @@ const readsInOrder = (
 		for (let end = index; end < groups.length; end++) {
 			const group = groups[end];
 			if (!group || !part.kinds.includes(group.kind)) break;
-			if (end > index && (!isSpaced(group) || value.length >= 4)) break;
+			if (end > index && (!joined(groups[end - 1], group) || value.length >= 4))
+				break;
 			value += group.digits;
+			// The last part may stop inside a run only as one digit after a separator: day "2" in "2023/1/2 3".
 			const cutsRun =
-				isSpaced(group) && isSpaced(groups[end + 1]) && others.length === 0;
+				others.length === 0 &&
+				joined(group, groups[end + 1]) &&
+				(end > index || group.spaced);
 			if (!cutsRun && part.matches(value) && readFrom(end + 1, others))
 				return true;
-			if (!isSpaced(group)) break;
 		}
 		return false;
 	};
 	return groups.some(
 		(group, start) =>
-			!(isSpaced(group) && isSpaced(groups[start - 1])) &&
-			readFrom(start, parts),
+			!joined(groups[start - 1], group) && readFrom(start, parts),
 	);
 };
 
@@ -324,10 +354,16 @@ export const dateMatchesText = (date: string, text: string): boolean => {
 		matches: (value) => value === year || (short && value === year.slice(2)),
 	});
 	const groups = groupsOf(text);
-	// Unevenly spaced digits: "1 5 07 1 9 9 <" → "2208189" contains "220818".
-	const packed = monthNamesToNumbers(text)
-		.replace(/\D/g, "")
-		.includes(`${day}${month}${year.slice(2)}`);
+	// Unevenly spaced digits: "1 5 07 1 9 9 <" → "1507199" starts with "150719".
+	// Only numbers with nothing but spaces between, read from the start of one.
+	const packed = (text.match(/\d+(?:[ \t]+\d+)*/g) ?? []).some((run) =>
+		run.split(/[ \t]+/).some((_, start, numbers) =>
+			numbers
+				.slice(start)
+				.join("")
+				.startsWith(`${day}${month}${year.slice(2)}`),
+		),
+	);
 	return (
 		readsInOrder(groups, [dayPart, monthPart, yearPart(true)]) ||
 		readsInOrder(groups, [namedMonth, dayPart, yearPart(true)]) ||

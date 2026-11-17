@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	dateMatchesText,
 	findConflicts,
+	isValidDate,
 	pairVisits,
 	parsePhotoResponse,
 	type Stamp,
@@ -266,54 +267,81 @@ ${JSON.stringify({
 	});
 });
 
+/** Printed date lines and the dates they show; every one must pass the check. */
+const ACCEPTED: [date: string, text: string][] = [
+	["2021-06-14", "◁ 14 06 21 03"],
+	["2022-05-17", "17.05.22 41"],
+	["2020-02-28", "28 02 20 9 <"],
+	["2019-12-02", "2 DEC 2019"],
+	["2019-07-15", "1 5 07 1 9 9 <"],
+	["2023-03-24", "MAR 24 2023"],
+	["2023-03-24", "Mar 24, 23"],
+	["2026-06-06", "2026/06/06"],
+	["2026-06-07", "2026-6-7 12"],
+	["2019-12-02", "DECEMBER 2 2019"],
+	["2019-09-02", "2 SEPT 2019"],
+	// Digits printed apart.
+	["2019-07-15", "15 07 1 9 9"],
+	["2021-06-14", "1 4 0 6 21 03"],
+	// Month names in other languages, with or without accents.
+	["2019-07-12", "12 JUIL 2019"],
+	["2019-02-03", "3 FÉVR. 2019"],
+	["2019-08-15", "15 AOUT 2019"],
+	["2019-03-04", "04 MÄR 2019"],
+	["2019-10-05", "5 OKT 2019"],
+	["2019-12-06", "06.DEZ.2019"],
+	["2019-01-07", "7 ENE 2019"],
+	["2019-04-08", "08 ABR 19"],
+	["2019-06-09", "9 GIU 2019"],
+	["2019-07-10", "10 LUG 2019"],
+	["2019-10-11", "11 OUT 2019"],
+	["2019-10-12", "12 OUT 2019"],
+	["2019-05-12", "OUT 12 05 19"],
+	["2018-11-05", "IN 05 11 2018"],
+	["2023-03-24", "MAR 24 2 0 2 3"],
+	["2005-09-05", "5 9 05 4"],
+	["2019-09-12", "12 SET 2019"],
+	["2019-02-13", "13 ŞUB 2019"],
+	["2019-10-14", "14 Eki 2019"],
+	["2019-11-15", "15 KAS 2019"],
+	["2019-08-16", "16 AĞU 2019"],
+	["2019-10-17", "17 ОКТ 2019"],
+	["2019-05-18", "18 МАЯ 2019"],
+	["2019-11-19", "19 ЛИС 2019"],
+	["2019-07-20", "20 ЛИПНЯ 2019"],
+	// Roman months.
+	["2019-07-12", "12.VII.2019"],
+	["2019-11-03", "3 XI 19"],
+	["2019-04-01", "2019-IV-01"],
+	["1998-06-21", "21 JUN 1998"],
+	// Commons sample stamps (apps/web/public/demo/samples.json) that warned before.
+	["2004-07-17", "JUL 1 7 2004"],
+	["2005-05-31", "3 1 MAY 2005"],
+	["2005-11-06", "2005 -11- 0 6"],
+	["2006-12-19", "DEC 1 9 2006"],
+	["2005-07-23", "23 JUIL. 2005"],
+	["2008-12-30", "DEC 3 0 2008"],
+];
+
+/**
+ * Each printed digit of the day, the month and the year moved up and down by
+ * one: 07 → 17, 2019 → 2020. A two-digit year cannot show its century.
+ */
+const oneDigitOff = (date: string, text: string): string[] => {
+	const yearFrom = text.includes(date.slice(0, 4)) ? 0 : 2;
+	const positions = [0, 1, 2, 3, 5, 6, 8, 9].filter((p) => p >= yearFrom);
+	return positions
+		.flatMap((position) =>
+			[1, 9].map((step) => {
+				const digit = (Number(date[position]) + step) % 10;
+				return `${date.slice(0, position)}${digit}${date.slice(position + 1)}`;
+			}),
+		)
+		.filter(isValidDate);
+};
+
 describe("dateMatchesText", () => {
-	it.each([
-		["2021-06-14", "◁ 14 06 21 03"],
-		["2022-05-17", "17.05.22 41"],
-		["2020-02-28", "28 02 20 9 <"],
-		["2019-12-02", "2 DEC 2019"],
-		["2019-07-15", "1 5 07 1 9 9 <"],
-		["2023-03-24", "MAR 24 2023"],
-		["2023-03-24", "Mar 24, 23"],
-		["2026-06-06", "2026/06/06"],
-		["2026-06-07", "2026-6-7 12"],
-		["2019-12-02", "DECEMBER 2 2019"],
-		["2019-09-02", "2 SEPT 2019"],
-		// Digits printed apart.
-		["2019-07-15", "15 07 1 9 9"],
-		["2021-06-14", "1 4 0 6 21 03"],
-		// Month names in other languages, with or without accents.
-		["2019-07-12", "12 JUIL 2019"],
-		["2019-02-03", "3 FÉVR. 2019"],
-		["2019-08-15", "15 AOUT 2019"],
-		["2019-03-04", "04 MÄR 2019"],
-		["2019-10-05", "5 OKT 2019"],
-		["2019-12-06", "06.DEZ.2019"],
-		["2019-01-07", "7 ENE 2019"],
-		["2019-04-08", "08 ABR 19"],
-		["2019-06-09", "9 GIU 2019"],
-		["2019-07-10", "10 LUG 2019"],
-		["2019-10-11", "11 OUT 2019"],
-		["2019-10-12", "12 OUT 2019"],
-		["2019-05-12", "OUT 12 05 19"],
-		["2018-11-05", "IN 05 11 2018"],
-		["2023-03-24", "MAR 24 2 0 2 3"],
-		["2005-09-05", "5 9 05 4"],
-		["2019-09-12", "12 SET 2019"],
-		["2019-02-13", "13 ŞUB 2019"],
-		["2019-10-14", "14 Eki 2019"],
-		["2019-11-15", "15 KAS 2019"],
-		["2019-08-16", "16 AĞU 2019"],
-		["2019-10-17", "17 ОКТ 2019"],
-		["2019-05-18", "18 МАЯ 2019"],
-		["2019-11-19", "19 ЛИС 2019"],
-		["2019-07-20", "20 ЛИПНЯ 2019"],
-		// Roman months.
-		["2019-07-12", "12.VII.2019"],
-		["2019-11-03", "3 XI 19"],
-		["2019-04-01", "2019-IV-01"],
-		["1998-06-21", "21 JUN 1998"],
-	])("accepts %s for %j", (date, text) => {
+	it.each(ACCEPTED)("accepts %s for %j", (date, text) => {
 		expect(dateMatchesText(date, text)).toBe(true);
 	});
 
@@ -354,19 +382,24 @@ describe("dateMatchesText", () => {
 		["2019-12-07", "12 JUL 2019"],
 		// A year never stops inside a run of spaced digits.
 		["2020-03-24", "MAR 24 2 0 2 3"],
+		// The year of a month-name date is its own number, not part of a packed run.
+		["2020-07-23", "23 JUIL. 2005"],
+		["2020-07-12", "12.VII.2019"],
+		// Digits are never joined across a separator.
+		["2023-12-03", "2023/1/2 3"],
+		// OUT followed by a whole numeric date is the exit label.
+		["2005-10-12", "01 OUT 12.05.19"],
 	])("rejects %s for %j", (date, text) => {
 		expect(dateMatchesText(date, text)).toBe(false);
 	});
 
-	// The dated Commons sample stamps (apps/web/public/demo/samples.json) that used to warn.
-	it.each([
-		["2004-07-17", "JUL 1 7 2004"],
-		["2005-05-31", "3 1 MAY 2005"],
-		["2005-11-06", "2005 -11- 0 6"],
-		["2006-12-19", "DEC 1 9 2006"],
-		["2005-07-23", "23 JUIL. 2005"],
-		["2008-12-30", "DEC 3 0 2008"],
-	])("accepts the Commons sample %s for %j", (date, text) => {
-		expect(dateMatchesText(date, text)).toBe(true);
-	});
+	it.each(ACCEPTED)(
+		"rejects every date one digit off %s for %j",
+		(date, text) => {
+			const passing = oneDigitOff(date, text).filter((wrong) =>
+				dateMatchesText(wrong, text),
+			);
+			expect(passing).toEqual([]);
+		},
+	);
 });
