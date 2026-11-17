@@ -131,7 +131,8 @@ const flagFont = async () => {
 			await fetch("https://fonts.googleapis.com/css2?family=Noto+Color+Emoji", {
 				headers: {
 					"User-Agent":
-						"Mozilla/5.0 (X11; Linux x86_64) Chrome/140.0 Safari/537.36",
+						// A full Chrome UA: a short one gets one big TTF, without the subsets.
+						"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
 				},
 			})
 		).text();
@@ -335,14 +336,18 @@ const record = async (url, flags) => {
 		await wait(700);
 	};
 
-	// 1. Home → Collect "Both".
+	// 1. Home: the BYOK hero, the "Bring your own key" section, then Collect "Both".
 	await page.goto(url);
 	await page.getByRole("button", { name: /^Both/ }).waitFor();
 	await wait(600);
 	mark("home");
 	await page.mouse.move(700, 450);
-	await wait(400);
-	await smoothScroll(420);
+	await wait(900);
+	const ownKey = await page
+		.getByRole("heading", { name: /^bring your own key$/i })
+		.boundingBox();
+	await smoothScroll(Math.max(0, (ownKey?.y ?? 420) - 40));
+	await wait(900);
 	await click(page.getByRole("button", { name: /^Both/ }));
 
 	// 2. Passports: add one, then its ten page photos.
@@ -444,8 +449,8 @@ const record = async (url, flags) => {
 // ---------------------------------------------------------------- GIF
 
 /**
- * Speed-up per scene (recorded seconds / GIF seconds), tuned so the GIF stays
- * under 20 s. Scenes named "skip" (route chunks loading) are dropped.
+ * Speed-up per scene (recorded seconds / GIF seconds). Scenes named "skip"
+ * (route chunks loading) are dropped.
  */
 const SPEED = {
 	home: 1.4,
@@ -457,6 +462,26 @@ const SPEED = {
 	journey: 1.9,
 	map: 1,
 };
+/** GIF seconds at most for a scene whose recorded length varies by machine (stamp reads wait on canvas work). */
+const MAX_SECONDS = { extract: 2.5 };
+/** The whole GIF; every scene is sped up evenly when the recording runs longer. */
+const MAX_TOTAL = 19.5;
+
+/** Speed per scene: SPEED, capped by MAX_SECONDS, then scaled to fit MAX_TOTAL. */
+const sceneSpeeds = (marks) => {
+	const scenes = marks.slice(0, -1).flatMap(({ name, at }, i) => {
+		if (name === "skip") return [];
+		const length = marks[i + 1].at - at;
+		const speed = Math.max(
+			SPEED[name] ?? 1,
+			length / (MAX_SECONDS[name] ?? Number.POSITIVE_INFINITY),
+		);
+		return [{ i, length, speed }];
+	});
+	const total = scenes.reduce((sum, s) => sum + s.length / s.speed, 0);
+	const fit = Math.max(1, total / MAX_TOTAL);
+	return new Map(scenes.map((s) => [s.i, s.speed * fit]));
+};
 
 /** Resamples the frames scene by scene to GIF_FPS, then palettes them into the GIF. */
 const toGif = ({ frames, marks }) => {
@@ -467,11 +492,12 @@ const toGif = ({ frames, marks }) => {
 		while (next + 1 < frames.length && frames[next + 1].at <= time) next++;
 		return frames[next].file;
 	};
+	const speeds = sceneSpeeds(marks);
 	for (let i = 0; i < marks.length - 1; i++) {
 		const { name, at: start } = marks[i];
 		const end = marks[i + 1].at;
-		if (name === "skip") continue;
-		const speed = SPEED[name] ?? 1;
+		const speed = speeds.get(i);
+		if (speed === undefined) continue;
 		const count = Math.round(((end - start) / speed) * GIF_FPS);
 		for (let k = 0; k < count; k++)
 			picks.push(frameAt(start + (k / GIF_FPS) * speed));
@@ -532,7 +558,7 @@ try {
 	for (const part of parts) {
 		total += part.seconds;
 		console.log(
-			`${part.name.padEnd(10)} ${part.seconds.toFixed(1)} s (×${part.speed})`,
+			`${part.name.padEnd(10)} ${part.seconds.toFixed(1)} s (×${part.speed.toFixed(2)})`,
 		);
 	}
 	console.log(
