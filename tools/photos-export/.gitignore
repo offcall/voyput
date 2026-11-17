@@ -1,6 +1,2 @@
 *.csv
-.*.csv.*.tmp
-__pycache__/
-.pytest_cache/
-.venv/
-.ruff_cache/
+.photo_locations.*.tmp

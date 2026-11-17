@@ -1,4 +1,5 @@
 export * from "./aggregates";
+export * from "./countryAt";
 export * from "./filter";
 export * from "./geo";
 export * from "./palette";

@@ -30,9 +30,10 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0024](0024-collect-sources.md) | Collect Sources | Accepted |
 | [0025](0025-home-page.md) | Home Page | Accepted |
 | [0026](0026-local-ai-engine.md) | Local AI Engine | Accepted; Codex opt-in superseded by 0032 |
-| [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Accepted |
+| [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Superseded by 0033 |
 | [0028](0028-phone-shell-and-sheet.md) | Phone Shell and Bottom Sheet | Accepted |
 | [0029](0029-realistic-demo-passport.md) | Realistic Demo Passport | Accepted; Review part superseded by 0030 |
 | [0030](0030-day-aware-photo-location-check.md) | Day-Aware Photo Location Check | Accepted |
 | [0031](0031-stays-flag-changed-evidence.md) | Stays Flag Changed Evidence | Accepted |
 | [0032](0032-codex-on-by-default.md) | Codex On by Default | Accepted |
+| [0033](0033-photo-export-in-plain-sh.md) | Photo Export in Plain sh | Accepted |

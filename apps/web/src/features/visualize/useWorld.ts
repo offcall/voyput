@@ -1,18 +1,38 @@
-import { buildWorldShapes, type WorldShapes } from "@voyput/core";
+import {
+	buildCountryLocator,
+	buildWorldShapes,
+	type CountryLocator,
+	type WorldShapes,
+} from "@voyput/core";
 import { useEffect, useState } from "react";
+
+let geoJsonPromise: Promise<unknown> | null = null;
+
+/** Natural Earth 110m outlines as GeoJSON, loaded in a separate chunk on first use. */
+function loadGeoJson(): Promise<unknown> {
+	geoJsonPromise ??= import("./assets/world-countries.geojson?raw").then(
+		(module): unknown => JSON.parse(module.default),
+	);
+	// A failed load (e.g. a dropped chunk request) may succeed on the next visit.
+	geoJsonPromise.catch(() => {
+		geoJsonPromise = null;
+	});
+	return geoJsonPromise;
+}
 
 let worldPromise: Promise<WorldShapes> | null = null;
 
-/** Natural Earth 110m outlines, loaded in a separate chunk on first use. */
 function loadWorld(): Promise<WorldShapes> {
-	worldPromise ??= import("./assets/world-countries.geojson?raw").then(
-		(module) => buildWorldShapes(JSON.parse(module.default)),
-	);
-	// A failed load (e.g. a dropped chunk request) may succeed on the next visit.
+	worldPromise ??= loadGeoJson().then(buildWorldShapes);
 	worldPromise.catch(() => {
 		worldPromise = null;
 	});
 	return worldPromise;
+}
+
+/** The country at a point, from the same outlines (ADR 0033). */
+export function loadCountryLocator(): Promise<CountryLocator> {
+	return loadGeoJson().then((geoJson) => buildCountryLocator(geoJson));
 }
 
 /** World outlines, or `null` until they are loaded. */

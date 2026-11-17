@@ -36,6 +36,29 @@ function localEngineScript(): Plugin {
 	};
 }
 
+const EXPORT_SOURCE = new URL(
+	"../../tools/photos-export/photo-locations.sh",
+	import.meta.url,
+);
+const EXPORT_FILE = "photo-locations.sh";
+
+/** Serves the photo locations export for `curl … | sh` (ADR 0033). */
+function photoExportScript(): Plugin {
+	const script = () => readFileSync(EXPORT_SOURCE, "utf8");
+	return {
+		name: "photo-export-script",
+		configureServer(server) {
+			server.middlewares.use(`/${EXPORT_FILE}`, (_request, response) => {
+				response.setHeader("content-type", "text/plain; charset=utf-8");
+				response.end(script());
+			});
+		},
+		generateBundle() {
+			this.emitFile({ type: "asset", fileName: EXPORT_FILE, source: script() });
+		},
+	};
+}
+
 export default defineConfig({
-	plugins: [react(), localEngineScript()],
+	plugins: [react(), localEngineScript(), photoExportScript()],
 });

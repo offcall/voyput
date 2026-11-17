@@ -18,6 +18,7 @@ import { useCountryColour } from "../../../app/countryColours";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
 import { staysAfterEvidenceChange } from "../../trips/evidenceChange";
+import { loadCountryLocator } from "../../visualize/useWorld";
 import { useLiveQuery } from "../photos/useLiveQuery";
 import { LocationStrip } from "./LocationStrip";
 import {
@@ -50,7 +51,11 @@ async function importLocationCsv(
 	db: VoyputDb,
 	file: File,
 ): Promise<ImportState> {
-	const result = parseLocationCsv(await file.text());
+	const [text, countryAt] = await Promise.all([
+		file.text(),
+		loadCountryLocator(),
+	]);
+	const result = parseLocationCsv(text, countryAt);
 	if (!result.ok) {
 		const problem =
 			"missingColumns" in result
@@ -186,7 +191,7 @@ function ImportStatus({ state }: { state: ImportState }) {
 				<Notice tone="good" role="status">
 					Imported {locationLine(summary)}.
 					{skipped > 0
-						? ` Skipped ${skipped.toLocaleString("en")} rows with a bad date, coordinates or country code.`
+						? ` Skipped ${skipped.toLocaleString("en")} rows with a bad date or coordinates, or no country.`
 						: ""}
 				</Notice>
 			);
@@ -194,54 +199,51 @@ function ImportStatus({ state }: { state: ImportState }) {
 	}
 }
 
-/** Where the export script lives (`tools/photos-export`); the "Get the script" link hides when this is null. */
-export const EXPORT_SCRIPT_URL: string | null =
-	"https://github.com/offcall/voyput/tree/main/tools/photos-export";
+/** The script the site serves from `tools/photos-export` (ADR 0033). */
+export const EXPORT_SCRIPT = "photo-locations.sh";
+
+/** The one-line export, downloaded from `origin`. */
+export function exportCommand(origin: string): string {
+	return `curl -fsSL ${origin}/${EXPORT_SCRIPT} | sh`;
+}
 
 /** Steps to write photo_locations.csv on a Mac with the export script. */
 export function HowToGetFile({
-	scriptUrl = EXPORT_SCRIPT_URL,
+	origin = window.location.origin,
 }: {
-	scriptUrl?: string | null;
+	origin?: string;
 }) {
 	return (
 		<Disclosure summary="How to get this file">
 			<p>
 				A small script reads the Apple Photos library on your Mac and writes one
-				row per photo or video with GPS coordinates. Nothing is downloaded from
-				iCloud and nothing leaves your Mac.
-				{scriptUrl ? (
-					<>
-						{" "}
-						<a href={scriptUrl} target="_blank" rel="noreferrer">
-							Get the script
-						</a>
-						.
-					</>
-				) : null}
+				row per photo or video with GPS coordinates. It needs nothing but macOS,
+				downloads nothing from iCloud and sends nothing anywhere.{" "}
+				<a href={`${origin}/${EXPORT_SCRIPT}`} target="_blank" rel="noreferrer">
+					Read the script
+				</a>
+				.
 			</p>
 			<ol>
-				<li>
-					Install <code>uv</code>, the Python tool runner (for example{" "}
-					<code>brew install uv</code>).
-				</li>
 				<li>
 					Give your terminal app Full Disk Access (System Settings → Privacy
 					&amp; Security → Full Disk Access), so it can read the Photos library.
 				</li>
 				<li>
-					In the script's folder, run{" "}
-					<code>uv run export_photo_locations.py</code>. It writes
-					photo_locations.csv.
+					In Terminal, run <code>{exportCommand(origin)}</code>. It writes
+					photo_locations.csv to your Desktop.
 				</li>
 				<li>Import that CSV here: drop it above or pick it.</li>
 			</ol>
 			<p>
-				Columns: <code>date</code>, <code>lat</code>, <code>lon</code>,{" "}
-				<code>country_code</code>, <code>country</code>, <code>city</code>,{" "}
-				<code>source</code>, <code>is_video</code>, <code>filename</code>,{" "}
-				<code>uuid</code>. The first four are required; <code>date</code> is ISO
-				8601.
+				Columns: <code>date</code>, <code>lat</code>, <code>lon</code>, and
+				optionally <code>country_code</code>, <code>country</code>,{" "}
+				<code>city</code>, <code>source</code>, <code>is_video</code>,{" "}
+				<code>filename</code>, <code>uuid</code>. <code>date</code> is ISO 8601.
+				Without <code>country_code</code>, voyput finds the country from the
+				coordinates, here in your browser; near a border it can pick the
+				neighbour, and places too small for its map (Singapore, Hong Kong,
+				Monaco, ...) get the nearest larger country.
 			</p>
 		</Disclosure>
 	);

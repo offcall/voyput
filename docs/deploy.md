@@ -33,8 +33,8 @@ node --experimental-strip-types scripts/csp-hash.ts
 ## Caching
 
 - `/assets/*`: file names carry a content hash; cache for a year, immutable.
-- Everything else (`index.html` and the app's routes, `voyput-local.mjs`, icons, demo data): `no-cache`, so a deploy shows up on the next load.
-- `/voyput-local.mjs` is served as `text/javascript`.
+- Everything else (`index.html` and the app's routes, `voyput-local.mjs`, `photo-locations.sh`, icons, demo data): `no-cache`, so a deploy shows up on the next load.
+- `/voyput-local.mjs` is served as `text/javascript`, `/photo-locations.sh` as `text/plain` (shown, not downloaded, when opened in a browser).
 
 ## nginx
 
@@ -63,6 +63,12 @@ server {
     location = /voyput-local.mjs {
         types { }
         default_type "text/javascript; charset=utf-8";
+        expires epoch;
+    }
+
+    location = /photo-locations.sh {
+        types { }
+        default_type "text/plain; charset=utf-8";
         expires epoch;
     }
 
@@ -103,6 +109,8 @@ The same rules for hosts that read a `_headers` file from the publish directory.
   Cache-Control: public, max-age=31536000, immutable
 /voyput-local.mjs
   Content-Type: text/javascript; charset=utf-8
+/photo-locations.sh
+  Content-Type: text/plain; charset=utf-8
 ```
 
 The SPA fallback (unknown paths → `index.html`) is the host's own setting; Cloudflare Pages does it when the build has no `404.html`.

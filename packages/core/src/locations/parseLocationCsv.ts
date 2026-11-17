@@ -1,14 +1,14 @@
 import { isIsoDate } from "../passports/photos";
+import type { CountryLocator } from "../viz/countryAt";
 import { parseCsvRows } from "./csv";
 import type { LocationRow } from "./types";
 
-/** Columns a location CSV must have; the others default to empty. */
-export const REQUIRED_LOCATION_COLUMNS = [
-	"date",
-	"lat",
-	"lon",
-	"country_code",
-] as const;
+/**
+ * Columns a location CSV must have; the others default to empty. Without
+ * `country_code` (the export script since ADR 0033) the country comes from
+ * the coordinates.
+ */
+export const REQUIRED_LOCATION_COLUMNS = ["date", "lat", "lon"] as const;
 
 export type LocationCsvResult =
 	| { ok: true; rows: LocationRow[]; skipped: number }
@@ -16,10 +16,14 @@ export type LocationCsvResult =
 	| { ok: false; error: string };
 
 /**
- * Parses the Apple Photos location export. Rows with a bad date or
- * coordinates are counted in `skipped`, not returned.
+ * Parses the Apple Photos location export. A row without a country code gets
+ * one from `countryAt`. Rows with a bad date or coordinates, or still without
+ * a country, are counted in `skipped`, not returned.
  */
-export function parseLocationCsv(text: string): LocationCsvResult {
+export function parseLocationCsv(
+	text: string,
+	countryAt?: CountryLocator,
+): LocationCsvResult {
 	let parsed: string[][];
 	try {
 		parsed = parseCsvRows(text);
@@ -49,17 +53,23 @@ export function parseLocationCsv(text: string): LocationCsvResult {
 		const lonText = cell(cells, "lon");
 		const lat = Number(latText);
 		const lon = Number(lonText);
-		const countryCode = cell(cells, "country_code").toUpperCase();
+		const validPosition =
+			latText !== "" &&
+			lonText !== "" &&
+			Math.abs(lat) <= 90 &&
+			Math.abs(lon) <= 180;
+		const countryCode = (
+			cell(cells, "country_code") ||
+			(validPosition && countryAt?.(lat, lon)) ||
+			""
+		).toUpperCase();
 		if (
 			// Trips and charts work per country, so a row without one is dropped.
 			!/^[A-Z]{2}$/.test(countryCode) ||
 			!date ||
 			// ISO day first: the day is read as date.slice(0, 10) everywhere.
 			!isIsoDate(date.slice(0, 10)) ||
-			!latText ||
-			!lonText ||
-			!(Math.abs(lat) <= 90) ||
-			!(Math.abs(lon) <= 180)
+			!validPosition
 		) {
 			skipped++;
 			continue;

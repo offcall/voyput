@@ -41,7 +41,7 @@ describe("import location CSV", () => {
 		);
 
 		await screen.findByText(
-			"Imported 2 locations · 2 countries · 2019. Skipped 1 rows with a bad date, coordinates or country code.",
+			"Imported 2 locations · 2 countries · 2019. Skipped 1 rows with a bad date or coordinates, or no country.",
 		);
 		const stored = screen.getByRole("region", {
 			name: "Stored photo locations",
@@ -66,6 +66,28 @@ describe("import location CSV", () => {
 		]);
 	});
 
+	it("finds countries from the coordinates in the export script's file", async () => {
+		const user = userEvent.setup();
+		const { db } = renderApp("/collect/locations");
+
+		await user.upload(
+			await screen.findByLabelText(PICKER),
+			csvFile([
+				"date,lat,lon,is_video,filename,uuid",
+				"2019-05-01T23:30:05+02:00,48.856600,2.352200,false,IMG_0001.HEIC,u1",
+				"2019-05-03T00:00:00+01:00,38.722300,-9.139300,true,IMG_0003.MOV,u2",
+				"2019-05-04T10:00:00Z,30.000000,-40.000000,false,IMG_0004.JPG,sea",
+			]),
+		);
+
+		await screen.findByText(/Imported 2 locations · 2 countries · 2019/);
+		const rows = await db.locations.orderBy("date").toArray();
+		expect(rows.map((r) => [r.uuid, r.countryCode, r.isVideo])).toEqual([
+			["u1", "FR", false],
+			["u2", "PT", true],
+		]);
+	});
+
 	it("keeps stored locations when a file is unusable", async () => {
 		const user = userEvent.setup();
 		const { db } = renderApp("/collect/locations");
@@ -77,7 +99,7 @@ describe("import location CSV", () => {
 			csvFile(["date,latitude,longitude", "2019-05-01,47,28"]),
 		);
 		expect((await screen.findByRole("alert")).textContent).toContain(
-			"missing required columns: lat, lon, country_code",
+			"missing required columns: lat, lon",
 		);
 
 		await user.upload(

@@ -175,7 +175,7 @@ export const DisclosureExample: StoryObj = {
 		<Disclosure summary="How to get this file">
 			<ol>
 				<li>Give your terminal Full Disk Access.</li>
-				<li>Export the Photos library with osxphotos.</li>
+				<li>Export the Photos library with photo-locations.sh.</li>
 			</ol>
 		</Disclosure>
 	),

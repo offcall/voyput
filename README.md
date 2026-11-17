@@ -34,7 +34,7 @@ No data at hand: demo passport inside the app.
 
 - Everything in this browser (IndexedDB). No account, no voyput server, no analytics.
 - Page images go only to the AI you pick, with your key or subscription.
-- Photo locations CSV from your Mac: [`tools/photos-export`](tools/photos-export). Reads Photos library locally, uploads nothing.
+- Photo locations CSV from your Mac: `curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh` ([`tools/photos-export`](tools/photos-export)). Plain sh + macOS sqlite3, reads Photos library locally, uploads nothing.
 
 ## Dev
 

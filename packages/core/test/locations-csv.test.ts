@@ -37,7 +37,7 @@ describe("parseLocationCsv", () => {
 	it("reports missing required columns", () => {
 		expect(parseLocationCsv("date,latitude,lon\n2019-01-01,1,2\n")).toEqual({
 			ok: false,
-			missingColumns: ["lat", "country_code"],
+			missingColumns: ["lat"],
 		});
 	});
 
@@ -62,5 +62,35 @@ describe("parseLocationCsv", () => {
 		);
 		expect(result.ok && result.rows.map((r) => r.countryCode)).toEqual(["MD"]);
 		expect(result.ok && result.skipped).toBe(3);
+	});
+
+	it("takes the country from the coordinates when the file has none", () => {
+		const countryAt = (lat: number, lon: number) =>
+			lat > 40 ? "FR" : lon > 0 ? "es" : null;
+		const result = parseLocationCsv(
+			"date,lat,lon,uuid\n2019-05-01T10:00:00+02:00,48.8,2.3,a\n2019-05-02T10:00:00+02:00,39,1,b\n2019-05-03T10:00:00Z,30,-40,sea\n2019-05-04T10:00:00Z,,2.3,bad\n",
+			countryAt,
+		);
+		expect(
+			result.ok && result.rows.map((r) => [r.uuid, r.countryCode]),
+		).toEqual([
+			["a", "FR"],
+			["b", "ES"],
+		]);
+		expect(result.ok && result.skipped).toBe(2);
+		expect(
+			parseLocationCsv("date,lat,lon\n2019-05-01T10:00:00Z,48.8,2.3\n"),
+		).toEqual({ ok: true, rows: [], skipped: 1 });
+	});
+
+	it("keeps a code the file has over the coordinates", () => {
+		const result = parseLocationCsv(
+			"date,lat,lon,country_code\n2019-05-01T10:00:00,47,28,MD\n2019-05-02T10:00:00,47,28,\n",
+			() => "RO",
+		);
+		expect(result.ok && result.rows.map((r) => r.countryCode)).toEqual([
+			"MD",
+			"RO",
+		]);
 	});
 });

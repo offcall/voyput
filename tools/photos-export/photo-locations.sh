@@ -1,0 +1,204 @@
+#!/bin/sh
+# voyput photo-locations: writes where and when your photos and videos were
+# taken, read from the Apple Photos library on this Mac, to a CSV that voyput
+# imports as "iPhone photo locations".
+#
+# Plain POSIX sh plus the sqlite3 that ships with macOS. Reads Photos.sqlite
+# only (read-only, or a temporary copy when Photos holds it locked); opens no
+# photo file, downloads nothing from iCloud, uploads nothing.
+#
+#   curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh
+#   curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh -s -- --since 2016-01-01
+#
+# See docs/adr/0033-photo-export-in-plain-sh.md.
+
+set -eu
+
+APPLE_EPOCH=978307200 # 2001-01-01T00:00:00Z, the Core Data reference date
+
+usage() {
+	cat <<'EOF'
+photo-locations: export your Photos locations to a CSV for voyput.
+
+Usage: sh photo-locations.sh [options]
+   or: curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh -s -- [options]
+
+  --out PATH          CSV to write (default ~/Desktop/photo_locations.csv,
+                      replaced if it exists)
+  --library PATH      Photos library (.photoslibrary) or its Photos.sqlite
+                      (default ~/Pictures/Photos Library.photoslibrary)
+  --since YYYY-MM-DD  Only photos taken on or after this day
+  --until YYYY-MM-DD  Only photos taken on or before this day
+  --quiet             Print errors only
+  --help              Show this text
+
+Columns: date (local time with UTC offset), lat, lon, is_video, filename, uuid.
+voyput finds the country of each row from its coordinates when you import.
+EOF
+}
+
+die() {
+	printf 'photo-locations: %s\n' "$1" >&2
+	exit 1
+}
+
+say() {
+	[ "$quiet" = 1 ] || printf '%s\n' "$1"
+}
+
+needs_value() {
+	[ "$2" -ge 2 ] || die "$1 needs a value (see --help)"
+}
+
+library=""
+since=""
+until=""
+out=""
+quiet=0
+while [ $# -gt 0 ]; do
+	case $1 in
+	--library) needs_value "$1" $#; library=$2; shift 2 ;;
+	--library=*) library=${1#*=}; shift ;;
+	--since) needs_value "$1" $#; since=$2; shift 2 ;;
+	--since=*) since=${1#*=}; shift ;;
+	--until) needs_value "$1" $#; until=$2; shift 2 ;;
+	--until=*) until=${1#*=}; shift ;;
+	--out) needs_value "$1" $#; out=$2; shift 2 ;;
+	--out=*) out=${1#*=}; shift ;;
+	-q | --quiet) quiet=1; shift ;;
+	-h | --help) usage; exit 0 ;;
+	*) die "unknown option: $1 (see --help)" ;;
+	esac
+done
+
+# A day goes into the SQL text, so only this exact shape is accepted.
+check_day() {
+	case $2 in
+	[12][0-9][0-9][0-9]-[01][0-9]-[0-3][0-9]) ;;
+	*) die "$1 must be a day like 2019-05-31, got: $2" ;;
+	esac
+}
+[ -z "$since" ] || check_day --since "$since"
+[ -z "$until" ] || check_day --until "$until"
+
+command -v sqlite3 >/dev/null 2>&1 ||
+	die "sqlite3 not found. It ships with macOS; run this on the Mac that holds your Photos library."
+
+if [ -z "$library" ]; then
+	[ "$(uname -s)" = Darwin ] ||
+		die "this reads the Apple Photos library and runs on macOS. Elsewhere, pass a Photos.sqlite with --library."
+	library="$HOME/Pictures/Photos Library.photoslibrary"
+fi
+if [ -z "$out" ]; then
+	if [ -d "$HOME/Desktop" ]; then out="$HOME/Desktop/photo_locations.csv"; else out="photo_locations.csv"; fi
+fi
+out_dir=$(dirname -- "$out")
+[ -d "$out_dir" ] || die "--out: folder $out_dir does not exist"
+
+FULL_DISK_ACCESS="macOS denied access to the Photos library at $library.
+Give your terminal Full Disk Access:
+  System Settings > Privacy & Security > Full Disk Access,
+  turn on the app you run this command from (Terminal, iTerm, ...;
+  use the + button to add it if it is not listed).
+Then quit that app completely, reopen it and run the command again."
+
+[ -e "$library" ] || die "Photos library not found: $library
+Pass the right one with --library, for example
+  --library \"\$HOME/Pictures/Photos Library.photoslibrary\"
+(in Photos: Settings > General shows the library location)."
+
+if [ -d "$library" ]; then db="$library/database/Photos.sqlite"; else db=$library; fi
+
+# Read a few raw bytes first: macOS answers "Operation not permitted" here
+# when the terminal has no Full Disk Access. Bytes only, never decoded.
+if ! error=$(head -c 16 -- "$db" 2>&1 >/dev/null); then
+	case $error in
+	*"not permitted"* | *"ermission denied"*) die "$FULL_DISK_ACCESS" ;;
+	*) die "$library does not look like a Photos library (no database/Photos.sqlite inside).
+Pass a .photoslibrary folder with --library." ;;
+	esac
+fi
+
+work=$(mktemp -d "${TMPDIR:-/tmp}/voyput-photos.XXXXXX")
+trap 'rm -rf "$work"' EXIT
+trap 'exit 130' INT TERM HUP
+
+# Read-only on the library itself; if Photos holds it locked, a copy.
+readonly_flag=-readonly
+sql() {
+	sqlite3 -batch $readonly_flag "$db" "$1" </dev/null
+}
+probe="SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('ZASSET', 'ZGENERICASSET') ORDER BY name = 'ZASSET' DESC LIMIT 1;"
+if ! table=$(sql "$probe" 2>/dev/null); then
+	say "Photos is using its database; reading a temporary copy."
+	cp -- "$db" "$work/Photos.sqlite"
+	for suffix in -wal -shm; do
+		[ ! -e "$db$suffix" ] || cp -- "$db$suffix" "$work/Photos.sqlite$suffix"
+	done
+	db="$work/Photos.sqlite"
+	readonly_flag=""
+	table=$(sql "$probe") || die "could not read the Photos database $db."
+fi
+[ -n "$table" ] || die "no photo table (ZASSET or ZGENERICASSET) in $db. Is it a Photos library database?"
+
+has_column() {
+	[ "$(sql "SELECT count(*) FROM pragma_table_info('$1') WHERE name = '$2';")" = 1 ]
+}
+for column in Z_PK ZDATECREATED ZLATITUDE ZLONGITUDE ZTRASHEDSTATE ZKIND ZUUID; do
+	has_column "$table" "$column" ||
+		die "this Photos database has no $table.$column; this macOS version is not supported yet. Please report it."
+done
+
+# Local time zone and original file name live in ZADDITIONALASSETATTRIBUTES.
+# Without them, dates are UTC ("Z") and the file name is the library's own.
+tz="NULL"
+filename="a.ZFILENAME"
+has_column "$table" ZFILENAME || filename="NULL"
+join=""
+if has_column ZADDITIONALASSETATTRIBUTES ZASSET; then
+	join="LEFT JOIN ZADDITIONALASSETATTRIBUTES x ON x.ZASSET = a.Z_PK"
+	! has_column ZADDITIONALASSETATTRIBUTES ZTIMEZONEOFFSET || tz="x.ZTIMEZONEOFFSET"
+	! has_column ZADDITIONALASSETATTRIBUTES ZORIGINALFILENAME || filename="COALESCE(x.ZORIGINALFILENAME, $filename)"
+fi
+
+rows="SELECT
+	strftime('%Y-%m-%dT%H:%M:%S', a.ZDATECREATED + $APPLE_EPOCH + COALESCE($tz, 0), 'unixepoch')
+		|| CASE WHEN $tz IS NULL THEN 'Z'
+			ELSE (CASE WHEN $tz < 0 THEN '-' ELSE '+' END)
+				|| printf('%02d:%02d', abs($tz) / 3600, abs($tz) % 3600 / 60) END AS date,
+	printf('%.6f', a.ZLATITUDE) AS lat,
+	printf('%.6f', a.ZLONGITUDE) AS lon,
+	CASE WHEN a.ZKIND = 1 THEN 'true' ELSE 'false' END AS is_video,
+	COALESCE($filename, '') AS filename,
+	COALESCE(a.ZUUID, '') AS uuid,
+	a.ZDATECREATED AS taken
+FROM $table a $join
+WHERE COALESCE(a.ZTRASHEDSTATE, 0) = 0
+	AND a.ZDATECREATED IS NOT NULL
+	AND a.ZLATITUDE IS NOT NULL AND a.ZLONGITUDE IS NOT NULL
+	AND NOT (a.ZLATITUDE = -180 AND a.ZLONGITUDE = -180)
+	AND abs(a.ZLATITUDE) <= 90 AND abs(a.ZLONGITUDE) <= 180"
+range="1 = 1"
+[ -z "$since" ] || range="$range AND substr(date, 1, 10) >= '$since'"
+[ -z "$until" ] || range="$range AND substr(date, 1, 10) <= '$until'"
+
+say "Reading $db ..."
+partial="$out_dir/.photo_locations.$$.tmp"
+trap 'rm -rf "$work" "$partial"' EXIT
+sqlite3 -batch -csv -header $readonly_flag "$db" \
+	"SELECT date, lat, lon, is_video, filename, uuid FROM ($rows) WHERE $range ORDER BY taken;" \
+	</dev/null >"$work/rows.csv" || die "could not read the photos from $db."
+# sqlite3 ends CSV lines with CRLF; voyput reads either, LF keeps the file plain.
+tr -d '\r' <"$work/rows.csv" >"$partial" || die "could not write $out."
+mv -f -- "$partial" "$out" || die "could not write $out."
+
+summary=$(sql "SELECT count(*) || ' ' || COALESCE(min(substr(date, 1, 10)), '-') || ' ' || COALESCE(max(substr(date, 1, 10)), '-') FROM ($rows) WHERE $range;")
+all=$(sql "SELECT count(*) FROM $table a WHERE COALESCE(a.ZTRASHEDSTATE, 0) = 0;")
+set -- $summary
+say ""
+say "Saved $1 photo locations to $out"
+[ "$1" = 0 ] || say "  from $2 to $3"
+say "  $((all - $1)) left out: no location (screenshots, saved images, ...)${since:+, before $since}${until:+, after $until}"
+say ""
+say "Next: in voyput, Collect > iPhone photo locations, choose this file."
+say "voyput finds each photo's country from its coordinates in your browser."

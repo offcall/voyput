@@ -14,7 +14,8 @@ export interface WorldShapes {
 
 const GLOBE_RING_POINTS = 60;
 
-type Ring = [number, number][];
+/** A closed outline as `[lon, lat]` points, as in GeoJSON. */
+export type Ring = [number, number][];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
@@ -33,7 +34,7 @@ function asRing(value: unknown): Ring | null {
 }
 
 /** Rings of a Polygon or MultiPolygon geometry as `[lon, lat]`; anything else yields none. */
-function geometryRings(geometry: unknown): Ring[] {
+export function geometryRings(geometry: unknown): Ring[] {
 	if (!isRecord(geometry) || !Array.isArray(geometry.coordinates)) return [];
 	const polygons: unknown[] =
 		geometry.type === "MultiPolygon"
