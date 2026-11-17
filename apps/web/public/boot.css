@@ -1,0 +1,13 @@
+/* The page colour before the app's CSS loads, so a reload does not flash white.
+   The inline theme script in index.html sets data-theme first. */
+html {
+	background: #111315;
+}
+html[data-theme="light"] {
+	background: #dfeefb;
+}
+@media (prefers-color-scheme: light) {
+	html[data-theme="system"] {
+		background: #dfeefb;
+	}
+}

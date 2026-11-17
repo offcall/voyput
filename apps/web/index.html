@@ -9,19 +9,45 @@
 		<meta name="theme-color" content="#1c1f23" />
 		<meta name="color-scheme" content="dark light" />
 		<title>voyput</title>
-		<style>
-			html {
-				background: #111315;
-			}
-			html[data-theme="light"] {
-				background: #dfeefb;
-			}
-			@media (prefers-color-scheme: light) {
-				html[data-theme="system"] {
-					background: #dfeefb;
-				}
-			}
-		</style>
+		<meta
+			name="description"
+			content="Your travel history from passport stamps and iPhone photo locations. Bring your own key. Your data stays in your browser."
+		/>
+		<link rel="canonical" href="https://voyput.app.offcall.link/" />
+		<link rel="icon" href="/favicon.ico" sizes="32x32" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="voyput" />
+		<meta property="og:url" content="https://voyput.app.offcall.link/" />
+		<meta
+			property="og:title"
+			content="voyput: your travel history from passport stamps and photo locations"
+		/>
+		<meta
+			property="og:description"
+			content="Bring your own key. Your data stays in your browser."
+		/>
+		<meta property="og:image" content="https://voyput.app.offcall.link/og.png" />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta
+			property="og:image:alt"
+			content="voyput on a pixel night sky: your travel history from passport stamps and iPhone photo locations. Bring your own key · Your data stays in your browser."
+		/>
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta
+			name="twitter:title"
+			content="voyput: your travel history from passport stamps and photo locations"
+		/>
+		<meta
+			name="twitter:description"
+			content="Bring your own key. Your data stays in your browser."
+		/>
+		<meta name="twitter:image" content="https://voyput.app.offcall.link/og.png" />
+		<!-- A file, not inline CSS: the Content-Security-Policy allows no inline styles (docs/deploy.md). -->
+		<link rel="stylesheet" href="/boot.css" />
 		<script>
 			try {
 				const theme = localStorage.getItem("voyput:theme");
