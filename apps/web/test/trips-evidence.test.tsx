@@ -1,8 +1,14 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type Stamp, suggestHistory, type TravelStay } from "@voyput/core";
+import {
+	type Passport,
+	type Stamp,
+	suggestHistory,
+	type TravelStay,
+} from "@voyput/core";
 import { describe, expect, it } from "vitest";
-import { VoyputDb } from "../src/db/db";
+import { type PhotoRecord, VoyputDb } from "../src/db/db";
+import { extractPhoto } from "../src/features/extract/extractPhoto";
 import {
 	deletePassport,
 	deletePhoto,
@@ -12,7 +18,8 @@ import {
 	restoreStamp,
 	updateStamp,
 } from "../src/features/review/reviewStore";
-import { renderApp } from "./renderApp";
+import { DEFAULT_SETTINGS } from "../src/settings/settings";
+import { offlineAi, renderApp } from "./renderApp";
 
 const PICKER = "Drop photo_locations.csv here or pick it";
 
@@ -302,5 +309,118 @@ describe("stays after evidence changes", () => {
 			(panel.getByRole("button", { name: "✓ Approve" }) as HTMLButtonElement)
 				.disabled,
 		).toBe(false);
+	});
+
+	it("cleans stays when a re-extraction replaces a stamp the user unmarked", async () => {
+		const db = await seed();
+		const passport: Passport = {
+			id: "p1",
+			name: "Passport",
+			validFrom: null,
+			validTo: null,
+			createdAt: "2024-01-01T00:00:00Z",
+		};
+		await db.passports.put(passport);
+		const page: PhotoRecord = {
+			id: "ph1",
+			passportId: "p1",
+			name: "page-1.jpg",
+			mimeType: "image/jpeg",
+			rotation: 0,
+			size: 1,
+			addedAt: "2024-01-01T00:00:00Z",
+			blob: new Blob(["x"]),
+		};
+		await db.photos.put(page);
+		// Built from a reviewed stamp, then marked unreviewed again.
+		await updateStamp(db, "s2", { reviewed: false });
+		await extractPhoto(
+			db,
+			{
+				...offlineAi,
+				askAboutImage: async () => ({
+					cost: null,
+					text: JSON.stringify({ notes: "", stamps: [] }),
+				}),
+			},
+			DEFAULT_SETTINGS,
+			passport,
+			page,
+		);
+		expect(await db.stamps.get("s2")).toBeUndefined();
+		expect(await allStampIds(db)).not.toContain("s2");
+		expect(await romania(db)).toMatchObject({
+			evidenceChanged: true,
+			approved: true,
+			arrival: { date: "2024-03-01", source: "estimated" },
+		});
+	});
+
+	it("flags stays whose photo has another day or country in a replacing CSV", async () => {
+		const user = userEvent.setup();
+		const db = await seed(false);
+		await db.locations.put({
+			date: "2024-05-10T12:00:00+09:00",
+			lat: 35,
+			lon: 139,
+			countryCode: "JP",
+			country: "Japan",
+			city: "Tokyo",
+			source: "apple",
+			isVideo: false,
+			filename: "a.jpg",
+			uuid: "u1",
+		});
+		const jp: TravelStay = {
+			id: "jp",
+			countryCode: "JP",
+			place: "",
+			kind: "stay",
+			arrival: { date: "2024-05-10", source: "photos", method: "unknown" },
+			departure: { date: "2024-05-10", source: "photos", method: "unknown" },
+			stampIds: [],
+			photoIds: ["u1"],
+			approved: true,
+		};
+		await db.stays.bulkPut([jp, { ...jp, id: "other", photoIds: [] }]);
+		renderApp("/collect/locations", { db });
+		await user.upload(
+			await screen.findByLabelText(PICKER),
+			new File(
+				[
+					[
+						"date,lat,lon,country_code,country,city,source,is_video,filename,uuid",
+						"2024-05-12T12:00:00,37,127,KR,Korea,Seoul,apple,False,a.jpg,u1",
+					].join("\n"),
+				],
+				"photo_locations.csv",
+				{ type: "text/csv" },
+			),
+		);
+		await screen.findByText(/Imported 1 location/);
+		expect(await db.stays.get("jp")).toMatchObject({
+			photoIds: ["u1"],
+			evidenceChanged: true,
+		});
+		expect((await db.stays.get("other"))?.evidenceChanged).toBeUndefined();
+	});
+
+	it("keeps the flag on Undo when a stamp only an edge reads changed since", async () => {
+		const db = await seed();
+		const ro = await romania(db);
+		// As after a rebuild: the departure meets Moldova's entry stamp, not in stampIds.
+		await db.stays.put({
+			...ro,
+			stampIds: ["s2", "s3"],
+			departure: { ...ro.departure, source: "stamp", stampId: "s4" },
+		});
+		const undo = await deleteStamp(db, STAMPS[1] as Stamp);
+		await updateStamp(db, "s4", { date: "2024-03-06" });
+		await restoreStamp(db, STAMPS[1] as Stamp, undo);
+		expect(await romania(db)).toMatchObject({
+			stampIds: ["s2", "s3"],
+			arrival: { source: "stamp", stampId: "s2" },
+			evidenceChanged: true,
+		});
 	});
 });

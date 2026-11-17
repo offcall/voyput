@@ -1,4 +1,5 @@
 import {
+	type LocationRow,
 	type LocationSummary,
 	parseLocationCsv,
 	summarizeLocations,
@@ -36,9 +37,14 @@ type ImportState =
 	| { kind: "demo"; summary: LocationSummary }
 	| { kind: "error"; message: string };
 
+/** What places a photo in a stay: its local day and country. */
+const readingOf = (row: LocationRow) =>
+	`${row.date.slice(0, 10)}|${row.countryCode}`;
+
 /**
- * Parses the file and replaces all stored locations in one transaction;
- * stored stays lose the photos the new file no longer has, and are marked.
+ * Parses the file and replaces all stored locations in one transaction.
+ * Stored stays lose the photos the new file no longer has, and are marked,
+ * as are stays whose photos now have another day or country.
  */
 async function importLocationCsv(
 	db: VoyputDb,
@@ -62,13 +68,21 @@ async function importLocationCsv(
 		};
 	}
 	await db.transaction("rw", db.locations, db.stays, db.stamps, async () => {
-		const kept = new Set(result.rows.map((row) => row.uuid));
-		const old = await db.locations.toCollection().primaryKeys();
+		const old = new Map(
+			(await db.locations.toArray()).map((row) => [row.uuid, readingOf(row)]),
+		);
 		await db.locations.clear();
 		await db.locations.bulkPut(result.rows);
-		const removedPhotos = new Set(old.filter((uuid) => !kept.has(uuid)));
-		if (removedPhotos.size > 0)
-			await staysAfterEvidenceChange(db, { removedPhotos });
+		const changedPhotos = new Set<string>();
+		for (const row of result.rows) {
+			const was = old.get(row.uuid);
+			old.delete(row.uuid);
+			if (was !== undefined && was !== readingOf(row))
+				changedPhotos.add(row.uuid);
+		}
+		const removedPhotos = new Set(old.keys());
+		if (removedPhotos.size + changedPhotos.size > 0)
+			await staysAfterEvidenceChange(db, { removedPhotos, changedPhotos });
 	});
 	return {
 		kind: "done",

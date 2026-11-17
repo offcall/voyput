@@ -8,6 +8,7 @@ import {
 import { aiModelLabel } from "../../ai/client";
 import type { AiClient, AiSettings } from "../../ai/openrouter";
 import type { PhotoRecord, VoyputDb } from "../../db/db";
+import { staysAfterEvidenceChange } from "../trips/evidenceChange";
 
 const errorMessage = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);
@@ -16,7 +17,8 @@ const errorMessage = (error: unknown): string =>
  * Reads the stamps on one photo and stores the result. Never throws: a failure is
  * stored as a "failed" extraction, and the photo's earlier stamps are kept.
  * A success replaces the photo's earlier unreviewed AI stamps; reviewed stamps and
- * stamps added by hand stay. Nothing is stored once the photo is gone (deleted
+ * stamps added by hand stay; stored stays built on a replaced stamp are
+ * marked (`staysAfterEvidenceChange`). Nothing is stored once the photo is gone (deleted
  * while the model was answering).
  */
 export async function extractPhoto(
@@ -58,16 +60,19 @@ export async function extractPhoto(
 		}));
 		await db.transaction(
 			"rw",
-			db.photos,
-			db.stamps,
-			db.extractions,
+			[db.photos, db.stamps, db.extractions, db.stays],
 			async () => {
 				if (!(await db.photos.get(photo.id))) return;
-				await db.stamps
+				const replaced = await db.stamps
 					.where("photoId")
 					.equals(photo.id)
 					.filter((stamp) => stamp.source === "ai" && !stamp.reviewed)
-					.delete();
+					.primaryKeys();
+				await db.stamps.bulkDelete(replaced);
+				if (replaced.length > 0)
+					await staysAfterEvidenceChange(db, {
+						removedStamps: new Set(replaced),
+					});
 				await db.stamps.bulkAdd(stamps);
 				await db.extractions.put(finish("ok", result.notes, answer.model));
 			},

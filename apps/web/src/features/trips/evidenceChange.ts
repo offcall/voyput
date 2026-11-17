@@ -13,7 +13,7 @@ export interface StaysUndo {
 	removed: string[];
 	/** The changed stays as they were before. */
 	stays: TravelStay[];
-	/** The other stamps of those stays as they were at the delete. */
+	/** The other stamps of those stays, edges included, as they were at the delete. */
 	stamps: Stamp[];
 }
 
@@ -36,12 +36,18 @@ export async function staysAfterEvidenceChange(
 	const before = stored.filter((s, i) => next[i] !== s);
 	if (before.length === 0) return NO_STAYS_UNDO;
 	await db.stays.bulkPut(next.filter((s, i) => s !== stored[i]));
-	const ids = [...new Set(before.flatMap((s) => s.stampIds))];
+	const ids = [...new Set(before.flatMap(stampsOf))];
 	const stamps = (await db.stamps.bulkGet(ids)).filter(
 		(s): s is Stamp => s !== undefined,
 	);
 	return { removed: [...(change.removedStamps ?? [])], stays: before, stamps };
 }
+
+/** Stamps a stay rests on: its own and those its edges were read from. */
+const stampsOf = (s: TravelStay): string[] =>
+	[...s.stampIds, s.arrival.stampId, s.departure.stampId].filter(
+		(id): id is string => id !== undefined,
+	);
 
 /** Fields of a stamp that place it in a stay: changing one marks its stays. */
 export const STAY_FIELDS = [
@@ -78,7 +84,7 @@ export async function restoreStays(
 	const was = new Map(undo.stamps.map((s) => [s.id, s]));
 	await db.transaction("rw", db.stays, db.stamps, async () => {
 		const current = await db.stays.bulkGet(undo.stays.map((s) => s.id));
-		const ids = [...new Set(current.flatMap((s) => s?.stampIds ?? []))];
+		const ids = [...new Set(current.flatMap((s) => (s ? stampsOf(s) : [])))];
 		const stamps = new Map(
 			(await db.stamps.bulkGet(ids)).flatMap((s) => (s ? [[s.id, s]] : [])),
 		);
@@ -103,7 +109,7 @@ export async function restoreStays(
 				evidenceChanged === true &&
 				(before.evidenceChanged === true ||
 					now.photoIds.length < before.photoIds.length ||
-					now.stampIds.some(changedSince) ||
+					stampsOf(now).some(changedSince) ||
 					before.stampIds.some(
 						(id) => !removed.has(id) && !now.stampIds.includes(id),
 					));

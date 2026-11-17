@@ -591,13 +591,15 @@ export interface EvidenceChange {
 	changedStamps?: ReadonlySet<string>;
 	/** Photo locations (`LocationRow.uuid`). */
 	removedPhotos?: ReadonlySet<string>;
+	/** Photo locations whose day or country changed (a replacing CSV). */
+	changedPhotos?: ReadonlySet<string>;
 }
 
 /**
  * Stays after the user deleted or edited their evidence. Ids of deleted
  * stamps and photos go, and an edge read from a deleted stamp becomes an
  * estimate on the same day. A stay that lost evidence or holds a changed
- * stamp is marked `evidenceChanged`. No stay is deleted, moved or
+ * stamp or photo is marked `evidenceChanged`. No stay is deleted, moved or
  * unapproved: the user re-suggests it or keeps it as is. Untouched stays are
  * returned as they were.
  */
@@ -608,6 +610,7 @@ export function flagChangedEvidence(
 	const none = new Set<string>();
 	const { removedStamps = none, changedStamps = none } = change;
 	const removedPhotos = change.removedPhotos ?? none;
+	const changedPhotos = change.changedPhotos ?? none;
 	const gone = (id: string) => removedStamps.has(id);
 	return stays.map((stay) => {
 		const stampIds = stay.stampIds.filter((id) => !gone(id));
@@ -621,7 +624,8 @@ export function flagChangedEvidence(
 			departure !== stay.departure ||
 			[...stay.stampIds, stay.arrival.stampId, stay.departure.stampId].some(
 				(id) => id !== undefined && changedStamps.has(id),
-			);
+			) ||
+			photoIds.some((id) => changedPhotos.has(id));
 		if (!changed) return stay;
 		return {
 			...stay,
