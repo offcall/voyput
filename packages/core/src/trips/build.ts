@@ -205,12 +205,29 @@ function slots(list: readonly (Draft | null)[]): Slot[] {
 const inSlot = (slot: Slot, d: string) =>
 	(slot.from === null || slot.from <= d) && (slot.to === null || d <= slot.to);
 
+/** A stay entered by an entry stamp on `d`. */
+const enteredOn = (slot: Slot | undefined, d: string) =>
+	slot?.stay?.arrival.source === "stamp" &&
+	slot.stay.arrival.date === d;
+
 /**
  * Photos per slot. A border day lies in two slots; its photo goes to the one
- * in the photo's country, else to the later one.
+ * in the photo's country, else to the later one, unless that one is entered
+ * by stamp that day and the photo was taken before the first photo in its
+ * country (or there is none): then it was on the way there, so it goes to the
+ * slot before (an airside transit on the day of the next entry stamp).
  */
 function assign(all: readonly Slot[], photos: readonly Photo[]): Photo[][] {
 	const buckets = all.map((): Photo[] => []);
+	const firstTime = new Map<string, number>();
+	for (const p of photos) {
+		const key = `${p.day}|${p.countryCode}`;
+		firstTime.set(key, Math.min(firstTime.get(key) ?? p.time, p.time));
+	}
+	const before = (slot: Slot | undefined, p: Photo) => {
+		const own = firstTime.get(`${p.day}|${slot?.stay?.countryCode}`);
+		return enteredOn(slot, p.day) && (own === undefined || p.time < own);
+	};
 	let first = 0;
 	for (const p of photos) {
 		while (first < all.length - 1 && !inSlot(all[first] as Slot, p.day)) {
@@ -227,7 +244,12 @@ function assign(all: readonly Slot[], photos: readonly Photo[]): Photo[][] {
 		const same = matches.filter(
 			(i) => all[i]?.stay?.countryCode === p.countryCode,
 		);
-		const index = same.at(-1) ?? matches.at(-1);
+		let index = same.at(-1);
+		if (index === undefined) {
+			let at = matches.length - 1;
+			while (at > 0 && before(all[matches[at] as number], p)) at--;
+			index = matches[at];
+		}
 		if (index !== undefined) buckets[index]?.push(p);
 	}
 	return buckets;
@@ -385,8 +407,9 @@ function withIds(list: readonly Omit<TravelStay, "id">[]): TravelStay[] {
  * The history as one-country stays, only where there is evidence: the
  * passport gives the backbone, photos subdivide it and fill the time between
  * stamps. Days without evidence are left as gaps; nothing is assumed about
- * them. The last stay stays open while nothing ends it. A same-day stay
- * entered and left by plane is suggested as a transit.
+ * them. The last stay stays open while nothing ends it. A stay entered and
+ * left by plane the same day, or overnight with no stamp of its own, is
+ * suggested as a transit.
  */
 export function suggestStays(evidence: StayEvidence): TravelStay[] {
 	const stamps = new Map(evidence.stamps.map((s) => [s.id, s]));
@@ -396,26 +419,34 @@ export function suggestStays(evidence: StayEvidence): TravelStay[] {
 		.flatMap((slot, i) => split(slot, buckets[i] ?? [], stamps))
 		.filter((s) => !isEmpty(s));
 	const stays = withIds(
-		mergeSameCountry(drafts).map((s) => {
-			const departure = s.departure ?? edge(null, "estimated");
-			const transit =
-				sameDay(s) &&
-				s.arrival.method === "plane" &&
-				departure.method === "plane";
-			return {
+		mergeSameCountry(drafts).map(
+			(s): Omit<TravelStay, "id"> => ({
 				countryCode: s.countryCode,
 				place: (s.cities.length > 0 ? s.cities : s.posts).join(", "),
-				kind: transit ? "transit" : "stay",
+				kind: "stay",
 				arrival: { ...s.arrival },
-				departure: { ...departure },
+				departure: { ...(s.departure ?? edge(null, "estimated")) },
 				stampIds: s.stampIds,
 				photoIds: s.photoIds,
 				approved: false,
-			};
-		}),
+			}),
+		),
 	);
 	inferMethods(stays);
+	for (const s of stays) if (isTransit(s)) s.kind = "transit";
 	return stays;
+}
+
+/**
+ * Entered and left by plane (a method a neighbouring crossing gave counts),
+ * on one day, or overnight without a stamp of its own (airside).
+ */
+function isTransit(s: TravelStay): boolean {
+	const { arrival, departure } = s;
+	if (arrival.method !== "plane" || departure.method !== "plane") return false;
+	if (arrival.date === null || departure.date === null) return false;
+	const nights = day(departure.date) - day(arrival.date);
+	return nights === 0 || (nights === 1 && s.stampIds.length === 0);
 }
 
 const NEVER = "0000-00-00";

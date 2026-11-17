@@ -291,6 +291,133 @@ describe("suggestStays", () => {
 	});
 });
 
+/** A photo at a local time with its own offset, as the CSV stores it. */
+const shot = (
+	date: string,
+	time: string,
+	offset: string,
+	countryCode: string,
+	city = "",
+): LocationRow => ({
+	...photo(date, countryCode, time, city),
+	date: `${date}T${time}:00${offset}`,
+	uuid: `${date}-${time}${offset}-${countryCode}`,
+});
+
+describe("transit photos on the day of the next entry stamp", () => {
+	it("puts an airside Istanbul stop between Kyiv and Tokyo on one day", () => {
+		const stays = suggest(
+			[
+				stamp("out", "2024-03-10", "UA", "exit"),
+				stamp("in", "2024-03-10", "JP", "entry"),
+			],
+			[
+				shot("2024-03-10", "06:00", "+02:00", "UA", "Kyiv"),
+				shot("2024-03-10", "11:00", "+03:00", "TR", "Istanbul"),
+				shot("2024-03-10", "13:30", "+03:00", "TR", "Istanbul"),
+				shot("2024-03-10", "23:30", "+09:00", "JP", "Tokyo"),
+				shot("2024-03-12", "10:00", "+09:00", "JP", "Tokyo"),
+			],
+		);
+		expect(brief(stays)).toEqual([
+			["UA", "2024-03-10", "2024-03-10", "estimated/stamp", "stay"],
+			["TR", "2024-03-10", "2024-03-10", "estimated/estimated", "transit"],
+			["JP", "2024-03-10", null, "stamp/estimated", "stay"],
+		]);
+		expect(stays[1]?.photoIds).toHaveLength(2);
+		expect(stays[1]?.arrival.method).toBe("plane");
+		expect(stays[2]?.stampIds).toEqual(["in"]);
+		expect(stays[2]?.photoIds).toHaveLength(2);
+	});
+
+	it("keeps the transit when Tokyo has no photo on the entry day", () => {
+		const stays = suggest(
+			[
+				stamp("out", "2024-03-10", "UA", "exit"),
+				stamp("in", "2024-03-10", "JP", "entry"),
+			],
+			[
+				shot("2024-03-10", "06:00", "+02:00", "UA"),
+				shot("2024-03-10", "13:30", "+03:00", "TR"),
+				shot("2024-03-12", "10:00", "+09:00", "JP"),
+			],
+		);
+		expect(brief(stays).map((s) => [s[0], s[1], s[2], s[4]])).toEqual([
+			["UA", "2024-03-10", "2024-03-10", "stay"],
+			["TR", "2024-03-10", "2024-03-10", "transit"],
+			["JP", "2024-03-10", null, "stay"],
+		]);
+	});
+
+	it("makes an overnight Doha connection without stamps one transit", () => {
+		const stays = suggest(
+			[
+				stamp("out", "2023-11-02", "UA", "exit"),
+				stamp("in", "2023-11-03", "TH", "entry"),
+			],
+			[
+				shot("2023-11-02", "09:00", "+02:00", "UA"),
+				shot("2023-11-02", "22:40", "+03:00", "QA", "Doha"),
+				shot("2023-11-03", "02:10", "+03:00", "QA", "Doha"),
+				shot("2023-11-03", "14:00", "+07:00", "TH", "Bangkok"),
+			],
+		);
+		expect(brief(stays)).toEqual([
+			["UA", "2023-11-02", "2023-11-02", "estimated/stamp", "stay"],
+			["QA", "2023-11-02", "2023-11-03", "estimated/estimated", "transit"],
+			["TH", "2023-11-03", null, "stamp/estimated", "stay"],
+		]);
+		expect(stays[1]?.photoIds).toHaveLength(2);
+	});
+
+	it("keeps an overnight stop with its own stamps a stay", () => {
+		const stays = suggest([
+			stamp("a", "2023-11-02", "UA", "exit"),
+			stamp("b", "2023-11-02", "QA", "entry"),
+			stamp("c", "2023-11-03", "QA", "exit"),
+			stamp("d", "2023-11-03", "TH", "entry"),
+		]);
+		expect(stays[1]).toMatchObject({ countryCode: "QA", kind: "stay" });
+	});
+
+	it("splits a day with photos in three countries by photo time", () => {
+		const stays = suggest(
+			[
+				stamp("a", "2022-07-01", "RS", "exit", "car"),
+				stamp("b", "2022-07-01", "HU", "entry", "car"),
+			],
+			[
+				shot("2022-06-30", "12:00", "+02:00", "RS"),
+				shot("2022-07-01", "08:00", "+02:00", "RS"),
+				shot("2022-07-01", "11:00", "+02:00", "HU"),
+				shot("2022-07-01", "18:00", "+02:00", "AT"),
+				shot("2022-07-03", "10:00", "+02:00", "AT"),
+			],
+		);
+		expect(brief(stays)).toEqual([
+			["RS", "2022-06-30", "2022-07-01", "photos/stamp", "stay"],
+			["HU", "2022-07-01", "2022-07-01", "stamp/photos", "stay"],
+			["AT", "2022-07-01", null, "photos/estimated", "stay"],
+		]);
+	});
+
+	it("does not move photos of a country left after the entry stamp's first photo", () => {
+		// Entered Japan in the morning, took a ferry to Korea in the evening.
+		const stays = suggest(
+			[stamp("in", "2024-03-10", "JP", "entry")],
+			[
+				shot("2024-03-10", "09:00", "+09:00", "JP"),
+				shot("2024-03-10", "20:00", "+09:00", "KR"),
+			],
+		);
+		expect(brief(stays).map((s) => [s[0], s[1], s[2]])).toEqual([
+			["JP", "2024-03-10", "2024-03-10"],
+			["KR", "2024-03-10", null],
+		]);
+		expect(stays[0]?.stampIds).toEqual(["in"]);
+	});
+});
+
 const stay = (
 	id: string,
 	countryCode: string,
@@ -671,3 +798,4 @@ describe("editing stays", () => {
 		expect(withBirthStay(own, md)).toEqual(own);
 	});
 });
+
