@@ -106,6 +106,28 @@ export const pairCountry = (stamps: readonly Stamp[]): Visit[] => {
 	return visits;
 };
 
+/**
+ * Stamps of one zone by date. On one day, exits come first while an entry is
+ * open (leaving and coming back, a visa run), entries first otherwise (in and
+ * out on the same day, a transit).
+ */
+const inDayOrder = (stamps: readonly Stamp[]): Stamp[] => {
+	const byDate = [...stamps].sort((a, b) =>
+		(a.date ?? "").localeCompare(b.date ?? ""),
+	);
+	const ordered: Stamp[] = [];
+	for (let i = 0; i < byDate.length; ) {
+		const date = byDate[i]?.date;
+		const day = byDate.slice(i).filter((stamp) => stamp.date === date);
+		const exits = day.filter((stamp) => stamp.direction === "exit");
+		const entries = day.filter((stamp) => stamp.direction === "entry");
+		const open = ordered.at(-1)?.direction === "entry";
+		ordered.push(...(open ? [...exits, ...entries] : [...entries, ...exits]));
+		i += day.length;
+	}
+	return ordered;
+};
+
 /** Builds visits from all stamps. Unknown-direction stamps and stamps with an open (not hidden) problem are not used. */
 export const pairVisits = (stamps: readonly Stamp[]): Visit[] => {
 	const directed = stamps.filter(
@@ -118,17 +140,13 @@ export const pairVisits = (stamps: readonly Stamp[]): Visit[] => {
 		(stamp) => !stamp.date || !stamp.countryCode,
 	);
 
-	const byDate = (a: Stamp, b: Stamp): number =>
-		(a.date ?? "").localeCompare(b.date ?? "") ||
-		(a.direction === "entry" ? -1 : 1);
-
 	const zones = new Map<string, Stamp[]>();
 	for (const stamp of pairable) {
 		const zone = zoneOf(stamp);
 		zones.set(zone, [...(zones.get(zone) ?? []), stamp]);
 	}
 	const paired = [...zones.values()].flatMap((zoneStamps) =>
-		pairCountry([...zoneStamps].sort(byDate)),
+		pairCountry(inDayOrder(zoneStamps)),
 	);
 	const single = unpairable.map((stamp) =>
 		stamp.direction === "entry"

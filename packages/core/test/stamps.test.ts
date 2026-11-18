@@ -135,6 +135,33 @@ describe("Schengen join dates", () => {
 	});
 });
 
+describe("same-day stamps", () => {
+	const pairs = (stamps: Stamp[]) =>
+		pairVisits(stamps).map((v) => [v.entryStampId, v.exitStampId]);
+	const ua = (id: string, date: string, direction: Stamp["direction"]) =>
+		stamp({ id, countryCode: "UA", date, direction });
+
+	it("closes an open stay before a same-day re-entry (a visa run)", () => {
+		expect(
+			pairs([
+				ua("in-1", "2019-01-01", "entry"),
+				ua("in-2", "2019-03-01", "entry"),
+				ua("out-1", "2019-03-01", "exit"),
+				ua("out-2", "2019-05-01", "exit"),
+			]),
+		).toEqual([
+			["in-1", "out-1"],
+			["in-2", "out-2"],
+		]);
+	});
+
+	it("pairs an entry and an exit on one day when nothing is open (a transit)", () => {
+		expect(
+			pairs([ua("out", "2019-03-01", "exit"), ua("in", "2019-03-01", "entry")]),
+		).toEqual([["in", "out"]]);
+	});
+});
+
 describe("parsePhotoResponse", () => {
 	it("uses a flagged stamp once its problem is hidden", () => {
 		const visits = pairVisits([
