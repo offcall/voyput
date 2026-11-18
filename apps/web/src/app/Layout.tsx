@@ -1,6 +1,6 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { AppShell } from "@voyput/ui";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { stepIdOf } from "../features/collect/CollectPage";
 import { firstUnfinishedStep } from "../features/collect/steps";
 import {
@@ -8,7 +8,7 @@ import {
 	type Plan,
 	type StepId,
 } from "../features/import/plan/planProgress";
-import { usePlan } from "../features/import/plan/usePlan";
+import { PlanProvider, useLivePlan } from "../features/import/plan/usePlan";
 import {
 	FIRST_VIEW,
 	findView,
@@ -83,7 +83,8 @@ const VIEW_ICONS: Record<InsightViewId, ReactNode> = {
 };
 
 export function Layout() {
-	const plan = usePlan();
+	const plan = useLivePlan();
+	const shared = useMemo(() => ({ plan }), [plan]);
 	const [theme, setTheme] = useTheme();
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
@@ -195,9 +196,11 @@ export function Layout() {
 		>
 			{/* Same position on both layouts: crossing 860px must not remount the page. */}
 			{touch && inInsights ? <InsightsSwitch /> : null}
-			<CountryColoursProvider>
-				<Outlet />
-			</CountryColoursProvider>
+			<PlanProvider value={shared}>
+				<CountryColoursProvider>
+					<Outlet />
+				</CountryColoursProvider>
+			</PlanProvider>
 		</AppShell>
 	);
 }

@@ -7,7 +7,7 @@ import {
 	type Stamp,
 	staySpan,
 } from "@voyput/core";
-import { useCallback, useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo } from "react";
 import { useLocations } from "../../../data/locations";
 import { BIRTH_COUNTRY_KEY, BIRTH_KEY } from "../../../data/profile";
 import { useLiveQuery } from "../../../data/useLiveQuery";
@@ -36,8 +36,20 @@ export function countToCheck(
 	).length;
 }
 
-/** The Collect plan, kept up to date with the database. */
+const PlanContext = createContext<{ plan: Plan | undefined } | null>(null);
+
+/** Hands the plan the app shell computes to the pages below it. */
+export const PlanProvider = PlanContext.Provider;
+
+/** The Collect plan from the app shell; undefined while it loads. */
 export function usePlan(): Plan | undefined {
+	const shared = useContext(PlanContext);
+	if (!shared) throw new Error("usePlan() needs a <PlanProvider> above it");
+	return shared.plan;
+}
+
+/** The Collect plan, kept up to date with the database: computed once, by the app shell. */
+export function useLivePlan(): Plan | undefined {
 	const db = useDb();
 	const photoLocations = useLocations();
 	const { settings } = useSettings();
