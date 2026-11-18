@@ -42,3 +42,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0036](0036-stays-saves-diffs-and-follows-outside-changes.md) | Stays Saves Diffs and Follows Outside Changes | Accepted |
 | [0037](0037-country-outlines-from-map-units.md) | Country Outlines from Map Units | Accepted (amends 0033) |
 | [0039](0039-frozen-database-upgrades.md) | Frozen Database Upgrades | Accepted (amends 0007) |
+| [0040](0040-csv-import-in-a-worker.md) | CSV Import in a Worker | Accepted |
