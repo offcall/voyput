@@ -14,7 +14,7 @@ No voyput AI, no account. Stamps read by AI you pick:
 - **Claude Code / Codex subscription, locally.** Copy the command from Settings > AI, run it on your computer, open the pairing link it prints. It downloads `voyput-local.mjs`, checks its SHA-256 against this build of the site, then runs it:
 
   ```bash
-  curl -fsSLo voyput-local.mjs https://voyput.app.offcall.link/voyput-local.mjs && echo "<sha256 from Settings>  voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs
+  curl -fsSLo voyput-local.mjs https://voyput.app.offcall.link/voyput-local.mjs && echo "<sha256 from Settings> *voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs
   ```
 
   Hash comes from same site: catches a corrupted or tampered file, cache or proxy, not a takeover of the site ([ADR 0035](docs/adr/0035-download-verify-run.md)).

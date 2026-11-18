@@ -14,7 +14,7 @@ where your phone actually was.
    to get this file**) and paste it. It has this shape:
 
    ```sh
-   curl -fsSLo photo-locations.sh https://voyput.app.offcall.link/photo-locations.sh && echo "<sha256>  photo-locations.sh" | shasum -a 256 -c - && sh photo-locations.sh
+   curl -fsSLo photo-locations.sh https://voyput.app.offcall.link/photo-locations.sh && echo "<sha256> *photo-locations.sh" | shasum -a 256 -c - && sh photo-locations.sh
    ```
 
    It downloads the script, checks it against the SHA-256 that this build of

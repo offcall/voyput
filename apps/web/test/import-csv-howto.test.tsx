@@ -12,7 +12,7 @@ describe("how to get the photo locations file", () => {
 		const { container } = render(<HowToGetFile origin={origin} />);
 
 		expect(exportCommand(origin)).toBe(
-			`curl -fsSLo photo-locations.sh https://voyput.example/photo-locations.sh && echo "${scriptSha256("photo-locations.sh")}  photo-locations.sh" | shasum -a 256 -c - && sh photo-locations.sh`,
+			`curl -fsSLo photo-locations.sh https://voyput.example/photo-locations.sh && echo "${scriptSha256("photo-locations.sh")} *photo-locations.sh" | shasum -a 256 -c - && sh photo-locations.sh`,
 		);
 		// Two spaces in the checksum line: match the text as it is.
 		expect(

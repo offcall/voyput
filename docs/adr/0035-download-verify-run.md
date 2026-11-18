@@ -14,8 +14,8 @@ Separately, opening `/settings#local=<token>&port=<n>` applied the token and por
 
 - **Hashes at build time.** `apps/web/vite.config.ts` provides `virtual:script-hashes`: the SHA-256 of each served script, computed from exactly the text the serving plugins emit (the oxc output for `voyput-local.mjs`, the file for `photo-locations.sh`). The dev server computes it the same way and reloads it when a source changes. `vitest.config.ts` uses the same plugin, so tests see real hashes.
 - **One-line commands that verify before running.** `verifiedCommand` (`apps/web/src/app/servedScripts.ts`) builds, for Collect, Settings and the home page:
-  `curl -fsSLo <file> <site>/<file> && echo "<sha256>  <file>" | shasum -a 256 -c - && <sh|node> <file> [options]`.
-  `curl` and `shasum` ship with macOS and most Linux systems. A mismatch stops the line before the script runs. The file stays in the current folder, where the user can read it.
+  `curl -fsSLo <file> <site>/<file> && echo "<sha256> *<file>" | shasum -a 256 -c - && <sh|node> <file> [options]`.
+  `curl` and `shasum` ship with macOS and most Linux systems. A mismatch stops the line before the script runs. The checksum line is `<sha256> *<file>` (binary-mode marker, accepted by `shasum` and `sha256sum`), not the two-space form: the page shows the command as HTML text, which collapses runs of spaces, and a copied one-space line fails `shasum -c`. The file stays in the current folder, where the user can read it.
 - **The export writes its CSV with `umask 077`** (mode 0600), so other users of the computer cannot read where the user has been.
 - **Pairing links ask first.** Settings reads `#local=…` from the router's location, removes it at once (address bar and router), and shows "Pair with voyput-local on 127.0.0.1:<port>?" with the port. It says when the link would replace an existing pairing or switch stamp reading from OpenRouter. Only **Pair** stores the token and port and selects Local; **Cancel** leaves the settings as they were. A malformed link is dropped.
 

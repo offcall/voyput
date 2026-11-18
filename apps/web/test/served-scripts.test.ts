@@ -50,8 +50,18 @@ describe("served scripts (ADR 0035)", () => {
 				" --port 5000",
 			),
 		).toBe(
-			`curl -fsSLo voyput-local.mjs https://voyput.example/voyput-local.mjs && echo "${hash}  voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs --port 5000`,
+			`curl -fsSLo voyput-local.mjs https://voyput.example/voyput-local.mjs && echo "${hash} *voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs --port 5000`,
 		);
+	});
+
+	it("survives being copied from a page, where HTML collapses runs of spaces", () => {
+		for (const [file, runner] of [
+			["photo-locations.sh", "sh"],
+			["voyput-local.mjs", "node"],
+		] as const) {
+			const command = verifiedCommand("https://voyput.example", file, runner);
+			expect(command.replace(/\s+/g, " ")).toBe(command);
+		}
 	});
 
 	/** Runs the export command with a `curl` that writes `served` instead. */

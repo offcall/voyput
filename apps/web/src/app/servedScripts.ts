@@ -11,7 +11,9 @@ export function scriptSha256(file: ServedScript): string {
 /**
  * One line that downloads `file` from `origin`, checks it against this build's
  * SHA-256 and only then runs it with `runner` (ADR 0035). `curl` and `shasum`
- * ship with macOS and most Linux systems.
+ * ship with macOS and most Linux systems. The checksum line uses `<hash> *<file>`
+ * rather than two spaces: a page shows the command in HTML, which collapses
+ * runs of spaces, and a copied line with one space fails `shasum -c`.
  */
 export function verifiedCommand(
 	origin: string,
@@ -19,5 +21,5 @@ export function verifiedCommand(
 	runner: "sh" | "node",
 	args = "",
 ): string {
-	return `curl -fsSLo ${file} ${origin}/${file} && echo "${scriptSha256(file)}  ${file}" | shasum -a 256 -c - && ${runner} ${file}${args}`;
+	return `curl -fsSLo ${file} ${origin}/${file} && echo "${scriptSha256(file)} *${file}" | shasum -a 256 -c - && ${runner} ${file}${args}`;
 }
