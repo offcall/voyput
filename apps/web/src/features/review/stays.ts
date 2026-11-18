@@ -20,6 +20,13 @@ export const daysBetween = (from: string, to: string): number =>
 
 const isDated = (s: Stamp): s is DatedStamp => s.date !== null;
 
+/**
+ * A problem the user has not marked "Looks right". Core `pairVisits` and
+ * `usableStamps` leave such stamps out; a hidden problem no longer counts.
+ */
+export const hasOpenProblem = (s: Stamp): boolean =>
+	Boolean(s.problem) && s.dismissed?.problem !== true;
+
 /** Same day: leaving comes before entering; unknown direction last. */
 const DIRECTION_RANK = { exit: 0, entry: 1, unknown: 2 } as const;
 
@@ -55,8 +62,8 @@ const forPairing = (a: DatedStamp, b: DatedStamp): number =>
 
 /**
  * Pairs entries with exits per zone with core `zoneOf` and `pairCountry` (the
- * Schengen area is one zone), like trips; unknown-direction and flagged stamps
- * stay single, as core leaves them out. Pairing and item order are total
+ * Schengen area is one zone), like trips; unknown-direction stamps and those
+ * with an open problem stay single, as core leaves them out. Pairing and item order are total
  * orders, so the result never depends on input order.
  */
 export function buildTimeline(stamps: readonly Stamp[]): TimelineItem[] {
@@ -66,7 +73,11 @@ export function buildTimeline(stamps: readonly Stamp[]): TimelineItem[] {
 	const items: TimelineItem[] = [];
 	const zones = new Map<string, DatedStamp[]>();
 	for (const stamp of dated) {
-		if (stamp.direction === "unknown" || stamp.problem || !stamp.countryCode)
+		if (
+			stamp.direction === "unknown" ||
+			hasOpenProblem(stamp) ||
+			!stamp.countryCode
+		)
 			continue;
 		const zone = zoneOf(stamp);
 		zones.set(zone, [...(zones.get(zone) ?? []), stamp]);

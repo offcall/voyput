@@ -76,4 +76,14 @@ describe("review timeline", () => {
 		expect(shape([...day].reverse())).toEqual(first);
 		expect(shape([day[1], day[2], day[0]] as Stamp[])).toEqual(first);
 	});
+
+	it("pairs a stamp whose problem was marked fine, as core does, not one still open", () => {
+		const exit = stamp("ro-out", "2024-03-05", "RO", "exit");
+		const flagged = { ...exit, problem: "date 2024-03-05 does not match" };
+		const entry = stamp("ro-in", "2024-03-01", "RO", "entry");
+		expect(shape([entry, flagged])).toEqual(["ro-in", "ro-out"]);
+		expect(
+			shape([entry, { ...flagged, dismissed: { problem: true } }]),
+		).toEqual(["ro-in-ro-out:4"]);
+	});
 });
