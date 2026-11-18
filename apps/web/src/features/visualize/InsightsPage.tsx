@@ -160,6 +160,8 @@ export function InsightsPage() {
 		});
 	}, [source, stays, isFiltered, filtered, filters]);
 	const data = useMemo(() => (photos ? buildVizData(photos) : null), [photos]);
+	// One array per `photos`: a new one each render would restart the Journey player.
+	const flatPhotos = useMemo(() => photos?.flat() ?? [], [photos]);
 
 	const needs = NEEDS[view.id];
 	const needsStays = WAITS_FOR_STAYS[view.id];
@@ -260,7 +262,7 @@ export function InsightsPage() {
 				{VIEWS[view.id]({
 					rows: source.rows,
 					data,
-					photos: photos.flat(),
+					photos: flatPhotos,
 					isFiltered,
 					world,
 					stays: staysData,

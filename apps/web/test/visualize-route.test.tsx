@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	fireEvent,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
 import type { LocationRow } from "@voyput/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
@@ -204,6 +210,24 @@ describe("route player", () => {
 		expect(stat("Legs")).toBe("0 / 5");
 		fireEvent.change(slider(), { target: { value: "5" } });
 		expect(bubbles()).toEqual(["MD", "RO", "JP", "KR"]);
+	});
+
+	it("keeps its place when Insights re-renders under a filter", async () => {
+		await openRoute("route-filtered");
+		fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+		const filters = within(screen.getByRole("region", { name: "Filters" }));
+		fireEvent.click(
+			within(filters.getByRole("group", { name: "Region" })).getByRole(
+				"button",
+				{ name: "Europe" },
+			),
+		);
+		fireEvent.change(slider(), { target: { value: "1" } });
+		expect(position()).toBe(1);
+		// Opening and closing the panel re-renders the page: the player stays put.
+		fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+		fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+		expect(position()).toBe(1);
 	});
 
 	it("does not autoplay under reduced motion", async () => {
