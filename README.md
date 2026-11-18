@@ -53,4 +53,4 @@ Code: `apps/web` app · `packages/core` logic · `packages/ui` components · `pa
 
 ## License
 
-[MIT](LICENSE). Wikimedia Commons sample pages in the demo keep their own licences: [credits](apps/web/public/demo/CREDITS.md).
+[MIT](LICENSE). Map data, fonts and the Wikimedia Commons sample pages in the demo keep their own terms: [THIRD_PARTY.md](THIRD_PARTY.md) ([demo credits](apps/web/public/demo/CREDITS.md)).
