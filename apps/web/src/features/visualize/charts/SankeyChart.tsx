@@ -5,29 +5,13 @@ import {
 	type VizData,
 } from "@voyput/core";
 import { CountryChip, Tabs } from "@voyput/ui";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { formatInt, NoData, OTHER_COLOR } from "./format";
 import { layoutSankey, NODE_W, OTHER, type SankeyLink } from "./moves";
 import { type MarkProps, useMarkTip } from "./useMarkTip";
+import { useWidth } from "./useWidth";
 import "./moves.css";
-
-/** Width of the element in CSS pixels; `fallback` where ResizeObserver is missing (jsdom). */
-function useWidth(fallback: number) {
-	const ref = useRef<HTMLDivElement>(null);
-	const [width, setWidth] = useState(fallback);
-	useEffect(() => {
-		const el = ref.current;
-		if (!el || typeof ResizeObserver === "undefined") return;
-		const observer = new ResizeObserver(([entry]) => {
-			const w = entry?.contentRect.width;
-			if (w) setWidth(Math.round(w));
-		});
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, []);
-	return { ref, width };
-}
 
 /** A tip mark that also reports hover and focus. */
 function hovering(

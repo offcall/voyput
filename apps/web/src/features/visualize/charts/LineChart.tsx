@@ -1,5 +1,6 @@
 import { ChartTip } from "@voyput/ui";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
+import { useWidth } from "./useWidth";
 
 export interface LinePoint {
 	label: string;
@@ -52,23 +53,6 @@ function smoothPath(xy: [number, number][]): string {
 		d += `C${x0 + h},${y0 + (tangent[i] ?? 0) * h} ${x1 - h},${y1 - (tangent[i + 1] ?? 0) * h} ${x1},${y1}`;
 	}
 	return d;
-}
-
-/** Width of the element in CSS pixels; `fallback` where ResizeObserver is missing (jsdom). */
-function useWidth(fallback: number) {
-	const ref = useRef<HTMLDivElement>(null);
-	const [width, setWidth] = useState(fallback);
-	useEffect(() => {
-		const el = ref.current;
-		if (!el || typeof ResizeObserver === "undefined") return;
-		const observer = new ResizeObserver(([entry]) => {
-			const w = entry?.contentRect.width;
-			if (w) setWidth(Math.round(w));
-		});
-		observer.observe(el);
-		return () => observer.disconnect();
-	}, []);
-	return { ref, width };
 }
 
 /**
