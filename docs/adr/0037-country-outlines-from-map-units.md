@@ -12,6 +12,7 @@ ADR 0033 builds `country-outlines.json` from Natural Earth 10m admin 0 *countrie
 
 - `npm run world:outlines` reads Natural Earth 10m admin 0 *map units* (`ne_10m_admin_0_map_units.geojson`, public domain), which keep those territories as their own units with their own `ISO_A2_EH`.
 - A unit's code is, in order: an override by `SU_A3` (Jan Mayen is SJ, the UNDOF zone SY instead of Natural Earth's `XD`, the nine U.S. minor islands UM instead of US), its `ISO_A2_EH`, or, for units without a code, the `NO_CODE` mapping of ADR 0033 by name (now also each half of the Korean DMZ to KR or KP). Units that split a country (England, Wales, Flanders, Azores, Zanzibar, ...) keep the parent's code and add rings to it.
+- Crimea (2026-11-18): Natural Earth puts it in Russia's unit as one separate part; the map draws it as Ukraine. The RU part that lies inside a Crimea box is UA, so a photo in Simferopol or Sevastopol counts as Ukraine, as on the map. The script stops if it does not find exactly one such part.
 - Format, rounding, lookup and loading stay as in ADR 0033.
 
 ## Consequences

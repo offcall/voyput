@@ -54,7 +54,22 @@ const UNIT_CODE: Readonly<Record<string, string>> = {
 	KQI: "UM",
 };
 
+/**
+ * Natural Earth draws Crimea as one part of Russia's unit; voyput's map draws
+ * it as Ukraine (UN position), so the part inside this box is UA (ADR 0037).
+ */
+const CRIMEA = { west: 32, east: 37, south: 44, north: 46.5 };
+
 type Position = [number, number];
+
+const inCrimea = (ring: Position[]) =>
+	ring.every(
+		([lon, lat]) =>
+			lon > CRIMEA.west &&
+			lon < CRIMEA.east &&
+			lat > CRIMEA.south &&
+			lat < CRIMEA.north,
+	);
 
 const path = process.argv[2];
 if (!path) {
@@ -72,6 +87,7 @@ const source = JSON.parse(readFileSync(path, "utf8")) as {
 
 /** Per code, each ring as `[lon, lat]` integer deltas at OUTLINE_SCALE. */
 const countries: Record<string, number[][]> = {};
+let crimeaParts = 0;
 for (const { properties, geometry } of source.features) {
 	const code =
 		UNIT_CODE[properties.SU_A3] ??
@@ -87,7 +103,10 @@ for (const { properties, geometry } of source.features) {
 			? geometry.coordinates
 			: [geometry.coordinates]
 	) as Position[][][];
-	for (const polygon of polygons)
+	for (const polygon of polygons) {
+		const crimea = code === "RU" && inCrimea(polygon[0] ?? []);
+		if (crimea) crimeaParts++;
+		const partCode = crimea ? "UA" : code;
 		for (const ring of polygon) {
 			let x = 0;
 			let y = 0;
@@ -101,10 +120,17 @@ for (const { properties, geometry } of source.features) {
 				y = ny;
 			}
 			if (deltas.length < 8) continue;
-			const rings = countries[code] ?? [];
+			const rings = countries[partCode] ?? [];
 			rings.push(deltas);
-			countries[code] = rings;
+			countries[partCode] = rings;
 		}
+	}
+}
+if (crimeaParts !== 1) {
+	process.stderr.write(
+		`expected one Crimea part of RU, found ${crimeaParts}\n`,
+	);
+	process.exit(1);
 }
 
 writeFileSync(

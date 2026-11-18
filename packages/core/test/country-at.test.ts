@@ -122,6 +122,9 @@ describe("country at a point, with the outlines the app ships", () => {
 		["Kralendijk, Bonaire", 12.1443, -68.2655, "BQ"],
 		["Oslo", 59.9139, 10.7522, "NO"],
 		["Amsterdam", 52.3676, 4.9041, "NL"],
+		["Simferopol, Crimea", 44.9521, 34.1024, "UA"],
+		["Sevastopol, Crimea", 44.6166, 33.5254, "UA"],
+		["Krasnodar, across the Kerch Strait", 45.0355, 38.9753, "RU"],
 	])("%s is %s", (_place, lat, lon, code) => {
 		expect(countryAt(lat, lon)).toBe(code);
 	});
