@@ -1,6 +1,6 @@
 import type { VizData } from "@voyput/core";
-import { Stat, StatGroup } from "@voyput/ui";
-import { flag, formatInt, NoData } from "./format";
+import { flagEmoji, Stat, StatGroup } from "@voyput/ui";
+import { formatInt, NoData } from "./format";
 import { LineChart } from "./LineChart";
 
 function gap(hours: number): string {
@@ -58,10 +58,10 @@ export function DistanceChart({ data }: { data: VizData }) {
 							<tr key={`${s.fromDate}-${s.toDate}-${s.km}`}>
 								<td>{i + 1}</td>
 								<td>
-									{flag(s.fromCode)} {s.fromCountry}
+									{flagEmoji(s.fromCode)} {s.fromCountry}
 								</td>
 								<td>
-									{flag(s.toCode)} {s.toCountry}
+									{flagEmoji(s.toCode)} {s.toCountry}
 								</td>
 								<td>{formatInt(s.km)} km</td>
 								<td>{s.fromDate}</td>

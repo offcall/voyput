@@ -1,12 +1,9 @@
 import type { BorderCrossing, Direction } from "@voyput/core";
+import { flagEmoji } from "@voyput/ui";
 
 /** Regional indicator flag for a two-letter code, or a white flag. */
 export const flagOf = (code: string | null): string =>
-	code && /^[A-Za-z]{2}$/.test(code)
-		? String.fromCodePoint(
-				...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
-			)
-		: "🏳️";
+	flagEmoji(code ?? "") || "🏳️";
 
 export const DIRECTIONS: readonly { value: Direction; label: string }[] = [
 	{ value: "entry", label: "Entry" },

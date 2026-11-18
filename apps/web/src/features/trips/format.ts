@@ -1,12 +1,7 @@
 import type { EdgeSource, TravelMethod } from "@voyput/core";
 
-/** Regional indicator flag for a two-letter code, or an empty string. */
-export const flagOf = (code: string): string =>
-	/^[A-Za-z]{2}$/.test(code)
-		? String.fromCodePoint(
-				...[...code.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65),
-			)
-		: "";
+/** The kit's `flagEmoji` under the name the Stays files use. */
+export { flagEmoji as flagOf } from "@voyput/ui";
 
 const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 export const countryName = (cc: string): string => {

@@ -1,7 +1,8 @@
 import type { CountryStat, VizData } from "@voyput/core";
+import { flagEmoji } from "@voyput/ui";
 import { useCountryColour } from "../../../app/countryColours";
 
-import { flag, formatInt, NoData, OTHER_COLOR } from "./format";
+import { formatInt, NoData, OTHER_COLOR } from "./format";
 import { type TipText, useMarkTip } from "./useMarkTip";
 
 const TOP = 24;
@@ -108,7 +109,7 @@ export function MatrixChart({ data }: { data: VizData }) {
 						{top.map((c) =>
 							row(
 								c.code,
-								`${flag(c.code)} ${c.country}`,
+								`${flagEmoji(c.code)} ${c.country}`,
 								c.country,
 								[c],
 								countryColor(c.code),
