@@ -32,6 +32,16 @@ Photo locations need no AI.
 
 No data at hand: demo passport inside the app.
 
+## How the AI part works
+
+- **Prompt:** one vision call per page ([`stamps/prompt.ts`](packages/core/src/stamps/prompt.ts)): stamp format guide + strict JSON answer (`notes`, `stamps[]` with direction, crossing, printed date text, date, country, code, location, confidence). Text in the image is data, not instructions.
+- **Validated at the boundary:** every field checked ([`stamps/parse.ts`](packages/core/src/stamps/parse.ts)). Bad field → unknown + warning on its stamp. Not stamps at all → error with raw answer, old stamps kept.
+- **Printed-date check:** date must match the printed date text and the passport's validity dates ([`stamps/dates.ts`](packages/core/src/stamps/dates.ts)).
+- **GPS cross-check:** each stamp against your photo locations around its date ([`review/checks.ts`](packages/core/src/review/checks.ts)). You approve every stamp.
+- **Validate with AI / Rescan with AI:** second look at one stamp (its fields + countries and dates of nearby photo locations), or the whole page for missed stamps ([`review/prompts.ts`](packages/core/src/review/prompts.ts)).
+- **Two engines:** OpenRouter with your key, or local Claude Code / Codex CLI via voyput-local. Same prompts, same parser.
+- **Default model:** picked in a small trial against hand-read ground truth: [docs/model-trial-2026-11.md](docs/model-trial-2026-11.md).
+
 ## Private
 
 - Everything in this browser (IndexedDB). No account, no voyput server, no analytics.
@@ -40,16 +50,24 @@ No data at hand: demo passport inside the app.
 
 ## Dev
 
+Node >= 22.12. `npm ci` for a clean install.
+
 ```bash
-npm install
-npm run dev     # http://127.0.0.1:5173
+npm ci
+npm run dev     # http://127.0.0.1:5173 (Vite picks the next free port if 5173 is busy)
 npm run check   # biome, tsc, tests
 npm run build   # static site in apps/web/dist; serve index.html for unknown paths
 ```
 
+voyput-local against a dev server: `node --experimental-strip-types packages/local/src/voyput-local.ts --site http://127.0.0.1:5173` (the port Vite printed; open the app at the same origin).
+
+The download-and-verify commands need `shasum` (macOS, Linux). Windows: use WSL, or check the hash with `certutil -hashfile <file> SHA256`.
+
 Deploy: headers (CSP, HSTS, caching) for nginx, Coolify and `_headers`, and running a copy on your own domain, in [`docs/deploy.md`](docs/deploy.md).
 
 Code: `apps/web` app · `packages/core` logic · `packages/ui` components · `packages/local` voyput-local · `tools/photos-export` CSV exporter. Decisions: [`docs/adr/`](docs/adr/README.md).
+
+Not affiliated with Apple, Anthropic, OpenAI or OpenRouter.
 
 ## License
 
