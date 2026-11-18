@@ -36,6 +36,7 @@ node --experimental-strip-types scripts/csp-hash.ts
 - Everything else (`index.html` and the app's routes, `voyput-local.mjs`, `photo-locations.sh`, icons, demo data): `no-cache`, so a deploy shows up on the next load.
 - The app's bundle carries the SHA-256 of `voyput-local.mjs` and `photo-locations.sh`, and the commands it shows refuse to run a file that does not match (ADR 0035). Deploy the bundle and the scripts together, from one build.
 - `/voyput-local.mjs` is served as `text/javascript`, `/photo-locations.sh` as `text/plain` (shown, not downloaded, when opened in a browser).
+- Compress text responses (gzip in the nginx block below). The bundle holds a 4.4 MB country-outlines chunk and a 940 KB main chunk; served uncompressed, the first load is several times larger than it needs to be. `gzip_vary` adds `Vary: Accept-Encoding` so caches keep the two forms apart. The shown `curl` commands ask for no compression, so the scripts still arrive byte for byte for the SHA-256 check.
 
 ## nginx
 
@@ -54,6 +55,11 @@ server {
     add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
     add_header Cross-Origin-Opener-Policy "same-origin" always;
     add_header X-Frame-Options "DENY" always;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/javascript text/javascript application/json image/svg+xml;
 
     # Hashed file names: Cache-Control max-age=315360000.
     location /assets/ {
