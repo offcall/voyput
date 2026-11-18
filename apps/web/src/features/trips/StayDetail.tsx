@@ -165,7 +165,7 @@ function EdgeEditor({
 /** A form open in the panel. */
 type PanelForm = "split" | "add" | null;
 
-/** The open stay's place in the review queue (stays not approved and not ready). */
+/** The open stay's place in the review queue (stays not ready: to check, with an error, or with changed evidence). */
 export interface ReviewQueue {
 	/** From 1. */
 	position: number;

@@ -145,12 +145,15 @@ function NextToCheck({
 	stay,
 	status,
 	left,
+	unapproved,
 	birth,
 	onOpen,
 }: {
 	stay: TravelStay | undefined;
 	status: StayStatus | undefined;
 	left: number;
+	/** Stays not approved yet; with the queue empty, all of them are ready. */
+	unapproved: number;
 	birth: string | null;
 	onOpen: () => void;
 }) {
@@ -159,7 +162,15 @@ function NextToCheck({
 			See my travels →
 		</Link>
 	);
-	if (!stay) return <p>Every stay is approved or ready. {travels}</p>;
+	if (!stay)
+		return (
+			<p>
+				{unapproved === 0
+					? "Every stay is approved."
+					: `Nothing to check: ${plural(unapproved, "stay")} ready to approve, the rest approved.`}{" "}
+				{travels}
+			</p>
+		);
 	return (
 		<div className="vp-trips-next">
 			<p>
@@ -377,11 +388,11 @@ export function TripsPage() {
 	const toCheck = statuses.filter(
 		(st, i) => st === "check" && !stays[i]?.approved,
 	).length;
-	/** Stays still to look at one by one, in list order: not approved and not ready. */
-	const queue = stays
-		.map((s, i) => ({ s, i }))
-		.filter(({ s, i }) => !s.approved && statuses[i] !== "ok")
-		.map(({ s }) => s.id);
+	/**
+	 * Stays still to look at one by one, in list order: not approved and not
+	 * ready, and approved ones that since got an error or changed evidence.
+	 */
+	const queue = stays.filter((_, i) => statuses[i] !== "ok").map((s) => s.id);
 	if (order === "newest") queue.reverse();
 	const photoDays = useMemo(
 		() => buildPhotoDays(data?.locations ?? []),
@@ -666,6 +677,7 @@ export function TripsPage() {
 						stay={stays.find((s) => s.id === queue[0])}
 						status={statuses[stays.findIndex((s) => s.id === queue[0])]}
 						left={queue.length}
+						unapproved={counts.left}
 						birth={birth}
 						onOpen={() => leaveFor(queue[0] ?? null)}
 					/>
@@ -801,6 +813,7 @@ export function TripsPage() {
 								stay={stays.find((s) => s.id === queue[0])}
 								status={statuses[stays.findIndex((s) => s.id === queue[0])]}
 								left={queue.length}
+								unapproved={counts.left}
 								birth={birth}
 								onOpen={() => leaveFor(queue[0] ?? null)}
 							/>

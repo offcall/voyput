@@ -995,4 +995,61 @@ describe("trips", () => {
 		expect(departure.getAttribute("aria-valuetext")).toBe("2024-03-05");
 		expect((await row(2, "Romania")).textContent).toContain("1 → 5 Mar 2024");
 	});
+
+	it("puts an approved stay that gets an error back in the review queue", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-approved-error");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		await row(2, "Romania");
+		await user.click(screen.getByRole("button", { name: "✓ Approve 1" }));
+		expect(screen.getAllByText(/4 stays to check\./)).toHaveLength(2);
+
+		// Moldova now runs into the approved Romania, which gets the overlap error.
+		const moldova = await open(user, 1, "Moldova");
+		fireEvent.change(moldova.getByLabelText("Departure date"), {
+			target: { value: "2024-03-03" },
+		});
+		expect(summary()).toContain("1 error ·");
+		await user.click(moldova.getByRole("button", { name: "Close the stay" }));
+		expect(screen.getAllByText(/5 stays to check\./)).toHaveLength(2);
+
+		const romania = await open(user, 2, "Romania");
+		expect(romania.getAllByText(/^\d \/ 5 to check$/)).toHaveLength(2);
+		expect(
+			romania
+				.getAllByRole<HTMLButtonElement>("button", { name: "✓ Approve & next" })
+				.every((b) => b.disabled),
+		).toBe(true);
+	});
+
+	it("words the empty queue from the counts", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-queue-empty");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		const [checkFirst] = await screen.findAllByRole("button", {
+			name: "Check the first one →",
+		});
+		if (!checkFirst) throw new Error("no Check the first one button");
+		await user.click(checkFirst);
+		for (let left = 4; left > 0; left--) {
+			const [approveNext] = await screen.findAllByRole("button", {
+				name: "✓ Approve & next",
+			});
+			if (!approveNext) throw new Error("no Approve & next button");
+			await user.click(approveNext);
+		}
+		// The last Approve & next has no next stay and closes the panel.
+		expect(
+			await screen.findAllByText(
+				/^Nothing to check: 1 stay ready to approve, the rest approved\./,
+			),
+		).toHaveLength(2);
+
+		await user.click(screen.getByRole("button", { name: "✓ Approve 1" }));
+		expect(screen.getAllByText(/^Every stay is approved\./)).toHaveLength(2);
+	});
 });
