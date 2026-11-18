@@ -85,7 +85,7 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 export const historyOf = (data: TripsData): TravelStay[] =>
 	data.stored.length > 0 ? data.stored : suggestHistory(data);
 
-/** Replaces the stored history. */
+/** Replaces the stored history: for Settings, which changes it as a whole. */
 export async function saveStays(
 	db: VoyputDb,
 	stays: readonly TravelStay[],
@@ -93,6 +93,88 @@ export async function saveStays(
 	await db.transaction("rw", db.stays, async () => {
 		await db.stays.clear();
 		await db.stays.bulkPut([...stays]);
+	});
+}
+
+/** Stable text of a stored value: same content, same text, whatever the key order. */
+const canonical = (value: unknown): string =>
+	JSON.stringify(value, (_key, v: unknown) =>
+		v && typeof v === "object" && !Array.isArray(v)
+			? Object.fromEntries(
+					Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+				)
+			: v,
+	);
+
+/** Same stays by id and content, in any order. */
+export function sameStays(
+	a: readonly TravelStay[],
+	b: readonly TravelStay[],
+): boolean {
+	if (a.length !== b.length) return false;
+	const byId = new Map(b.map((s) => [s.id, canonical(s)]));
+	return a.every((s) => byId.get(s.id) === canonical(s));
+}
+
+/**
+ * A stay the page changed from `before` to `after`, merged field by field into
+ * what is stored now: a field the page left alone keeps its stored value, so
+ * an `evidenceChanged` flag or a dropped stamp id written elsewhere survives.
+ */
+function mergeStay(
+	before: TravelStay,
+	after: TravelStay,
+	stored: TravelStay,
+): TravelStay {
+	const merged: Record<string, unknown> = {};
+	const keys = new Set([
+		...Object.keys(before),
+		...Object.keys(after),
+		...Object.keys(stored),
+	]);
+	const read = (stay: TravelStay, key: string): unknown =>
+		(stay as unknown as Record<string, unknown>)[key];
+	for (const key of keys) {
+		const mine = read(after, key);
+		const value =
+			canonical(mine) === canonical(read(before, key))
+				? read(stored, key)
+				: mine;
+		if (value !== undefined) merged[key] = value;
+	}
+	return merged as unknown as TravelStay;
+}
+
+/**
+ * Saves an edit of the history as a diff against `before`, the history the
+ * page last read or saved: in one transaction, puts the stays that differ and
+ * deletes the ones removed. Stays the edit did not touch are not written, and
+ * a touched stay keeps what another writer stored in the fields the edit left
+ * alone (ADR 0036). A stay deleted elsewhere is not brought back.
+ */
+export async function saveStayChanges(
+	db: VoyputDb,
+	before: readonly TravelStay[],
+	after: readonly TravelStay[],
+): Promise<void> {
+	const old = new Map(before.map((s) => [s.id, s]));
+	const kept = new Set(after.map((s) => s.id));
+	const changed = after.filter((s) => {
+		const was = old.get(s.id);
+		return !was || canonical(was) !== canonical(s);
+	});
+	const removed = before.filter((s) => !kept.has(s.id)).map((s) => s.id);
+	await db.transaction("rw", db.stays, async () => {
+		const stored = await db.stays.bulkGet(changed.map((s) => s.id));
+		const puts: TravelStay[] = [];
+		changed.forEach((stay, i) => {
+			const was = old.get(stay.id);
+			const now = stored[i];
+			if (!was) puts.push(stay);
+			else if (now) puts.push(mergeStay(was, stay, now));
+		});
+		if (puts.length > 0) await db.stays.bulkPut(puts);
+		if (removed.length > 0) await db.stays.bulkDelete(removed);
 	});
 }
 

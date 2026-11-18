@@ -17,6 +17,7 @@ import {
 	usableStamps,
 } from "@voyput/core";
 import { Button, Notice, SkyHeader, Stack } from "@voyput/ui";
+import { liveQuery } from "dexie";
 import {
 	type CSSProperties,
 	type ReactNode,
@@ -51,9 +52,10 @@ import {
 	historyOf,
 	loadTripsData,
 	type StayOrder,
+	sameStays,
 	saveLegacyTrips,
 	saveOrder,
-	saveStays,
+	saveStayChanges,
 	suggestHistory,
 	type TripsData,
 } from "./tripStore";
@@ -223,14 +225,27 @@ export function TripsPage() {
 	);
 	const closeToast = useCallback(() => setToast(null), []);
 
-	useEffect(() => {
-		let alive = true;
+	/** The history as last read from or saved to the database: what the next save diffs against. */
+	const saved = useRef<TravelStay[]>([]);
+	/** Histories this page saved and has not seen come back from the database yet. */
+	const written = useRef<TravelStay[][]>([]);
+	/** Saves run one after another, in edit order. */
+	const saving = useRef<Promise<void>>(Promise.resolve());
+	const savedVersion = useRef(0);
+	const loads = useRef(0);
+
+	/** Reads everything again and starts a fresh undo history: nothing stale comes back. */
+	const load = useCallback(() => {
+		const at = ++loads.current;
 		loadTripsData(db)
 			.then((loaded) => {
-				if (!alive) return;
+				if (at !== loads.current) return;
+				saved.current = loaded.stored;
+				written.current = [];
 				setData(loaded);
 				setStored(loaded.stored.length > 0);
 				setOrder(loaded.order);
+				setToast(null);
 				dispatch({
 					type: "load",
 					snapshot: {
@@ -241,16 +256,38 @@ export function TripsPage() {
 				});
 			})
 			.catch(fail);
-		return () => {
-			alive = false;
-		};
 	}, [db, fail]);
 
-	// Every edit, undo and redo is saved; loading is not.
+	// Loads on open, and again whenever stays change outside this page:
+	// Review, Import, Settings, the demo, or another tab (ADR 0036).
+	useEffect(() => {
+		let first = true;
+		const subscription = liveQuery(() => db.stays.toArray()).subscribe({
+			next: (rows) => {
+				const own = written.current.findIndex((w) => sameStays(w, rows));
+				if (own >= 0) written.current = written.current.slice(own + 1);
+				if (!first && (own >= 0 || sameStays(rows, saved.current))) return;
+				first = false;
+				load();
+			},
+			error: fail,
+		});
+		return () => {
+			loads.current++;
+			subscription.unsubscribe();
+		};
+	}, [db, load, fail]);
+
+	// Every edit, undo and redo is saved as a diff; loading is not.
 	const { version } = edits;
 	useEffect(() => {
-		if (version === 0) return;
-		saveStays(db, stays)
+		if (version === savedVersion.current) return;
+		savedVersion.current = version;
+		const before = saved.current;
+		saved.current = stays;
+		written.current.push(stays);
+		saving.current = saving.current
+			.then(() => saveStayChanges(db, before, stays))
 			.then(() => setStored(true))
 			.catch(fail);
 	}, [db, version, stays, fail]);
