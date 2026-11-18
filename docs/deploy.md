@@ -91,6 +91,18 @@ Not verified against a live Coolify instance; check the response headers after t
 curl -sI https://voyput.app.offcall.link/ && curl -sI https://voyput.app.offcall.link/voyput-local.mjs
 ```
 
+## Your own domain
+
+The app works on any origin: it builds the commands it shows from the address it is served from. Three things name the public site:
+
+- **Canonical and social-card URLs** in `apps/web/index.html` (`<link rel="canonical">`, `og:url`, `og:image`, `twitter:image`). Set them to your origin before `npm run build`; link previews use them.
+- **The CSP** needs no change: it allows `'self'`, not a domain. Only an edit to the inline theme script changes it (see [The inline script hash](#the-inline-script-hash)).
+- **voyput-local** trusts the public site unless started with `--site <origin>` ([ADR 0042](adr/0042-voyput-local-site-flag.md)). The command in Settings › AI and on Home adds `--site` with your origin, so its CORS check lets your site in and its pairing link opens your Settings:
+
+  ```bash
+  node voyput-local.mjs --site https://voyput.example.org
+  ```
+
 ## `_headers` (Cloudflare Pages)
 
 The same rules for hosts that read a `_headers` file from the publish directory. `! Cache-Control` drops the value set by `/*` before `/assets/*` sets its own (Cloudflare Pages joins repeated headers otherwise). Netlify reads the same file but has no `!`; there, drop the `Cache-Control` line from `/*`.

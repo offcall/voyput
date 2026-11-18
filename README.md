@@ -47,7 +47,7 @@ npm run check   # biome, tsc, tests
 npm run build   # static site in apps/web/dist; serve index.html for unknown paths
 ```
 
-Deploy: headers (CSP, HSTS, caching) for nginx, Coolify and `_headers` in [`docs/deploy.md`](docs/deploy.md).
+Deploy: headers (CSP, HSTS, caching) for nginx, Coolify and `_headers`, and running a copy on your own domain, in [`docs/deploy.md`](docs/deploy.md).
 
 Code: `apps/web` app · `packages/core` logic · `packages/ui` components · `packages/local` voyput-local · `tools/photos-export` CSV exporter. Decisions: [`docs/adr/`](docs/adr/README.md).
 

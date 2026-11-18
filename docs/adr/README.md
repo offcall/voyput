@@ -45,3 +45,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0039](0039-frozen-database-upgrades.md) | Frozen Database Upgrades | Accepted (amends 0007) |
 | [0040](0040-csv-import-in-a-worker.md) | CSV Import in a Worker | Accepted |
 | [0041](0041-read-only-photos-library-access.md) | Read-Only Photos Library Access | Accepted (amends 0033) |
+| [0042](0042-voyput-local-site-flag.md) | voyput-local Site Flag | Accepted (amends 0026) |

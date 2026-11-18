@@ -68,6 +68,7 @@ function localServer({
 	const deps: Deps = {
 		token,
 		port: 5000,
+		site: "https://voyput.app.offcall.link",
 		engines: ["claude", "codex"],
 		nonces: new NonceGuard(),
 		reserve: reserveFrom(
@@ -329,7 +330,17 @@ describe("provider switch", () => {
 				"node --experimental-strip-types packages/local/src/voyput-local.ts",
 		});
 		expect(localCommands("http://x", 5000).clone).toBe(
-			"node --experimental-strip-types packages/local/src/voyput-local.ts --port 5000",
+			"node --experimental-strip-types packages/local/src/voyput-local.ts --port 5000 --site http://x",
+		);
+		const own = localCommands("https://voyput.example.org", 47615);
+		expect(own.download).toContain(
+			"curl -fsSLo voyput-local.mjs https://voyput.example.org/voyput-local.mjs",
+		);
+		expect(own.download).toMatch(
+			/ && node voyput-local\.mjs --site https:\/\/voyput\.example\.org$/,
+		);
+		expect(own.clone).toBe(
+			"node --experimental-strip-types packages/local/src/voyput-local.ts --site https://voyput.example.org",
 		);
 	});
 });
@@ -393,7 +404,7 @@ describe("Settings AI card", () => {
 		expect(screen.getByText(/only on your own computer/)).toBeTruthy();
 		expect(
 			screen.getByText(
-				`curl -fsSLo voyput-local.mjs ${window.location.origin}/voyput-local.mjs && echo "${scriptSha256("voyput-local.mjs")} *voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs --port 5000`,
+				`curl -fsSLo voyput-local.mjs ${window.location.origin}/voyput-local.mjs && echo "${scriptSha256("voyput-local.mjs")} *voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs --port 5000 --site ${window.location.origin}`,
 				{ normalizer: (text) => text },
 			),
 		).toBeTruthy();

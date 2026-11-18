@@ -92,6 +92,15 @@ describe("home page", () => {
 		expect(
 			screen.getByText(/run voyput-local on your own computer/),
 		).toBeTruthy();
+		// The voyput-local command names this site, not a fixed one.
+		const origin = window.location.origin;
+		expect(
+			screen.getByText(
+				(text) =>
+					text.startsWith(`curl -fsSLo voyput-local.mjs ${origin}/`) &&
+					text.endsWith(`node voyput-local.mjs --site ${origin}`),
+			),
+		).toBeTruthy();
 		expect(screen.getByRole("button", { name: /^Photos only/ })).toBeTruthy();
 		expect(
 			screen.getByRole("button", { name: "Try with demo data" }),

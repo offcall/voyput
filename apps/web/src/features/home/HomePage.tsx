@@ -9,7 +9,7 @@ import {
 	type SpriteName,
 } from "@voyput/ui";
 import { useState } from "react";
-import { verifiedCommand } from "../../app/servedScripts";
+import { localCommands } from "../../ai/local";
 import type { Plan } from "../../data/plan/planProgress";
 import { saveSources } from "../../data/plan/sources";
 import { usePlan } from "../../data/plan/usePlan";
@@ -185,13 +185,6 @@ function HowItWorks() {
 	);
 }
 
-/** The command that downloads, checks and starts voyput-local (ADR 0026, ADR 0035). */
-const LOCAL_COMMAND = verifiedCommand(
-	"https://voyput.app.offcall.link",
-	"voyput-local.mjs",
-	"node",
-);
-
 /** Bring your own key: the two ways to read stamps, and where to set them up. */
 function OwnKey() {
 	return (
@@ -224,7 +217,7 @@ function OwnKey() {
 						stamps with the Claude Code or Codex CLI you already pay for.
 					</span>
 					<CommandBox
-						command={LOCAL_COMMAND}
+						command={localCommands(window.location.origin).download}
 						label="Copy the voyput-local command"
 					/>
 				</li>

@@ -29,6 +29,7 @@ import {
 	outputCollector,
 	pairingLink,
 	parseExtractBody,
+	parseSite,
 	type Runner,
 	readBody,
 	refuse,
@@ -85,6 +86,7 @@ function depsWith(
 	return {
 		token: TOKEN,
 		port: DEFAULT_PORT,
+		site: "https://voyput.app.offcall.link",
 		engines,
 		jobs,
 		nonces: new NonceGuard(),
@@ -234,6 +236,51 @@ describe("voyput-local checks before the body", () => {
 		expect(isAllowedOrigin("http://localhost:5173.evil.example")).toBe(false);
 	});
 
+	it("allows the --site origin instead of the public site", () => {
+		const site = "https://voyput.example.org";
+		expect(isAllowedOrigin(site, site)).toBe(true);
+		expect(isAllowedOrigin("https://voyput.app.offcall.link", site)).toBe(
+			false,
+		);
+		expect(isAllowedOrigin("http://localhost:5173", site)).toBe(true);
+		const deps = { ...depsWith(), site };
+		const health = (origin: string) =>
+			admit(
+				{
+					method: "OPTIONS",
+					path: "/health",
+					headers: { host: BASE_HEADERS.host, origin },
+				},
+				deps,
+				NOW,
+			);
+		const own = health(site);
+		expect("response" in own && own.response.status).toBe(204);
+		const other = health("https://voyput.app.offcall.link");
+		expect("response" in other && other.response.status).toBe(403);
+	});
+
+	it("reads --site as an origin: https anywhere, http only on localhost", () => {
+		expect(parseSite("https://voyput.example.org")).toBe(
+			"https://voyput.example.org",
+		);
+		expect(parseSite("https://Voyput.Example.org/")).toBe(
+			"https://voyput.example.org",
+		);
+		expect(parseSite("https://voyput.example.org:8443")).toBe(
+			"https://voyput.example.org:8443",
+		);
+		expect(parseSite("http://localhost:5173")).toBe("http://localhost:5173");
+		expect(parseSite("http://127.0.0.1:4173/")).toBe("http://127.0.0.1:4173");
+		expect(parseSite("http://voyput.example.org")).toBe(null);
+		expect(parseSite("https://voyput.example.org/app")).toBe(null);
+		expect(parseSite("https://voyput.example.org/?x=1")).toBe(null);
+		expect(parseSite("https://voyput.example.org/#x")).toBe(null);
+		expect(parseSite("https://user@voyput.example.org")).toBe(null);
+		expect(parseSite("voyput.example.org")).toBe(null);
+		expect(parseSite("javascript:alert(1)")).toBe(null);
+	});
+
 	it("answers CORS and Private Network Access preflights unsigned", () => {
 		const result = admit(
 			{
@@ -271,6 +318,17 @@ describe("voyput-local checks before the body", () => {
 		);
 		expect(page.response.body).toContain("voyput-local is running");
 		expect(page.response.body).not.toContain(TOKEN);
+		expect(page.response.body).toContain(
+			'href="https://voyput.app.offcall.link/settings"',
+		);
+		const own = admit(
+			{ method: "GET", path: "/", headers: { host: BASE_HEADERS.host } },
+			{ ...depsWith(), site: "https://voyput.example.org" },
+			NOW,
+		);
+		expect("response" in own && own.response.body).toContain(
+			'href="https://voyput.example.org/settings"',
+		);
 		expect(statusOf(request("GET", "/"))).toBe(404);
 		const rebound = admit(
 			{ method: "GET", path: "/", headers: { host: "evil.example" } },
@@ -1018,6 +1076,9 @@ describe("voyput-local commands", () => {
 		expect(pairingLink("abc", 5000)).toBe(
 			"https://voyput.app.offcall.link/settings#local=abc&port=5000",
 		);
+		expect(pairingLink("abc", 5000, "https://voyput.example.org")).toBe(
+			"https://voyput.example.org/settings#local=abc&port=5000",
+		);
 	});
 });
 
@@ -1047,5 +1108,13 @@ describe("voyput-local banner", () => {
 		expect(text).toContain("Codex (off: --no-codex)");
 		expect(text).toContain("no engine");
 		expect(banner(info, true)).toContain("\x1b[");
+	});
+
+	it("pairs with the --site origin when one is given", () => {
+		const text = banner({ ...info, site: "https://voyput.example.org" }, false);
+		expect(text).toContain(
+			pairingLink(TOKEN, DEFAULT_PORT, "https://voyput.example.org"),
+		);
+		expect(text).not.toContain("offcall.link");
 	});
 });

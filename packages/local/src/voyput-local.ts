@@ -6,7 +6,7 @@
  * (types stripped at build time); from a clone, run this .ts file with
  * `node --experimental-strip-types`.
  *
- *   node voyput-local.mjs [--port 47615] [--no-codex] [--new-token]
+ *   node voyput-local.mjs [--port 47615] [--site <origin>] [--no-codex] [--new-token]
  *
  * It listens on 127.0.0.1 only. The pairing token it prints never travels:
  * each request carries an HMAC made with it, the photo and the answer are
@@ -40,6 +40,7 @@ import { parseArgs } from "node:util";
 
 export const VERSION = "3";
 export const DEFAULT_PORT = 47615;
+/** The public site; a copy on another domain passes `--site <origin>`. */
 export const SITE_ORIGIN = "https://voyput.app.offcall.link";
 export const AUTH_HEADER = "x-voyput-auth";
 export const MAX_BODY_BYTES = 30 * 1024 * 1024;
@@ -101,6 +102,8 @@ export interface Slot {
 export interface Deps {
 	token: string;
 	port: number;
+	/** The site origin allowed besides localhost (`--site`). */
+	site: string;
 	/** Engines that may run, in "auto" order. */
 	engines: readonly Engine[];
 	nonces: NonceGuard;
@@ -214,9 +217,29 @@ export function unseal(
 	}
 }
 
-/** The public site, and any localhost port for a dev server or a clone. */
-export function isAllowedOrigin(origin: string): boolean {
-	if (origin === SITE_ORIGIN) return true;
+/**
+ * A `--site` value as an origin: https on any host, or http on localhost or
+ * 127.0.0.1. A trailing slash is dropped; a path, query, fragment or
+ * credentials make it invalid (null).
+ */
+export function parseSite(value: string): string | null {
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		return null;
+	}
+	const local = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+	if (url.protocol !== "https:" && !(url.protocol === "http:" && local))
+		return null;
+	if (url.username || url.password || url.search || url.hash) return null;
+	if (url.pathname !== "/") return null;
+	return url.origin;
+}
+
+/** The site (`--site`, default the public one), and any localhost port for a dev server or a clone. */
+export function isAllowedOrigin(origin: string, site = SITE_ORIGIN): boolean {
+	if (origin === site) return true;
 	return /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/.test(origin);
 }
 
@@ -274,18 +297,18 @@ const ROUTES = new Set(["GET /health", "POST /extract"]);
  * What a person who opens the server's address in a browser sees: a pointer
  * back to the app. It holds no token and loads nothing.
  */
-const HOME_PAGE = `<!doctype html>
+const homePageHtml = (site: string) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>voyput-local</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>body{font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 1.5rem;color:#1d1d1f}h1{font-size:1.4rem}code{background:#f2f2f2;padding:.1em .3em;border-radius:4px}a{color:#0a66c2}</style>
 </head><body>
 <h1>voyput-local is running</h1>
 <p>This is the local helper that lets voyput read passport stamps with your Claude Code or Codex subscription. It has no page of its own.</p>
-<p>To pair, open the <b>pairing link</b> printed in your terminal, or paste the token there into <a href="${SITE_ORIGIN}/settings">voyput → Settings → AI → Local</a>.</p>
+<p>To pair, open the <b>pairing link</b> printed in your terminal, or paste the token there into <a href="${site}/settings">voyput → Settings → AI → Local</a>.</p>
 </body></html>
 `;
 
-const homePage = (): PlainResponse => ({
+const homePage = (site: string): PlainResponse => ({
 	status: 200,
 	headers: {
 		"content-type": "text/html; charset=utf-8",
@@ -294,7 +317,7 @@ const homePage = (): PlainResponse => ({
 		"x-frame-options": "DENY",
 		"referrer-policy": "no-referrer",
 	},
-	body: HOME_PAGE,
+	body: homePageHtml(site),
 });
 
 /**
@@ -311,7 +334,7 @@ export function admit(
 	if (!isAllowedHost(headers.host, deps.port))
 		return { response: json(403, { error: "wrong host" }) };
 	const origin = headers.origin;
-	if (origin !== undefined && !isAllowedOrigin(origin))
+	if (origin !== undefined && !isAllowedOrigin(origin, deps.site))
 		return { response: json(403, { error: "origin not allowed" }) };
 	const cors = corsHeaders(origin);
 
@@ -328,7 +351,7 @@ export function admit(
 		return { response: { status: 204, headers: preflight, body: "" } };
 	}
 	if (request.method === "GET" && request.path === "/" && origin === undefined)
-		return { response: homePage() };
+		return { response: homePage(deps.site) };
 	if (!ROUTES.has(`${request.method} ${request.path}`))
 		return { response: json(404, { error: "not found" }, cors) };
 
@@ -1096,16 +1119,24 @@ function loadToken(fresh: boolean): string {
 }
 
 /** The Settings link that pairs the app with this server. */
-export function pairingLink(token: string, port: number): string {
+export function pairingLink(
+	token: string,
+	port: number,
+	site = SITE_ORIGIN,
+): string {
 	const portPart = port === DEFAULT_PORT ? "" : `&port=${port}`;
-	return `${SITE_ORIGIN}/settings#local=${token}${portPart}`;
+	return `${site}/settings#local=${token}${portPart}`;
 }
 
 const HELP = `voyput-local ${VERSION}: read passport stamps for voyput with your Claude Code or Codex CLI.
 
-Usage: node voyput-local.mjs [--port <n>] [--no-codex] [--new-token]
+Usage: node voyput-local.mjs [--port <n>] [--site <origin>] [--no-codex] [--new-token]
 
   --port <n>     Port on 127.0.0.1 (default ${DEFAULT_PORT}).
+  --site <origin>
+                 The voyput site that may call this server and that the
+                 pairing link opens (default ${SITE_ORIGIN}).
+                 A copy on your own domain: --site https://voyput.example.org
   --no-codex     Do not offer the Codex CLI. Codex keeps a few tools that cannot
                  be turned off (see docs/adr/0032-codex-on-by-default.md); Claude
                  Code runs with none.
@@ -1172,6 +1203,8 @@ export function banner(
 		port: number;
 		token: string;
 		engines: Record<Engine, EngineState>;
+		/** Defaults to the public site. */
+		site?: string;
 	},
 	color: boolean,
 ): string {
@@ -1196,7 +1229,7 @@ export function banner(
 		`  ${bold("voyput-local")} ${dim(`v${VERSION}`)}  ${ready ? green("ready") : yellow("no engine")}`,
 		"",
 		`  ${bold("Pair:")} open this link in the browser where you use voyput`,
-		`    ${cyan(pairingLink(info.token, info.port))}`,
+		`    ${cyan(pairingLink(info.token, info.port, info.site))}`,
 		`  ${dim("or paste the token in Settings → AI → Local:")} ${info.token}`,
 		"",
 		`  ${label("Engines")}${engineLine}`,
@@ -1242,6 +1275,7 @@ async function main() {
 	const { values } = parseArgs({
 		options: {
 			port: { type: "string" },
+			site: { type: "string" },
 			codex: { type: "boolean" },
 			"no-codex": { type: "boolean" },
 			"new-token": { type: "boolean" },
@@ -1255,6 +1289,13 @@ async function main() {
 	const port = values.port ? Number(values.port) : DEFAULT_PORT;
 	if (!Number.isInteger(port) || port < 1 || port > 65535) {
 		process.stderr.write(`--port must be 1-65535, got ${values.port}\n`);
+		process.exit(2);
+	}
+	const site = values.site === undefined ? SITE_ORIGIN : parseSite(values.site);
+	if (site === null) {
+		process.stderr.write(
+			`--site must be an origin like https://voyput.example.org, got ${values.site}\n`,
+		);
 		process.exit(2);
 	}
 	await removeStaleDirs();
@@ -1272,6 +1313,7 @@ async function main() {
 	const deps: Deps = {
 		token,
 		port,
+		site,
 		engines,
 		nonces: new NonceGuard(),
 		reserve: reserveFrom(line, byteBudget(MAX_BUFFERED_BYTES)),
@@ -1349,7 +1391,9 @@ async function main() {
 		const engineStates = { claude: state("claude"), codex: state("codex") };
 		const color =
 			process.stdout.isTTY === true && process.env.NO_COLOR === undefined;
-		process.stdout.write(banner({ port, token, engines: engineStates }, color));
+		process.stdout.write(
+			banner({ port, token, engines: engineStates, site }, color),
+		);
 	});
 }
 

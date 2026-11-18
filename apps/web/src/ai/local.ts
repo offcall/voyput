@@ -19,6 +19,12 @@ const REQUEST_TIMEOUT_MS = 11 * 60_000;
 const HEALTH_TIMEOUT_MS = 3_000;
 export const LOCAL_SCRIPT = "voyput-local.mjs" satisfies ServedScript;
 
+/**
+ * The site voyput-local trusts unless started with `--site` (its `SITE_ORIGIN`,
+ * packages/local/src/voyput-local.ts). Change both together.
+ */
+export const DEFAULT_SITE_ORIGIN = "https://voyput.app.offcall.link";
+
 type LocalSettings = Pick<
 	AiSettings,
 	"localToken" | "localPort" | "localEngine"
@@ -231,12 +237,19 @@ export function parsePairingHash(
 
 /**
  * Shell commands that start voyput-local: downloaded from `origin` and checked
- * against this build's hash (ADR 0035), or from a clone.
+ * against this build's hash (ADR 0035), or from a clone. A site other than the
+ * default passes itself with `--site` so voyput-local lets it in and pairs
+ * with it (ADR 0042).
  */
-export function localCommands(origin: string, port: number) {
+export function localCommands(
+	origin: string,
+	port = DEFAULT_SETTINGS.localPort,
+) {
 	const portFlag = port === DEFAULT_SETTINGS.localPort ? "" : ` --port ${port}`;
+	const siteFlag = origin === DEFAULT_SITE_ORIGIN ? "" : ` --site ${origin}`;
+	const flags = `${portFlag}${siteFlag}`;
 	return {
-		download: verifiedCommand(origin, LOCAL_SCRIPT, "node", portFlag),
-		clone: `node --experimental-strip-types packages/local/src/voyput-local.ts${portFlag}`,
+		download: verifiedCommand(origin, LOCAL_SCRIPT, "node", flags),
+		clone: `node --experimental-strip-types packages/local/src/voyput-local.ts${flags}`,
 	};
 }
