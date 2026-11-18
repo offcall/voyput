@@ -108,6 +108,38 @@ describe("saving stays as a diff", () => {
 		expect(await db.stays.count()).toBe(2);
 	});
 
+	it("does not bring back a deleted stamp's id on an edge and list the page also edited", async () => {
+		const { db, stays: loaded } = await seed();
+		const ro = byCountry(loaded, "RO");
+		expect(ro.departure.stampId).toBe("s3");
+		// Elsewhere, after the page loaded: the stamp of Romania's exit is deleted.
+		await deleteStamp(db, STAMPS[2] as Stamp);
+
+		// The page, still holding s3, edits that edge and adds a stamp id.
+		await saveStayChanges(
+			db,
+			loaded,
+			loaded.map((s) =>
+				s.id === ro.id
+					? {
+							...s,
+							departure: { ...s.departure, method: "bus" },
+							stampIds: [...s.stampIds, "s9"],
+						}
+					: s,
+			),
+		);
+
+		const stored = (await db.stays.get(ro.id)) as TravelStay;
+		expect(stored.departure).toEqual({
+			date: "2024-03-05",
+			method: "bus",
+			source: "estimated",
+		});
+		expect(stored.stampIds).toEqual(["s2", "s9"]);
+		expect(stored.evidenceChanged).toBe(true);
+	});
+
 	it("does not bring back a stay deleted elsewhere", async () => {
 		const { db, stays: loaded } = await seed();
 		const md = byCountry(loaded, "MD");

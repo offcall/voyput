@@ -7,6 +7,7 @@ import {
 	type Period,
 	periodsOf,
 	type Stamp,
+	type StayEdge,
 	sortStays,
 	suggestHistory,
 	type TravelStay,
@@ -127,7 +128,45 @@ function mergeStay(
 				: mine;
 		if (value !== undefined) merged[key] = value;
 	}
-	return merged as unknown as TravelStay;
+	return keepGoneIdsOut(before, after, stored, merged as unknown as TravelStay);
+}
+
+/**
+ * An id the stored row no longer has stays out of the merge unless this edit
+ * added it: another writer dropped it (a deleted stamp or photo), and the
+ * page's copy of a field it also edited must not bring it back.
+ */
+function keepGoneIdsOut(
+	before: TravelStay,
+	after: TravelStay,
+	stored: TravelStay,
+	merged: TravelStay,
+): TravelStay {
+	const ids = (key: "stampIds" | "photoIds") =>
+		merged[key].filter(
+			(id) => stored[key].includes(id) || !before[key].includes(id),
+		);
+	const edge = (key: "arrival" | "departure"): StayEdge => {
+		const e = merged[key];
+		if (
+			!e.stampId ||
+			e.stampId === stored[key].stampId ||
+			after[key].stampId !== before[key].stampId
+		)
+			return e;
+		const { stampId: _, ...rest } = e;
+		return {
+			...rest,
+			source: rest.source === "stamp" ? "estimated" : rest.source,
+		};
+	};
+	return {
+		...merged,
+		stampIds: ids("stampIds"),
+		photoIds: ids("photoIds"),
+		arrival: edge("arrival"),
+		departure: edge("departure"),
+	};
 }
 
 /**
