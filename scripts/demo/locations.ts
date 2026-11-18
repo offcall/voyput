@@ -14,7 +14,7 @@ import {
 	TRIPS,
 } from "./scenario.ts";
 
-/** Same header the old Python export wrote. */
+/** The full 10-column header; the import also takes the export script's shorter one. */
 const HEADER =
 	"date,lat,lon,country_code,country,city,source,is_video,filename,uuid";
 
