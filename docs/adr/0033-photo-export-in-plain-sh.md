@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes ADR 0027. Run command amended by ADR 0035 (download, verify, run).
+Accepted. Supersedes ADR 0027. Run command amended by ADR 0035 (download, verify, run). Outline source amended by ADR 0037 (map units).
 
 ## Context
 

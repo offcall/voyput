@@ -115,6 +115,13 @@ describe("country at a point, with the outlines the app ships", () => {
 		["Ciudad Juárez", 31.6904, -106.4245, "MX"],
 		["Nicosia, north", 35.1856, 33.3823, "CY"],
 		["Reykjavík harbour", 64.1505, -21.9406, "IS"],
+		["Saint-Denis, Réunion", -20.8823, 55.4504, "RE"],
+		["Pointe-à-Pitre, Guadeloupe", 16.2411, -61.5331, "GP"],
+		["Longyearbyen, Svalbard", 78.2232, 15.6267, "SJ"],
+		["Cayenne, French Guiana", 4.9224, -52.3135, "GF"],
+		["Kralendijk, Bonaire", 12.1443, -68.2655, "BQ"],
+		["Oslo", 59.9139, 10.7522, "NO"],
+		["Amsterdam", 52.3676, 4.9041, "NL"],
 	])("%s is %s", (_place, lat, lon, code) => {
 		expect(countryAt(lat, lon)).toBe(code);
 	});

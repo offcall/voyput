@@ -1,9 +1,11 @@
 /**
  * Writes the country outlines voyput uses to find the country of a photo
- * location (ADR 0033) from Natural Earth 10m admin 0 countries (public
- * domain), every point kept, rounded to 1e-4° (~11 m).
+ * location (ADR 0033, ADR 0037) from Natural Earth 10m admin 0 map units
+ * (public domain), every point kept, rounded to 1e-4° (~11 m). Map units,
+ * unlike the countries layer, keep overseas territories (Réunion, Svalbard,
+ * Cocos Is., ...) apart from their parent country under their own ISO code.
  *
- * Download ne_10m_admin_0_countries.geojson from
+ * Download ne_10m_admin_0_map_units.geojson from
  * https://github.com/nvkelso/natural-earth-vector/tree/master/geojson, then
  * from the repo root: `npm run world:outlines -- <path to that file>`.
  */
@@ -18,7 +20,8 @@ const OUT = "apps/web/src/features/import/csv/assets/country-outlines.json";
 
 /**
  * Areas Natural Earth gives no ISO code (-99), placed where a traveller is:
- * the island of Cyprus is CY, Somaliland SO, the Guantanamo base US. The rest
+ * the island of Cyprus is CY, Somaliland SO, the Guantanamo base US, each
+ * half of the Korean DMZ its side. The rest
  * (disputed glaciers, reefs, Bir Tawil) stay out and fall to the nearest
  * country.
  */
@@ -29,6 +32,26 @@ const NO_CODE: Readonly<Record<string, string>> = {
 	"Cyprus U.N. Buffer Zone": "CY",
 	Somaliland: "SO",
 	"USNB Guantanamo Bay": "US",
+	"Korean DMZ (south)": "KR",
+	"Korean DMZ (north)": "KP",
+};
+
+/**
+ * Map units (by SU_A3) whose ISO_A2_EH is the parent country or a code
+ * outside ISO 3166, put under the territory a traveller's records use.
+ */
+const UNIT_CODE: Readonly<Record<string, string>> = {
+	NJM: "SJ", // Jan Mayen, with Svalbard
+	SYU: "SY", // UNDOF zone on the Golan, "XD" in Natural Earth
+	JQI: "UM", // Johnston Atoll and the other U.S. Minor Outlying Islands
+	DQI: "UM",
+	FQI: "UM",
+	HQI: "UM",
+	WQI: "UM",
+	MQI: "UM",
+	BQI: "UM",
+	LQI: "UM",
+	KQI: "UM",
 };
 
 type Position = [number, number];
@@ -36,13 +59,13 @@ type Position = [number, number];
 const path = process.argv[2];
 if (!path) {
 	process.stderr.write(
-		"usage: npm run world:outlines -- ne_10m_admin_0_countries.geojson\n",
+		"usage: npm run world:outlines -- ne_10m_admin_0_map_units.geojson\n",
 	);
 	process.exit(2);
 }
 const source = JSON.parse(readFileSync(path, "utf8")) as {
 	features: {
-		properties: { NAME: string; ISO_A2_EH: string };
+		properties: { NAME: string; SU_A3: string; ISO_A2_EH: string };
 		geometry: { type: string; coordinates: unknown };
 	}[];
 };
@@ -51,9 +74,10 @@ const source = JSON.parse(readFileSync(path, "utf8")) as {
 const countries: Record<string, number[][]> = {};
 for (const { properties, geometry } of source.features) {
 	const code =
-		properties.ISO_A2_EH !== "-99"
+		UNIT_CODE[properties.SU_A3] ??
+		(properties.ISO_A2_EH !== "-99"
 			? properties.ISO_A2_EH
-			: NO_CODE[properties.NAME];
+			: NO_CODE[properties.NAME]);
 	if (!code || !/^[A-Z]{2}$/.test(code)) {
 		process.stdout.write(`left out: ${properties.NAME}\n`);
 		continue;
@@ -86,7 +110,7 @@ for (const { properties, geometry } of source.features) {
 writeFileSync(
 	join(ROOT, OUT),
 	JSON.stringify({
-		source: "Natural Earth 10m admin 0 countries (public domain)",
+		source: "Natural Earth 10m admin 0 map units (public domain)",
 		scale: OUTLINE_SCALE,
 		countries,
 	}),
