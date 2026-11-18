@@ -1,4 +1,4 @@
-import { spanDays } from "../explore/dates";
+import { spanDays } from "../days";
 import type { LocationRow } from "../locations/types";
 import type { Stamp } from "../stamps/types";
 import {

@@ -1,3 +1,4 @@
+import { dayOf } from "../days";
 import type { LocationRow } from "../locations/types";
 import { haversineKm } from "./geo";
 
@@ -72,8 +73,8 @@ const CODE_RE = /^[A-Z]{2}$/;
 const CITY_POINT_LIMIT = 400;
 const TOP_SEGMENTS = 10;
 
-function dayOf(row: LocationRow): string | null {
-	const day = row.date.slice(0, 10);
+function validDayOf(row: LocationRow): string | null {
+	const day = dayOf(row);
 	return DAY_RE.test(day) ? day : null;
 }
 
@@ -152,7 +153,7 @@ export function buildCountryCounts(
 	for (const row of rows) {
 		const code = codeOf(row);
 		if (!code) continue;
-		const year = dayOf(row)?.slice(0, 4);
+		const year = validDayOf(row)?.slice(0, 4);
 		let stat = counts.get(code);
 		if (!stat) {
 			stat = { code, country: row.country || code, photos: 0, years: {} };

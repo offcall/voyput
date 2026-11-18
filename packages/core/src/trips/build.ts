@@ -1,8 +1,8 @@
-import { day } from "../explore/dates";
+import { daysBetween } from "../days";
 import type { LocationRow } from "../locations/types";
 import { isIsoDate } from "../passports/photos";
 import type { BorderCrossing } from "../stamps/types";
-import { type DatedStamp, daysBetween, locationDay } from "./evidence";
+import { type DatedStamp, locationDay } from "./evidence";
 import type { EdgeSource, StayEdge, TravelMethod, TravelStay } from "./types";
 
 /** What stays are suggested from. */
@@ -257,7 +257,7 @@ function assign(all: readonly Slot[], photos: readonly Photo[]): Photo[][] {
 /** Days between an edge of the unknown time and a photo that still count as the same crossing. */
 const NEAR_DAYS = 1;
 
-const near = (a: string, b: string) => Math.abs(day(a) - day(b)) <= NEAR_DAYS;
+const near = (a: string, b: string) => Math.abs(daysBetween(b, a)) <= NEAR_DAYS;
 
 /**
  * Photos split a slot into stays wherever their country changes; a change is
@@ -384,7 +384,7 @@ function inferMethods(stays: TravelStay[]): void {
 		const out = (stays[i - 1] as TravelStay).departure;
 		const into = (stays[i] as TravelStay).arrival;
 		if (out.date === null || into.date === null) continue;
-		if (Math.abs(day(into.date) - day(out.date)) > 1) continue;
+		if (Math.abs(daysBetween(out.date, into.date)) > 1) continue;
 		if (out.method === "unknown") out.method = into.method;
 		else if (into.method === "unknown") into.method = out.method;
 	}

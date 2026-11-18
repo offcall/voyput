@@ -1,4 +1,4 @@
-import { spanDays } from "./dates";
+import { spanDays } from "../days";
 import type { ExploreFilters, FilteredStay, Stay } from "./types";
 
 /** Earliest start and latest end, or empty strings without stays. */

@@ -1,4 +1,4 @@
-import type { EdgeSource, TravelMethod } from "@voyput/core";
+import { addDays, type EdgeSource, type TravelMethod } from "@voyput/core";
 
 /** The kit's `flagEmoji` under the name the Stays files use. */
 export { flagEmoji as flagOf } from "@voyput/ui";
@@ -11,16 +11,6 @@ export const countryName = (cc: string): string => {
 		return cc;
 	}
 };
-
-const DAY_MS = 86_400_000;
-const toMs = (day: string) => Date.parse(`${day}T00:00:00Z`);
-
-export const addDays = (day: string, n: number): string =>
-	new Date(toMs(day) + n * DAY_MS).toISOString().slice(0, 10);
-
-/** Calendar days from `start` to `end`, both included. */
-export const dayCount = (start: string, end: string): number =>
-	Math.round((toMs(end) - toMs(start)) / DAY_MS) + 1;
 
 export function daysIn(start: string, end: string): string[] {
 	const days: string[] = [];
@@ -38,7 +28,7 @@ const monthName = new Intl.DateTimeFormat("en-GB", {
 	timeZone: "UTC",
 });
 
-const asDate = (day: string) => new Date(toMs(day));
+const asDate = (day: string) => new Date(`${day}T00:00:00Z`);
 /** "1 May 2023". */
 export const longDay = (day: string) => {
 	const p = parts(day);

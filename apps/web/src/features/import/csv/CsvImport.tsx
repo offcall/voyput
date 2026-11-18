@@ -1,4 +1,5 @@
 import {
+	dayOf,
 	type LocationRow,
 	type LocationSummary,
 	parseLocationCsv,
@@ -40,8 +41,7 @@ type ImportState =
 	| { kind: "error"; message: string };
 
 /** What places a photo in a stay: its local day and country. */
-const readingOf = (row: LocationRow) =>
-	`${row.date.slice(0, 10)}|${row.countryCode}`;
+const readingOf = (row: LocationRow) => `${dayOf(row)}|${row.countryCode}`;
 
 /**
  * Parses the file and replaces all stored locations in one transaction.

@@ -1,3 +1,4 @@
+import { dayOf } from "../days";
 import type { LocationRow } from "../locations/types";
 
 /**
@@ -27,7 +28,7 @@ export function splitRowsByRanges(
 	}
 	const groups: LocationRow[][] = merged.map(() => []);
 	for (const row of rows) {
-		const day = row.date.slice(0, 10);
+		const day = dayOf(row);
 		const index = merged.findIndex((r) => day >= r.start && day <= r.end);
 		if (index >= 0) groups[index]?.push(row);
 	}

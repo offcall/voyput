@@ -1,5 +1,5 @@
+import { dayNumber } from "../days";
 import type { LocationRow } from "../locations/types";
-import { dayNumber } from "../review/days";
 import { COUNTRY_CENTROIDS, haversineKm, projectEquirect } from "../viz/geo";
 import type { PhotoCluster } from "./clusters";
 import { computeLegDurations, computePhotoLegDurations } from "./timing";

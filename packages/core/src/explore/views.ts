@@ -1,5 +1,5 @@
+import { addDays, daysBetween, overlapDays, spanDays } from "../days";
 import type { CountryGroup } from "./aggregate";
-import { addDays, day, overlapDays } from "./dates";
 import type { FilteredStay } from "./types";
 
 export const MONTH_LABELS = [
@@ -115,7 +115,7 @@ export function buildStayTimeline(
 		.map((year) => {
 			const a = `${year}-01-01`;
 			const b = `${year}-12-31`;
-			const length = day(b) - day(a) + 1;
+			const length = spanDays(a, b);
 			const bars = rows.flatMap((stay): TimelineBar[] => {
 				const width = overlapDays(stay.clipStart, stay.clipEnd, a, b);
 				if (!width) return [];
@@ -123,7 +123,7 @@ export function buildStayTimeline(
 				return [
 					{
 						stay,
-						left: (day(start) - day(a)) / length,
+						left: daysBetween(a, start) / length,
 						width: width / length,
 						oneDay: stay.days === 1,
 					},

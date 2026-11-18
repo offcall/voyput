@@ -1,14 +1,17 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
+	addDays,
 	addStay,
 	canSplitAt,
 	clearStayIds,
+	dayOf,
 	type LegacyTrip,
 	legacyTripStays,
 	mergeKept,
 	type NewStay,
 	resuggestStay,
 	type StayGap,
+	spanDays,
 	splitStay,
 	stayCounts,
 	stayHints,
@@ -31,9 +34,7 @@ import {
 import { useDb } from "../../db/DbContext";
 import { EMPTY_EDITS, editReducer, type Snapshot } from "./editHistory";
 import {
-	addDays,
 	countryName,
-	dayCount,
 	flagOf,
 	localToday,
 	longDay,
@@ -107,7 +108,7 @@ function middleDay(stay: TravelStay, birth: string | null, today: string) {
 	if (start === null || start >= end) return addDays(end, -1);
 	return addDays(
 		start,
-		Math.max(1, Math.floor((dayCount(start, end) - 1) / 2)),
+		Math.max(1, Math.floor((spanDays(start, end) - 1) / 2)),
 	);
 }
 
@@ -369,9 +370,7 @@ export function TripsPage() {
 	const evidenceDays = useMemo(
 		() => ({
 			stamps: new Map(usable.map((s) => [s.id, s.date])),
-			photos: new Map(
-				(data?.locations ?? []).map((r) => [r.uuid, r.date.slice(0, 10)]),
-			),
+			photos: new Map((data?.locations ?? []).map((r) => [r.uuid, dayOf(r)])),
 		}),
 		[usable, data],
 	);

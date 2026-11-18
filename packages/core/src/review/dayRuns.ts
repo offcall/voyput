@@ -1,4 +1,4 @@
-import { dayIso } from "./days";
+import { dayIso } from "../days";
 import type { PhotoIndex } from "./photoIndex";
 
 /** Consecutive days in one country, by the majority of each day's photos. */

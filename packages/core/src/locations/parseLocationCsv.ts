@@ -1,3 +1,4 @@
+import { dayOf } from "../days";
 import { isIsoDate } from "../passports/photos";
 import type { CountryLocator } from "../viz/countryAt";
 import { parseCsvRows } from "./csv";
@@ -106,7 +107,7 @@ export function summarizeLocations(rows: LocationRow[]): LocationSummary {
 	let lastDay: string | null = null;
 	const countries = new Set<string>();
 	for (const row of rows) {
-		const day = row.date.slice(0, 10);
+		const day = dayOf(row);
 		if (firstDay === null || day < firstDay) firstDay = day;
 		if (lastDay === null || day > lastDay) lastDay = day;
 		if (row.countryCode) countries.add(row.countryCode);

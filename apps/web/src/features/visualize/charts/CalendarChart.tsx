@@ -1,4 +1,4 @@
-import type { VizData } from "@voyput/core";
+import { addDays, daysBetween, spanDays, type VizData } from "@voyput/core";
 import { formatInt, NoData } from "./format";
 import { LineChart, type LinePoint } from "./LineChart";
 import { type MarkProps, type TipText, useMarkTip } from "./useMarkTip";
@@ -46,8 +46,6 @@ function levelColor(count: number): string {
 	return color;
 }
 
-const DAY_MS = 86_400_000;
-
 function YearGrid({
 	year,
 	dayCounts,
@@ -59,11 +57,12 @@ function YearGrid({
 }) {
 	const jan1 = Date.UTC(year, 0, 1);
 	const offset = (new Date(jan1).getUTCDay() + 6) % 7; // Monday first
-	const days = Math.round((Date.UTC(year + 1, 0, 1) - jan1) / DAY_MS);
+	const first = `${year}-01-01`;
+	const days = spanDays(first, `${year}-12-31`);
 	const weeks = Math.ceil((days + offset) / 7);
 	const cells = [];
 	for (let i = 0; i < days; i++) {
-		const iso = new Date(jan1 + i * DAY_MS).toISOString().slice(0, 10);
+		const iso = addDays(first, i);
 		const count = dayCounts[iso] ?? 0;
 		const slot = i + offset;
 		cells.push(
@@ -94,8 +93,8 @@ function YearGrid({
 				className="vp-viz-calendar"
 			>
 				{MONTHS.map((name, m) => {
-					const slot =
-						Math.round((Date.UTC(year, m, 1) - jan1) / DAY_MS) + offset;
+					const month = String(m + 1).padStart(2, "0");
+					const slot = daysBetween(first, `${year}-${month}-01`) + offset;
 					return (
 						<text key={name} x={LEFT + Math.floor(slot / 7) * PITCH} y={10}>
 							{name}

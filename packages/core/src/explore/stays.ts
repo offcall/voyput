@@ -1,8 +1,8 @@
+import { addDays, spanDays } from "../days";
 import type { LocationRow } from "../locations/types";
 import { countryNameOf } from "../trips/countries";
 import { locationDay } from "../trips/evidence";
 import type { StayEdge, TravelStay } from "../trips/types";
-import { addDays, spanDays } from "./dates";
 import { regionOf } from "./regions";
 import type { Stay } from "./types";
 

@@ -1,10 +1,11 @@
 import {
+	addDays,
 	gapBetween,
 	type StayGap,
 	staySpan,
 	type TravelStay,
 } from "@voyput/core";
-import { addDays } from "./format";
+
 import type { StayOrder } from "./tripStore";
 
 /** One line of the list: a stay, or the days no stay covers between two stays. */

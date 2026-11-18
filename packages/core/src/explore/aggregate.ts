@@ -1,4 +1,4 @@
-import { addDays, overlapDays } from "./dates";
+import { addDays, overlapDays } from "../days";
 import { DURATION_LABELS, METHOD_LABELS } from "./labels";
 import { REGIONS, type Region } from "./regions";
 import type { FilteredStay, Stay } from "./types";

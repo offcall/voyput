@@ -1,5 +1,6 @@
+import { dayIso, dayNumber } from "../days";
 import type { Direction } from "../stamps/types";
-import { dayIso, dayNumber, lowerBound } from "./days";
+import { lowerBound } from "./lowerBound";
 import { countryLabel, type PhotoIndex } from "./photoIndex";
 
 /** A dated photo near a stamp's date. */

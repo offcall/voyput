@@ -13,6 +13,7 @@ export function isStepId(value: unknown): value is StepId {
 	return (STEP_IDS as readonly unknown[]).includes(value);
 }
 
+import { dayNumber } from "@voyput/core";
 import type { Sources } from "./sources";
 
 /** What the plan is built from; all of it is read from the database. */
@@ -84,19 +85,14 @@ export interface Plan {
 	toDo: number;
 }
 
-const DAY_MS = 86_400_000;
-
-const dayNumber = (iso: string) =>
-	Math.round(Date.parse(`${iso}T00:00:00Z`) / DAY_MS);
-
 /** Days covered by at least one span, start and end included; overlaps count once. */
 export function daysCovered(
 	spans: readonly { start: string; end: string }[],
 ): number {
 	const days = spans
 		.map((span): [number, number] => {
-			const from = dayNumber(span.start);
-			const to = dayNumber(span.end);
+			const from = dayNumber(span.start) ?? Number.NaN;
+			const to = dayNumber(span.end) ?? Number.NaN;
 			return from <= to ? [from, to] : [to, from];
 		})
 		.filter(([from, to]) => Number.isFinite(from) && Number.isFinite(to))

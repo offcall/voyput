@@ -1,4 +1,4 @@
-import { pairCountry, type Stamp, zoneOf } from "@voyput/core";
+import { daysBetween, pairCountry, type Stamp, zoneOf } from "@voyput/core";
 
 export type DatedStamp = Stamp & { date: string };
 
@@ -13,10 +13,6 @@ export type TimelineItem =
 			days: number;
 	  }
 	| { kind: "single"; stamp: DatedStamp };
-
-const DAY_MS = 86_400_000;
-export const daysBetween = (from: string, to: string): number =>
-	Math.round((Date.parse(to) - Date.parse(from)) / DAY_MS);
 
 const isDated = (s: Stamp): s is DatedStamp => s.date !== null;
 

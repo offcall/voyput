@@ -1,3 +1,13 @@
+export {
+	addDays,
+	dayIso,
+	dayNumber,
+	dayOf,
+	daysBetween,
+	type LocalDay,
+	overlapDays,
+	spanDays,
+} from "./days";
 export * from "./explore";
 export { parseCsvRows } from "./locations/csv";
 export {
@@ -24,7 +34,6 @@ export {
 } from "./review/checks";
 export { countryNamesToCodes } from "./review/countries";
 export { buildDayRuns, type DayRun, runsBetween } from "./review/dayRuns";
-export { dayIso, dayNumber } from "./review/days";
 export {
 	type CheckedStamp,
 	hasOpenIcloudCheck,

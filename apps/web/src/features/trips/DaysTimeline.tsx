@@ -1,14 +1,8 @@
 import type { DatedStamp } from "@voyput/core";
+import { addDays } from "@voyput/core";
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import { useCountryColour } from "../../app/countryColours";
-import {
-	addDays,
-	countryName,
-	daysIn,
-	flagOf,
-	monthOf,
-	weekdayOf,
-} from "./format";
+import { countryName, daysIn, flagOf, monthOf, weekdayOf } from "./format";
 import type { PhotoDays } from "./photoDays";
 
 type Edge = "start" | "end";

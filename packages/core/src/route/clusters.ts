@@ -1,3 +1,4 @@
+import { dayOf } from "../days";
 import type { LocationRow } from "../locations/types";
 import { haversineKm } from "../viz/geo";
 
@@ -75,7 +76,7 @@ export function filterRouteRows(
 	const only = filter.countries?.length ? new Set(filter.countries) : null;
 	const except = new Set(filter.excludeCountries ?? []);
 	return rows.filter((row) => {
-		const day = row.date.slice(0, 10);
+		const day = dayOf(row);
 		if (filter.from && day < filter.from) return false;
 		if (filter.to && day > filter.to) return false;
 		if (only && !only.has(row.countryCode)) return false;

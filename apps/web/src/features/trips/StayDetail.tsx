@@ -1,10 +1,12 @@
 import {
+	addDays,
 	COUNTRY_CODES,
 	type DatedStamp,
 	type NewStay,
 	type Stamp,
 	type StayEdge,
 	type StayHint,
+	spanDays,
 	spanLength,
 	staySpan,
 	TRAVEL_METHODS,
@@ -17,9 +19,7 @@ import { useCountryColour } from "../../app/countryColours";
 import { DateField, isPlausibleDay } from "./DateField";
 import { DaysTimeline } from "./DaysTimeline";
 import {
-	addDays,
 	countryName,
-	dayCount,
 	flagOf,
 	longDay,
 	METHOD_ICONS,
@@ -484,7 +484,7 @@ export function StayDetail({
 				<p className="vp-trips-muted">
 					Set both dates (or the birth date) to see the days.
 				</p>
-			) : dayCount(timeline.from, timeline.to) > MAX_TIMELINE_DAYS ? (
+			) : spanDays(timeline.from, timeline.to) > MAX_TIMELINE_DAYS ? (
 				<p className="vp-trips-muted">
 					This stay is too long to show day by day.
 				</p>

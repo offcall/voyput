@@ -1,4 +1,4 @@
-import { day } from "../explore/dates";
+import { daysBetween } from "../days";
 import type { Passport } from "../passports/types";
 import type { DatedStamp } from "./evidence";
 import type { TravelMethod, TravelStay } from "./types";
@@ -50,7 +50,7 @@ function crossingHints(prev: TravelStay, stay: TravelStay): StayHint[] {
 	const from = prev.departure.date;
 	const to = stay.arrival.date;
 	if (from === null || to === null) return [];
-	const delta = day(to) - day(from);
+	const delta = daysBetween(from, to);
 	const hints: StayHint[] = [];
 	if (delta < 0)
 		hints.push({ kind: "overlap", severity: "error", from, to, days: -delta });
@@ -94,7 +94,7 @@ export function gapBetween(prev: TravelStay, next: TravelStay): StayGap | null {
 	const from = prev.departure.date;
 	const to = next.arrival.date;
 	if (from === null || to === null) return null;
-	const days = day(to) - day(from) - 1;
+	const days = daysBetween(from, to) - 1;
 	return days > 1 ? { from, to, days } : null;
 }
 
@@ -233,7 +233,7 @@ function photosMeet(
 		? into.date
 		: (photoSpan(after, photoDays)?.first ?? null);
 	if (lastBefore === null || firstAfter === null) return false;
-	const days = day(firstAfter) - day(lastBefore);
+	const days = daysBetween(lastBefore, firstAfter);
 	return days >= 0 && days <= MEET_DAYS;
 }
 

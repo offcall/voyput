@@ -1,5 +1,5 @@
+import { dayIso, dayNumber, dayOf } from "../days";
 import type { LocationRow } from "../locations/types";
-import { dayIso, dayNumber } from "../review/days";
 import { clusterByProximity, DEFAULT_CLUSTER_RADIUS_KM } from "./clusters";
 import { pointOnRoute, type RoutePosition } from "./position";
 import {
@@ -30,7 +30,7 @@ function firstRowOn(rows: readonly LocationRow[], day: string): number {
 	let hi = rows.length;
 	while (lo < hi) {
 		const mid = (lo + hi) >> 1;
-		if ((rows[mid]?.date.slice(0, 10) ?? "") < day) lo = mid + 1;
+		if ((rows[mid] ? dayOf(rows[mid]) : "") < day) lo = mid + 1;
 		else hi = mid;
 	}
 	return lo;
@@ -72,7 +72,7 @@ export function journeyWaypoints(
 			const own: LocationRow[] = [];
 			for (let i = firstRowOn(sorted, stay.start); i < sorted.length; i++) {
 				const row = sorted[i] as LocationRow;
-				if (row.date.slice(0, 10) > stay.end) break;
+				if (dayOf(row) > stay.end) break;
 				if (row.countryCode === stay.countryCode) own.push(row);
 			}
 			journey.photos += own.length;

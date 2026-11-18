@@ -1,5 +1,5 @@
+import { dayNumber } from "../days";
 import type { LocationRow } from "../locations/types";
-import { dayNumber } from "./days";
 
 /** Location rows sorted by day, as parallel arrays for binary search over 30k+ rows. */
 export interface PhotoIndex {
