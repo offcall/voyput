@@ -89,6 +89,52 @@ describe("pairVisits and findConflicts", () => {
 	});
 });
 
+describe("Schengen join dates", () => {
+	const zones = (stamps: Stamp[]) =>
+		pairVisits(stamps).map((v) => [v.zone, v.entryStampId, v.exitStampId]);
+
+	it("keeps Poland before 2007-12-21 its own zone", () => {
+		expect(
+			zones([
+				stamp({ id: "pl-in", countryCode: "PL", date: "2006-05-01" }),
+				stamp({
+					id: "pl-out",
+					countryCode: "PL",
+					direction: "exit",
+					date: "2006-05-03",
+				}),
+				stamp({
+					id: "de-out",
+					countryCode: "DE",
+					direction: "exit",
+					date: "2006-05-10",
+				}),
+			]),
+		).toEqual([
+			["PL", "pl-in", "pl-out"],
+			["Schengen", null, "de-out"],
+		]);
+	});
+
+	it("dates air and land crossings apart where they joined apart", () => {
+		const zoneOn = (
+			countryCode: string,
+			date: string,
+			borderCrossing: Stamp["borderCrossing"],
+		) =>
+			pairVisits([stamp({ id: "x", countryCode, date, borderCrossing })])[0]
+				?.zone;
+		expect(zoneOn("PL", "2008-01-15", "car")).toBe("Schengen");
+		expect(zoneOn("PL", "2008-01-15", "plane")).toBe("PL");
+		expect(zoneOn("PL", "2008-01-15", "unknown")).toBe("Schengen");
+		expect(zoneOn("CH", "2008-06-01", "car")).toBe("CH");
+		expect(zoneOn("LI", "2011-12-19", "car")).toBe("Schengen");
+		expect(zoneOn("RO", "2024-06-01", "plane")).toBe("Schengen");
+		expect(zoneOn("RO", "2024-06-01", "car")).toBe("RO");
+		expect(zoneOn("RO", "2025-01-01", "car")).toBe("Schengen");
+	});
+});
+
 describe("parsePhotoResponse", () => {
 	it("uses a flagged stamp once its problem is hidden", () => {
 		const visits = pairVisits([

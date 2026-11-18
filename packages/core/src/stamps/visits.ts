@@ -1,4 +1,4 @@
-import type { Stamp } from "./types";
+import type { BorderCrossing, Stamp } from "./types";
 
 /** One stay in a zone, built from an entry stamp, an exit stamp, or both. */
 export interface Visit {
@@ -14,16 +14,54 @@ export interface Conflict {
 	second: Visit;
 }
 
-/** Date each country joined Schengen (no internal border stamps after that). */
-const SCHENGEN_SINCE: Record<string, string> = {
-	...Object.fromEntries(
-		"AT BE CH CZ DE DK EE ES FI FR GR HU IS IT LI LT LU LV MT NL NO PL PT SE SI SK"
-			.split(" ")
-			.map((code) => [code, "0000-01-01"]),
-	),
-	HR: "2023-01-01",
-	RO: "2024-03-31",
-	BG: "2024-03-31",
+/** First day without internal border checks, by kind of crossing. */
+interface SchengenSince {
+	land: string;
+	sea: string;
+	air: string;
+}
+
+const since = (land: string, air = land, sea = land): SchengenSince => ({
+	land,
+	sea,
+	air,
+});
+
+const each = (codes: string, date: SchengenSince) =>
+	codes.split(" ").map((code) => [code, date] as const);
+
+/**
+ * Date each country joined Schengen (no internal border stamps after that),
+ * as dated by the Schengen implementing decisions:
+ * - BE DE ES FR LU NL PT: 1995-03-26 (Schengen Convention in force).
+ * - IT: 1997-10-26; AT: 1997-12-01 (their land checks ended 1998-04-01; not modelled).
+ * - GR: 2000-01-01 (checks ended 2000-03-26; not modelled).
+ * - DK FI IS NO SE: 2001-03-25 (Nordic states).
+ * - CZ EE HU LT LV MT PL SI SK: land and sea 2007-12-21, air 2008-03-30.
+ * - CH: land 2008-12-12, air 2009-03-29. LI: 2011-12-19 (no airport).
+ * - HR: land and sea 2023-01-01, air 2023-03-26.
+ * - BG RO: air and sea 2024-03-31, land 2025-01-01.
+ */
+const SCHENGEN_SINCE: Record<string, SchengenSince> = Object.fromEntries([
+	...each("BE DE ES FR LU NL PT", since("1995-03-26")),
+	...each("IT", since("1997-10-26")),
+	...each("AT", since("1997-12-01")),
+	...each("GR", since("2000-01-01")),
+	...each("DK FI IS NO SE", since("2001-03-25")),
+	...each("CZ EE HU LT LV MT PL SI SK", since("2007-12-21", "2008-03-30")),
+	...each("CH", since("2008-12-12", "2009-03-29")),
+	...each("LI", since("2011-12-19")),
+	...each("HR", since("2023-01-01", "2023-03-26")),
+	...each("BG RO", since("2025-01-01", "2024-03-31", "2024-03-31")),
+]);
+
+/** The join date that applies to a stamp; an unknown crossing takes the earliest. */
+const joinedOn = (dates: SchengenSince, crossing: BorderCrossing): string => {
+	if (crossing === "plane") return dates.air;
+	if (crossing === "ship") return dates.sea;
+	if (crossing === "unknown")
+		return [dates.land, dates.sea, dates.air].sort()[0] ?? dates.land;
+	return dates.land;
 };
 
 /**
@@ -31,8 +69,8 @@ const SCHENGEN_SINCE: Record<string, string> = {
  * (enter in Spain, exit in Italy = one visit), other countries are their own zone.
  */
 export const zoneOf = (stamp: Stamp): string => {
-	const since = SCHENGEN_SINCE[stamp.countryCode ?? ""];
-	return since && (stamp.date ?? "") >= since
+	const dates = SCHENGEN_SINCE[stamp.countryCode ?? ""];
+	return dates && (stamp.date ?? "") >= joinedOn(dates, stamp.borderCrossing)
 		? "Schengen"
 		: (stamp.countryCode ?? "?");
 };
