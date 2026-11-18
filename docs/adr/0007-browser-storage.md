@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The `trips` table superseded by ADR 0019 (stays).
 
 ## Context
 

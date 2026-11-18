@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the success header, the five-card stepper and Back/Next of ADR 0016.
+Accepted. Supersedes the success header, the five-card stepper and Back/Next of ADR 0016. Its `/` part superseded by ADR 0025.
 
 ## Context
 

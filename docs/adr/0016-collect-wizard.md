@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the Collect part of ADR 0015 and the Collect URLs of ADR 0013. Success header, stepper cards and Back/Next superseded by ADR 0024.
+Accepted. Supersedes the Collect part of ADR 0015 and the Collect URLs of ADR 0013. Success header, stepper cards and Back/Next superseded by ADR 0024. Nav superseded by ADR 0023, `/` by ADR 0025.
 
 ## Context
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. How `checkStamp` picks the photo superseded by ADR 0030; the window setting stands.
 
 ## Context
 

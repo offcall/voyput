@@ -10,24 +10,24 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0004](0004-workspace-layout.md) | Workspace Layout | Accepted |
 | [0005](0005-ui-kit.md) | UI Kit | Accepted |
 | [0006](0006-routing-and-state.md) | Routing and State | Accepted; hash history superseded by 0013 |
-| [0007](0007-browser-storage.md) | Browser Storage | Accepted |
-| [0008](0008-ai-through-openrouter.md) | AI Through OpenRouter | Accepted |
+| [0007](0007-browser-storage.md) | Browser Storage | Accepted; `trips` table superseded by 0019 |
+| [0008](0008-ai-through-openrouter.md) | AI Through OpenRouter | Accepted; default model superseded by 0020 |
 | [0009](0009-testing.md) | Testing | Accepted |
-| [0010](0010-demo-data-generator.md) | Demo Data Generator | Accepted |
+| [0010](0010-demo-data-generator.md) | Demo Data Generator | Accepted; amended by 0021 (Commons pages) and 0029 (realistic passport) |
 | [0011](0011-theme-in-local-storage.md) | Theme in localStorage | Accepted; default with no key superseded by 0012 |
 | [0012](0012-pixel-retro-visual-style.md) | Pixel Retro Visual Style | Accepted |
-| [0013](0013-browser-history-routes.md) | Browser History Routes | Accepted; Collect URLs superseded by 0016 |
+| [0013](0013-browser-history-routes.md) | Browser History Routes | Accepted; Collect URLs superseded by 0016, `/visualize` by 0023, `/` by 0025 |
 | [0014](0014-route-and-explore-core-modules.md) | Route and Explore Core Modules | Accepted; stays from trips superseded by 0019 |
-| [0015](0015-collect-and-visualize-navigation.md) | Collect and Visualize Navigation | Accepted; Collect part superseded by 0016 |
-| [0016](0016-collect-wizard.md) | Collect Wizard | Accepted |
-| [0017](0017-photo-location-window-setting.md) | Photo Location Window Setting | Accepted |
+| [0015](0015-collect-and-visualize-navigation.md) | Collect and Visualize Navigation | Accepted; Collect part superseded by 0016, Visualize part by 0023 |
+| [0016](0016-collect-wizard.md) | Collect Wizard | Accepted; header, stepper and Back/Next superseded by 0024, nav by 0023, `/` by 0025 |
+| [0017](0017-photo-location-window-setting.md) | Photo Location Window Setting | Accepted; how `checkStamp` picks the photo superseded by 0030 |
 | [0018](0018-stamp-read-date.md) | Stamp Read Date | Accepted |
 | [0019](0019-stays-as-source-of-truth.md) | Stays as Source of Truth | Accepted; home and derived trips superseded by 0022 |
 | [0020](0020-gemini-flash-default-model.md) | Gemini 3.8 Flash as Default Model | Accepted |
 | [0021](0021-commons-sample-pages-in-demo.md) | Commons Sample Pages in the Demo | Accepted |
 | [0022](0022-stays-without-home.md) | Stays Without Home | Accepted |
 | [0023](0023-navigation-and-insights.md) | Navigation and Insights | Accepted |
-| [0024](0024-collect-sources.md) | Collect Sources | Accepted |
+| [0024](0024-collect-sources.md) | Collect Sources | Accepted; `/` part superseded by 0025 |
 | [0025](0025-home-page.md) | Home Page | Accepted |
 | [0026](0026-local-ai-engine.md) | Local AI Engine | Accepted; Codex opt-in superseded by 0032; run command and pairing link amended by 0035 |
 | [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Superseded by 0033 |
