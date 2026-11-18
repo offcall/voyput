@@ -11,11 +11,13 @@ Passport stamps + iPhone photo locations → your travel history. Bring your own
 No voyput AI, no account. Stamps read by AI you pick:
 
 - **OpenRouter key.** Paste in Settings. Default Gemini 3.8 Flash, ~$0.015/page, billed to you.
-- **Claude Code / Codex subscription, locally.** Run on your computer, open the pairing link it prints:
+- **Claude Code / Codex subscription, locally.** Copy the command from Settings > AI, run it on your computer, open the pairing link it prints. It downloads `voyput-local.mjs`, checks its SHA-256 against this build of the site, then runs it:
 
   ```bash
-  curl -fsSL https://voyput.app.offcall.link/voyput-local.mjs -o voyput-local.mjs && node voyput-local.mjs
+  curl -fsSLo voyput-local.mjs https://voyput.app.offcall.link/voyput-local.mjs && echo "<sha256 from Settings>  voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs
   ```
+
+  Hash comes from same site: catches a corrupted or tampered file, cache or proxy, not a takeover of the site ([ADR 0035](docs/adr/0035-download-verify-run.md)).
 
   Node 22.12+. 127.0.0.1 only. Requests signed, photos encrypted. Safari may block it; use Chrome or Firefox. Details: [ADR 0026](docs/adr/0026-local-ai-engine.md).
 
@@ -34,7 +36,7 @@ No data at hand: demo passport inside the app.
 
 - Everything in this browser (IndexedDB). No account, no voyput server, no analytics.
 - Page images go only to the AI you pick, with your key or subscription.
-- Photo locations CSV from your Mac: `curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh` ([`tools/photos-export`](tools/photos-export)). Plain sh + macOS sqlite3, reads Photos library locally, uploads nothing.
+- Photo locations CSV from your Mac: copy the command from Collect > iPhone photo locations (download, check SHA-256, run; [`tools/photos-export`](tools/photos-export)). Plain sh + macOS sqlite3, reads Photos library locally, uploads nothing.
 
 ## Dev
 
