@@ -1556,3 +1556,29 @@ a[aria-current="page"] .vp-nav-count {
 	white-space: nowrap;
 	border: 0;
 }
+
+/* CommandBox: a terminal command that wraps anywhere, Copy top right. */
+.vp-command {
+	position: relative;
+	min-width: 0;
+	max-width: 100%;
+	border: 1px solid var(--vp-border);
+	border-radius: var(--vp-radius-sm);
+	background: var(--vp-surface-2);
+}
+.vp-command pre {
+	margin: 0;
+	padding: var(--vp-space-3) var(--vp-space-3) var(--vp-space-3);
+	padding-right: 5.5rem;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	word-break: break-all;
+	font-family: var(--vp-font-mono);
+	font-size: 0.8rem;
+	line-height: 1.5;
+}
+.vp-command > .vp-command-copy {
+	position: absolute;
+	top: var(--vp-space-2);
+	right: var(--vp-space-2);
+}

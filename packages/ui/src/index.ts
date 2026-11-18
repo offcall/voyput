@@ -3,6 +3,7 @@ export { Badge, type Tone } from "./Badge";
 export { Button, type ButtonProps } from "./Button";
 export { Card } from "./Card";
 export { ChartTip } from "./ChartTip";
+export { CommandBox } from "./CommandBox";
 export { CountryChip, flagEmoji } from "./CountryChip";
 export { Dialog, type DialogProps } from "./Dialog";
 export { Disclosure } from "./Disclosure";

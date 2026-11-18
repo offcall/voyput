@@ -242,6 +242,10 @@
 	display: grid;
 	gap: var(--vp-space-4);
 }
+/* Grid items may shrink below their content: a long command must not widen the card. */
+.import-csv > * {
+	min-width: 0;
+}
 .import-csv-empty {
 	margin: 0;
 	color: var(--vp-muted);

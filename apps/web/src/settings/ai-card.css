@@ -34,22 +34,6 @@
 	display: flex;
 	gap: var(--vp-space-2);
 }
-.ai-command {
-	display: flex;
-	align-items: center;
-	gap: var(--vp-space-2);
-	padding: var(--vp-space-2) var(--vp-space-3);
-	border: 1px solid var(--vp-border);
-	background: var(--vp-surface-2);
-}
-.ai-command code {
-	flex: 1;
-	min-width: 0;
-	white-space: pre-wrap;
-	overflow-wrap: anywhere;
-	font-family: var(--vp-font-mono);
-	font-size: 0.85rem;
-}
 .ai-status {
 	display: flex;
 	flex-wrap: wrap;

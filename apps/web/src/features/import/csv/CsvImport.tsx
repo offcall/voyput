@@ -6,6 +6,7 @@ import {
 } from "@voyput/core";
 import {
 	Card,
+	CommandBox,
 	CountryChip,
 	Disclosure,
 	Dropzone,
@@ -231,8 +232,12 @@ export function HowToGetFile({
 					&amp; Security → Full Disk Access), so it can read the Photos library.
 				</li>
 				<li>
-					In Terminal, run <code>{exportCommand(origin)}</code>. It writes
-					photo_locations.csv to your Desktop.
+					In Terminal, run this. It downloads the script, checks it against this
+					site and writes photo_locations.csv to your Desktop.
+					<CommandBox
+						command={exportCommand(origin)}
+						label="Copy the export command"
+					/>
 				</li>
 				<li>Import that CSV here: drop it above or pick it.</li>
 			</ol>

@@ -175,6 +175,10 @@
 		column-gap: var(--vp-space-3);
 		align-items: center;
 	}
+	/* The command takes the whole row under the art and the text. */
+	.home-step > .vp-command {
+		grid-column: 1 / -1;
+	}
 	.home-step-art {
 		grid-row: span 2;
 		width: 80px;
@@ -192,14 +196,4 @@
 		align-items: center;
 		min-height: 44px;
 	}
-}
-
-.home-command {
-	display: block;
-	padding: var(--vp-space-2);
-	border-radius: var(--vp-radius);
-	background: var(--vp-bg);
-	font-size: var(--vp-text-xs, 12px);
-	overflow-wrap: anywhere;
-	user-select: all;
 }

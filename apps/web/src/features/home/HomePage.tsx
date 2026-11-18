@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import {
 	Button,
 	Card,
+	CommandBox,
 	Dialog,
 	PixelArt,
 	PixelSky,
@@ -222,7 +223,10 @@ function OwnKey() {
 						Run voyput-local on your computer and pair it in Settings; it reads
 						stamps with the Claude Code or Codex CLI you already pay for.
 					</span>
-					<code className="home-command">{LOCAL_COMMAND}</code>
+					<CommandBox
+						command={LOCAL_COMMAND}
+						label="Copy the voyput-local command"
+					/>
 				</li>
 			</ul>
 			<p>

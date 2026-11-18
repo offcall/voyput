@@ -3,6 +3,7 @@ import {
 	Badge,
 	Button,
 	Card,
+	CommandBox,
 	Notice,
 	PixelArt,
 	Stack,
@@ -303,24 +304,10 @@ function HealthBadge({ health }: { health: HealthView }) {
 }
 
 function CommandLine({ label, command }: { label: string; command: string }) {
-	const [copied, setCopied] = useState(false);
 	return (
 		<div className="vp-field">
 			<span className="vp-field-label">{label}</span>
-			<div className="ai-command">
-				<code>{command}</code>
-				<Button
-					size="sm"
-					onClick={() =>
-						navigator.clipboard?.writeText(command).then(
-							() => setCopied(true),
-							() => setCopied(false),
-						)
-					}
-				>
-					{copied ? "Copied" : "Copy"}
-				</Button>
-			</div>
+			<CommandBox command={command} label={`Copy: ${label}`} />
 		</div>
 	);
 }

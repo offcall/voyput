@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Badge } from "../Badge";
 import { Button } from "../Button";
 import { Card } from "../Card";
+import { CommandBox } from "../CommandBox";
 import { Dialog } from "../Dialog";
 import { Dropzone } from "../Dropzone";
 import { Menu } from "../Menu";
@@ -172,5 +173,13 @@ export const MoreMenu: StoryObj = {
 				{ label: "Delete", tone: "danger", onSelect: () => undefined },
 			]}
 		/>
+	),
+};
+
+export const Command: StoryObj = {
+	render: () => (
+		<div style={{ maxWidth: 360 }}>
+			<CommandBox command='curl -fsSLo photo-locations.sh https://voyput.example/photo-locations.sh && echo "7092208d20da83068e9824a13bcdc01098e43d30f4896ec4e935fe20f3201c6a *photo-locations.sh" | shasum -a 256 -c - && sh photo-locations.sh' />
+		</div>
 	),
 };
