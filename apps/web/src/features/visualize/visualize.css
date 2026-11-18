@@ -176,19 +176,6 @@
 	width: 12px;
 	height: 12px;
 }
-.vp-viz-legend .vp-viz-ramp {
-	padding: 0;
-	width: 200px;
-	height: 10px;
-	border-radius: 99px;
-	border: 1px solid var(--vp-border);
-	background: linear-gradient(
-		90deg,
-		var(--vp-sun),
-		var(--vp-pixel-gold) 45%,
-		var(--vp-pixel-red)
-	);
-}
 .vp-viz-calendar-years {
 	display: flex;
 	flex-wrap: wrap;
@@ -212,16 +199,6 @@
 .vp-viz-calendar text {
 	font-size: 10px;
 	fill: var(--vp-muted);
-}
-.vp-viz-sankey-label {
-	font-family: var(--vp-font-pixel);
-	font-size: 18px;
-	fill: var(--vp-text);
-}
-.vp-viz-sankey-label tspan,
-.vp-viz-sankey-other {
-	font-family: var(--vp-font-pixel);
-	font-size: 16px;
 }
 .vp-viz-donuts {
 	display: flex;
@@ -277,20 +254,6 @@
 	height: 20px;
 	font-size: 10px;
 	border-width: 1px;
-}
-.vp-viz-share {
-	width: 32%;
-}
-.vp-viz-share-track {
-	min-width: 120px;
-	height: 8px;
-	border-radius: var(--vp-radius-full);
-	background: var(--vp-surface-3);
-	overflow: hidden;
-}
-.vp-viz-share-bar {
-	height: 100%;
-	border-radius: var(--vp-radius-full);
 }
 
 /* ---------- Line chart ---------- */

@@ -12,10 +12,6 @@
 	margin: 0 6px;
 	color: var(--vp-muted);
 }
-.vp-trips-error {
-	color: var(--vp-bad);
-	font-weight: 600;
-}
 
 .vp-trips-note,
 .vp-trips-empty {
@@ -518,13 +514,6 @@
 	color: var(--vp-muted);
 }
 
-.vp-trips-actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-	padding-top: 12px;
-	border-top: 1px solid var(--vp-border);
-}
 .vp-trips-spacer {
 	flex: 1;
 }

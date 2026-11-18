@@ -442,36 +442,6 @@ button.vp-explore-bar:hover {
 	color: var(--vp-text);
 }
 
-/* ---------- First visits ---------- */
-
-.vp-explore-firsts {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-	margin: 0;
-	padding: 0;
-	list-style: none;
-}
-.vp-explore-firsts button {
-	display: inline-flex;
-	align-items: center;
-	gap: 8px;
-	padding: 4px 10px 4px 4px;
-	border: 1px solid var(--vp-border);
-	border-radius: var(--vp-radius-full);
-	background: var(--vp-surface-2);
-	color: var(--vp-text);
-	font: inherit;
-	cursor: pointer;
-}
-.vp-explore-firsts button:hover {
-	border-color: var(--vp-accent);
-}
-.vp-explore-firsts small {
-	color: var(--vp-muted);
-	font-variant-numeric: tabular-nums;
-}
-
 /* ---------- Records ---------- */
 
 .vp-explore-records th button {
