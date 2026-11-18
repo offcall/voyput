@@ -1,3 +1,4 @@
+import { type ServedScript, verifiedCommand } from "../app/servedScripts";
 import { DEFAULT_SETTINGS, type LocalEngine } from "../settings/settings";
 import { photoDataUrl } from "./image";
 import {
@@ -16,7 +17,7 @@ import type { AiClient, AiSettings, ImageEncoder } from "./openrouter";
 /** The script's end-to-end deadline (10 minutes, queue included) plus a minute. */
 const REQUEST_TIMEOUT_MS = 11 * 60_000;
 const HEALTH_TIMEOUT_MS = 3_000;
-export const LOCAL_SCRIPT = "voyput-local.mjs";
+export const LOCAL_SCRIPT = "voyput-local.mjs" satisfies ServedScript;
 
 type LocalSettings = Pick<
 	AiSettings,
@@ -228,11 +229,14 @@ export function parsePairingHash(
 	};
 }
 
-/** Shell commands that start voyput-local: downloaded from `origin`, or from a clone. */
+/**
+ * Shell commands that start voyput-local: downloaded from `origin` and checked
+ * against this build's hash (ADR 0035), or from a clone.
+ */
 export function localCommands(origin: string, port: number) {
 	const portFlag = port === DEFAULT_SETTINGS.localPort ? "" : ` --port ${port}`;
 	return {
-		download: `curl -fsSL ${origin}/${LOCAL_SCRIPT} -o ${LOCAL_SCRIPT} && node ${LOCAL_SCRIPT}${portFlag}`,
+		download: verifiedCommand(origin, LOCAL_SCRIPT, "node", portFlag),
 		clone: `node --experimental-strip-types packages/local/src/voyput-local.ts${portFlag}`,
 	};
 }

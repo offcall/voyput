@@ -20,6 +20,7 @@ import {
 	parsePairingHash,
 } from "../src/ai/local";
 import type { AiClient } from "../src/ai/openrouter";
+import { scriptSha256 } from "../src/app/servedScripts";
 import { DEFAULT_SETTINGS, loadSettings } from "../src/settings/settings";
 import { offlineAi, renderApp } from "./renderApp";
 
@@ -319,8 +320,7 @@ describe("provider switch", () => {
 		expect(parsePairingHash("#/import")).toBeNull();
 		expect(parsePairingHash("#local=<script>")).toBeNull();
 		expect(localCommands("https://voyput.app.offcall.link", 47615)).toEqual({
-			download:
-				"curl -fsSL https://voyput.app.offcall.link/voyput-local.mjs -o voyput-local.mjs && node voyput-local.mjs",
+			download: `curl -fsSLo voyput-local.mjs https://voyput.app.offcall.link/voyput-local.mjs && echo "${scriptSha256("voyput-local.mjs")}  voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs`,
 			clone:
 				"node --experimental-strip-types packages/local/src/voyput-local.ts",
 		});
@@ -372,7 +372,8 @@ describe("Settings AI card", () => {
 		expect(screen.getByText(/only on your own computer/)).toBeTruthy();
 		expect(
 			screen.getByText(
-				`curl -fsSL ${window.location.origin}/voyput-local.mjs -o voyput-local.mjs && node voyput-local.mjs`,
+				`curl -fsSLo voyput-local.mjs ${window.location.origin}/voyput-local.mjs && echo "${scriptSha256("voyput-local.mjs")}  voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs`,
+				{ normalizer: (text) => text },
 			),
 		).toBeTruthy();
 		expect(

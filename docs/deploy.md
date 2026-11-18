@@ -34,6 +34,7 @@ node --experimental-strip-types scripts/csp-hash.ts
 
 - `/assets/*`: file names carry a content hash; cache for a year, immutable.
 - Everything else (`index.html` and the app's routes, `voyput-local.mjs`, `photo-locations.sh`, icons, demo data): `no-cache`, so a deploy shows up on the next load.
+- The app's bundle carries the SHA-256 of `voyput-local.mjs` and `photo-locations.sh`, and the commands it shows refuse to run a file that does not match (ADR 0035). Deploy the bundle and the scripts together, from one build.
 - `/voyput-local.mjs` is served as `text/javascript`, `/photo-locations.sh` as `text/plain` (shown, not downloaded, when opened in a browser).
 
 ## nginx

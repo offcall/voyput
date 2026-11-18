@@ -10,24 +10,32 @@ where your phone actually was.
 1. Give your terminal Full Disk Access: **System Settings > Privacy &
    Security > Full Disk Access**, turn on Terminal (or iTerm, ...; use **+**
    to add it). Quit the terminal completely and reopen it.
-2. Paste:
+2. Copy the command from voyput (**Collect > iPhone photo locations > How
+   to get this file**) and paste it. It has this shape:
 
    ```sh
-   curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh
+   curl -fsSLo photo-locations.sh https://voyput.app.offcall.link/photo-locations.sh && echo "<sha256>  photo-locations.sh" | shasum -a 256 -c - && sh photo-locations.sh
    ```
+
+   It downloads the script, checks it against the SHA-256 that this build of
+   voyput was made with, and runs it only if they match. The hash comes from
+   the same site, so this catches a corrupted or tampered script file, cache
+   or proxy, not a takeover of the whole site
+   ([ADR 0035](../../docs/adr/0035-download-verify-run.md)). The script stays
+   in the current folder; delete it when you are done.
 
 `photo_locations.csv` lands on your Desktop (replaced if it is there). Then in
 voyput: **Collect > iPhone photo locations**, choose the file.
 
 Nothing to install: plain POSIX `sh` and the `sqlite3` that ships with macOS.
-It works the same whether your shell is zsh, bash or fish (`| sh` runs it with
+It works the same whether your shell is zsh, bash or fish (`sh` runs it with
 `/bin/sh`). Read it first if you like:
 <https://voyput.app.offcall.link/photo-locations.sh>.
 
-Options go after `sh -s --`:
+Options go after the script, for example once it is downloaded:
 
 ```sh
-curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh -s -- --since 2016-01-01
+sh photo-locations.sh --since 2016-01-01
 ```
 
 | Option | Meaning |

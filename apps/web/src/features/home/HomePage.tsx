@@ -8,6 +8,7 @@ import {
 	type SpriteName,
 } from "@voyput/ui";
 import { useState } from "react";
+import { verifiedCommand } from "../../app/servedScripts";
 import { useDb } from "../../db/DbContext";
 import { SourcesChoice } from "../collect/SourcesChoice";
 import { nextAction } from "../collect/steps";
@@ -183,9 +184,12 @@ function HowItWorks() {
 	);
 }
 
-/** The command that downloads and starts voyput-local (ADR 0026). */
-const LOCAL_COMMAND =
-	"curl -fsSL https://voyput.app.offcall.link/voyput-local.mjs -o voyput-local.mjs && node voyput-local.mjs";
+/** The command that downloads, checks and starts voyput-local (ADR 0026, ADR 0035). */
+const LOCAL_COMMAND = verifiedCommand(
+	"https://voyput.app.offcall.link",
+	"voyput-local.mjs",
+	"node",
+);
 
 /** Bring your own key: the two ways to read stamps, and where to set them up. */
 function OwnKey() {

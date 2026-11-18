@@ -7,8 +7,11 @@
 # only (read-only, or a temporary copy when Photos holds it locked); opens no
 # photo file, downloads nothing from iCloud, uploads nothing.
 #
-#   curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh
-#   curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh -s -- --since 2016-01-01
+#   sh photo-locations.sh
+#   sh photo-locations.sh --since 2016-01-01
+#
+# voyput (Collect > iPhone photo locations) shows a one-line command that
+# downloads this file, checks its SHA-256 and runs it (ADR 0035).
 #
 # See docs/adr/0033-photo-export-in-plain-sh.md.
 
@@ -21,7 +24,6 @@ usage() {
 photo-locations: export your Photos locations to a CSV for voyput.
 
 Usage: sh photo-locations.sh [options]
-   or: curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh -s -- [options]
 
   --out PATH          CSV to write (default ~/Desktop/photo_locations.csv,
                       replaced if it exists)

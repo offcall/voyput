@@ -15,6 +15,7 @@ import {
 } from "@voyput/ui";
 import { useCallback, useEffect, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
+import { type ServedScript, verifiedCommand } from "../../../app/servedScripts";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
 import { staysAfterEvidenceChange } from "../../trips/evidenceChange";
@@ -208,11 +209,11 @@ function ImportStatus({ state }: { state: ImportState }) {
 }
 
 /** The script the site serves from `tools/photos-export` (ADR 0033). */
-export const EXPORT_SCRIPT = "photo-locations.sh";
+export const EXPORT_SCRIPT = "photo-locations.sh" satisfies ServedScript;
 
-/** The one-line export, downloaded from `origin`. */
+/** The one-line export: downloaded from `origin`, checked, then run (ADR 0035). */
 export function exportCommand(origin: string): string {
-	return `curl -fsSL ${origin}/${EXPORT_SCRIPT} | sh`;
+	return verifiedCommand(origin, EXPORT_SCRIPT, "sh");
 }
 
 /** Steps to write photo_locations.csv on a Mac with the export script. */

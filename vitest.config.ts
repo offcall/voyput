@@ -1,8 +1,9 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
+import { scriptHashes } from "./apps/web/vite.config.ts";
 
 export default defineConfig({
-	plugins: [react()],
+	plugins: [react(), scriptHashes()],
 	test: {
 		include: ["{apps,packages,tools}/*/test/**/*.test.{ts,tsx}"],
 		environment: "jsdom",

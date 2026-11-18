@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes ADR 0027.
+Accepted. Supersedes ADR 0027. Run command amended by ADR 0035 (download, verify, run).
 
 ## Context
 
