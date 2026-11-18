@@ -2,10 +2,10 @@
  * Frozen: do not edit. Copied from packages/core/src/trips/{build,evidence,
  * edit,history,legacy,countries,types}.ts, packages/core/src/explore/dates.ts,
  * packages/core/src/review/days.ts and packages/core/src/passports/photos.ts
- * and apps/web/src/db/db.ts at commit 1cc43b2 on 2026-11-18 (ADR 0039).
+ * and apps/web/src/db/db.ts; copied on 2026-11-18 (ADR 0039).
  *
  * Dexie version 3: stored trips become stays, placed in a history suggested
- * from the stamps and locations the way the app did on that commit. Only
+ * from the stamps and locations the way the app did on that date. Only
  * the logic this upgrade runs is here; core changes must not reach it.
  */
 import type { Transaction } from "dexie";

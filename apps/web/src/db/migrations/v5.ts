@@ -1,7 +1,7 @@
 /**
  * Frozen: do not edit. Copied from apps/web/src/db/db.ts and
- * packages/core/src/trips/{build,countries,types}.ts at commit 1cc43b2 on
- * 2026-11-18 (ADR 0039).
+ * packages/core/src/trips/{build,countries,types}.ts; copied on 2026-11-18
+ * (ADR 0039).
  *
  * Dexie version 5: no home any more (ADR 0022), so the home stays the
  * version 4 suggester generated and the home pick go. Only the logic this

@@ -11,9 +11,9 @@ ADR 0007 says existing Dexie versions are never edited after release. The versio
 ## Decision
 
 - An upgrade function runs only frozen code: `apps/web/src/db/migrations/v<N>.ts`, one file per Dexie version, holding exactly the logic and stored shapes that version needs, copied at the time it is frozen.
-- Each file starts with "Frozen: do not edit", the commit and files it was copied from, and the date. A frozen file is never changed; a fix to old data is a new version.
+- Each file starts with "Frozen: do not edit", the files it was copied from, and the date it was copied. A frozen file is never changed; a fix to old data is a new version.
 - Frozen files import nothing at runtime from `@voyput/core`, `packages/core` or `features/` (types only, and the current ones inline their stored shapes). A source scan test (`apps/web/test/db-migrations.test.ts`) enforces this.
-- `db.ts` declares the schema and calls the frozen upgrades. Versions 3 and 5 were frozen from commit 1cc43b2 on 2026-11-18, with the behaviour they had there.
+- `db.ts` declares the schema and calls the frozen upgrades. Versions 3 and 5 were copied on 2026-11-18, with the behaviour they had then.
 
 ## Consequences
 
