@@ -885,6 +885,25 @@ describe("editing stays", () => {
 		const own = [stay("mine", "UA", null, "2016-08-10"), ...list];
 		expect(withBirthStay(own, md)).toEqual(own);
 	});
+
+	it("ends the stay since birth on the next stay's arrival when it follows the setting", () => {
+		const md = { birthCountry: "MD", birth: "1997-05-21" };
+		const born = withBirthStay(
+			[stay("es", "ES", "2016-08-10", "2016-08-24")],
+			md,
+		);
+		// The first stay moved; the generated one still ends on its old arrival.
+		const moved = [
+			born[0] as TravelStay,
+			stay("es", "ES", "2016-08-12", "2016-08-24"),
+		];
+		const again = withBirthStay(moved, { ...md, birthCountry: "RO" });
+		expect(brief(again).map((s) => s.slice(0, 3))).toEqual([
+			["RO", null, "2016-08-12"],
+			["ES", "2016-08-12", "2016-08-24"],
+		]);
+		expect(again[0]?.departure.source).toBe("estimated");
+	});
 });
 
 describe("stays after their evidence changed", () => {

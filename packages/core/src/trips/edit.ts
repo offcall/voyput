@@ -20,7 +20,8 @@ function freeId(stays: readonly TravelStay[], base: string): string {
  * date, it begins with a stay there "since birth" up to the first stay's
  * arrival, unless some stay is since birth already. The stay added for it
  * (`sinceBirth`) follows the setting while the user has not edited it: a new
- * country moves it, an incomplete setting removes it. An edited one is the
+ * country moves it, it ends on the next stay's arrival, an incomplete setting
+ * removes it. An edited one is the
  * user's and stays as it is.
  */
 export function withBirthStay(
@@ -32,8 +33,16 @@ export function withBirthStay(
 	const generated = first?.sinceBirth && !first.edited ? first : null;
 	if (!birthCountry || !birth.birth)
 		return generated ? stays.slice(1) : [...stays];
-	if (generated)
-		return [{ ...generated, countryCode: birthCountry }, ...stays.slice(1)];
+	if (generated) {
+		const departure = {
+			...generated.departure,
+			date: stays[1]?.arrival.date ?? null,
+		};
+		return [
+			{ ...generated, countryCode: birthCountry, departure },
+			...stays.slice(1),
+		];
+	}
 	if (first?.arrival.date === null) return [...stays];
 	return [
 		{
