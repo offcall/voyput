@@ -6,7 +6,7 @@ Accepted. Amends ADR 0026 (how voyput-local is run, how a pairing link is applie
 
 ## Context
 
-The site tells users to run two scripts it serves: `photo-locations.sh` (`curl -fsSL <site>/photo-locations.sh | sh`, in a terminal with Full Disk Access) and `voyput-local.mjs` (`curl … -o voyput-local.mjs && node voyput-local.mjs`). Nothing checked that the file that arrived is the file this build of the app was made with. A truncated download, a stale or poisoned cache, a proxy, or a tampered file on the host would run as is.
+The site tells users to run two scripts it serves: `photo-locations.sh` (`curl -fsSL <site>/photo-locations.sh | sh`, in a terminal with Full Disk Access) and `voyput-local.mjs` (`curl … -o voyput-local.mjs && node voyput-local.mjs`). Nothing checked that the file that arrived is the file this build of the app was made with. A truncated download, a stale or poisoned cache, or a script file changed on the host would run as is.
 
 Separately, opening `/settings#local=<token>&port=<n>` applied the token and port and switched the AI to Local at once. Any page or message can link there; someone who can listen on the user's 127.0.0.1 (another OS user, a container on the host network) could pair the app with their own server and receive the passport photos, and anyone could silently break an existing pairing (security reviews of 2026-11-18).
 
@@ -21,7 +21,7 @@ Separately, opening `/settings#local=<token>&port=<n>` applied the token and por
 
 ## Consequences
 
-- **What the hash protects against, and what it does not.** The hash is served by the same site as the script (it is in the app's bundle). It catches a corrupted or truncated download, and a script file that was changed, cached or replaced on its own (a stale CDN or proxy, a tampered file in the deploy output). It does **not** protect against someone who controls the whole site or the deploy pipeline: they can change the script and the hash together. Pinning against that would need a hash or signature published somewhere the site cannot change, which this static, single-origin project does not have.
+- **What the hash protects against, and what it does not.** The hash is served by the same site as the script (it is in the app's bundle). It catches a corrupted or truncated download, a stale copy of the script in a cache or CDN, and a change to the script file alone, while the bundle that holds the hash is unchanged. It does **not** catch anyone who can change the bundle too: someone who can write the deploy output (the script and `/assets/*.js` are in the same `dist`), controls the site or the deploy pipeline, or a proxy that terminates TLS and rewrites both responses. They can change the script and the hash together. Pinning against that would need a hash or signature published somewhere the site cannot change, which this static, single-origin project does not have.
 - The hash differs between builds, so commands in Markdown cannot pin it; `README.md` and `tools/photos-export/README.md` show the shape and send users to the app for the current line.
 - A deploy must publish the bundle and the scripts together. Both are `no-cache` (`docs/deploy.md`), so a mismatch after a deploy shows as a failed check, not as an unchecked run.
 - The command is longer than `curl … | sh`, and options go after `sh photo-locations.sh` instead of `sh -s --`.
