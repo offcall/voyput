@@ -11,7 +11,7 @@ There is no voyput server, account or analytics. The site is static files with a
 
 ## Reporting a vulnerability
 
-Please report privately through GitHub: **Security → Report a vulnerability** on [offcall/voyput-private](https://github.com/offcall/voyput-private/security/advisories/new). Do not open a public issue.
+Please report privately through GitHub: **Security → Report a vulnerability** on [offcall/voyput](https://github.com/offcall/voyput/security/advisories/new). Do not open a public issue.
 
 Include what is affected, how to reproduce it, and what an attacker gains. You will get an answer when the report has been read; there is no bug bounty.
 
