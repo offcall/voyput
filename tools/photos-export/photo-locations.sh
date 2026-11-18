@@ -183,6 +183,8 @@ range="1 = 1"
 [ -z "$until" ] || range="$range AND substr(date, 1, 10) <= '$until'"
 
 say "Reading $db ..."
+# The CSV says where you were and when: readable by you only (0600).
+umask 077
 partial="$out_dir/.photo_locations.$$.tmp"
 trap 'rm -rf "$work" "$partial"' EXIT
 sqlite3 -batch -csv -header $readonly_flag "$db" \

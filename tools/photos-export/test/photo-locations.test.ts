@@ -1,5 +1,12 @@
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+	chmodSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -84,8 +91,7 @@ function library(
 	return db;
 }
 
-function run(args: string[]) {
-	const out = join(tempDir(), "photo_locations.csv");
+function run(args: string[], out = join(tempDir(), "photo_locations.csv")) {
 	const result = spawnSync("sh", [SCRIPT, "--out", out, ...args], {
 		encoding: "utf8",
 		env: { PATH: process.env.PATH, HOME: tempDir(), TMPDIR: tempDir() },
@@ -94,7 +100,7 @@ function run(args: string[]) {
 	try {
 		csv = readFileSync(out, "utf8");
 	} catch {}
-	return { ...result, csv };
+	return { ...result, csv, out };
 }
 
 const PARIS: Asset = {
@@ -150,6 +156,17 @@ describe.skipIf(!hasSqlite)("photo-locations.sh", () => {
 		expect(result.stdout).toContain("Saved 3 photo locations");
 		expect(result.stdout).toContain("from 2019-04-30 to 2019-05-03");
 		expect(result.stdout).toContain("3 left out");
+	});
+
+	it("writes the CSV readable by its owner only, also over an old one", () => {
+		const out = join(tempDir(), "photo_locations.csv");
+		writeFileSync(out, "old");
+		chmodSync(out, 0o644);
+		const result = run(["--library", library([PARIS])], out);
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.csv).toContain("IMG_0001.HEIC");
+		expect(statSync(out).mode & 0o777).toBe(0o600);
 	});
 
 	it("filters --since/--until on the photo's local day", () => {

@@ -43,7 +43,7 @@ curl -fsSL https://voyput.app.offcall.link/photo-locations.sh | sh -s -- --since
 - Reads only the Photos database (`Photos.sqlite`), read-only. If Photos holds
   it locked, it reads a copy in a temporary folder, deleted when it ends.
 - Does not open your photo files, downloads nothing from iCloud, uploads
-  nothing. The only output is the CSV.
+  nothing. The only output is the CSV, readable by you only (mode 0600).
 
 ## Output
 
