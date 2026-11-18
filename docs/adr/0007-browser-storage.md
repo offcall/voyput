@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. The `trips` table superseded by ADR 0019 (stays).
+Accepted. The `trips` table superseded by ADR 0019 (stays). Schema changes amended by ADR 0039 (frozen upgrades).
 
 ## Context
 
