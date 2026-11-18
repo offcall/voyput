@@ -864,7 +864,6 @@ const lastLine = (text: string) =>
 /** Windows needs a shell for .cmd shims; quote every argument for cmd.exe. */
 const quoteForCmd = (arg: string) => `"${arg.replace(/"/g, '""')}"`;
 
-/** Kills a CLI and everything it started. */
 /**
  * Kills a CLI and everything it started. On POSIX the CLI leads its own
  * process group (detached), and the group outlives its leader, so this also

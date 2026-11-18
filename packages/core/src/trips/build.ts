@@ -453,17 +453,6 @@ const toOf = (s: TravelStay) => s.departure.date ?? ALWAYS;
 
 const exact = (e: StayEdge) => e.source === "stamp" || e.source === "manual";
 
-/**
- * Suggested stays around stays the user keeps (approved ones, or migrated
- * trips): a suggestion is cut back to a kept stay's edges or dropped when it
- * lies inside one. Sharing a border day is not an overlap. A cut-off rest in
- * the kept stay's own country is the same stay seen by estimate, so it goes,
- * and the stay beyond it moves up to the kept edge, unless a stamp or the
- * user dated that rest. Otherwise a neighbour moves up only across a border
- * day ({@link SNAP_DAYS}); a longer gap has no evidence and stays a gap. A
- * moved edge is an estimate: it keeps the kept edge's stamp only when it was
- * read from that same stamp.
- */
 /** Days a suggested edge may move to meet a kept stay without other evidence. */
 const SNAP_DAYS = 1;
 
@@ -475,6 +464,17 @@ const movedEdge = (own: StayEdge, kept: StayEdge): StayEdge => {
 	return { date: kept.date, source: "estimated", method: kept.method };
 };
 
+/**
+ * Suggested stays around stays the user keeps (approved ones, or migrated
+ * trips): a suggestion is cut back to a kept stay's edges or dropped when it
+ * lies inside one. Sharing a border day is not an overlap. A cut-off rest in
+ * the kept stay's own country is the same stay seen by estimate, so it goes,
+ * and the stay beyond it moves up to the kept edge, unless a stamp or the
+ * user dated that rest. Otherwise a neighbour moves up only across a border
+ * day ({@link SNAP_DAYS}); a longer gap has no evidence and stays a gap. A
+ * moved edge is an estimate: it keeps the kept edge's stamp only when it was
+ * read from that same stamp.
+ */
 export function mergeKept(
 	suggested: readonly TravelStay[],
 	kept: readonly TravelStay[],
