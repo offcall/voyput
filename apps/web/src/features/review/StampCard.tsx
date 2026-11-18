@@ -282,8 +282,9 @@ export function StampCard({
 									stamp.dateText ? `Printed: ${stamp.dateText}` : undefined
 								}
 								onChange={(event) => {
-									const value = event.target.value || null;
-									if (isValidDate(value)) onEdit({ date: value });
+									// A cleared or half-typed date reads as "": keep the saved one.
+									const value = event.target.value;
+									if (value && isValidDate(value)) onEdit({ date: value });
 								}}
 							/>
 						</label>

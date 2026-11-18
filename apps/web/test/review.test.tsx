@@ -21,6 +21,18 @@ const card = (number: number) =>
 describe("review", () => {
 	beforeEach(() => stubObjectUrls());
 
+	it("keeps the saved date when the date input is cleared", async () => {
+		const db = await demoDb();
+		const user = userEvent.setup();
+		renderApp("/review", { db });
+		const stamp = within(await card(1));
+		await user.click(stamp.getByRole("button", { expanded: false }));
+		fireEvent.change(stamp.getByLabelText("Date"), { target: { value: "" } });
+		// A later write on the same table runs after any save the change started.
+		await db.transaction("rw", db.stamps, async () => {});
+		expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-10");
+	});
+
 	it("keeps an edited, reviewed stamp and undoes a delete", async () => {
 		const db = await demoDb();
 		const user = userEvent.setup();

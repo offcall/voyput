@@ -131,6 +131,16 @@ describe("fixing extraction problems", () => {
 		).toBeNull();
 	});
 
+	it("keeps a warning when the edit clears its field instead of fixing it", () => {
+		expect(problemAfterEdit(PROBLEM, { date: null })).toBe(PROBLEM);
+		expect(
+			problemAfterEdit(PROBLEM, { country: "Moldavia", countryCode: null }),
+		).toBe(PROBLEM);
+		expect(
+			problemAfterEdit('unreadable direction "in"', { direction: "unknown" }),
+		).toBe('unreadable direction "in"');
+	});
+
 	it("clears only the warning about the field the user fixed", async () => {
 		expect(problemAfterEdit(PROBLEM, { countryCode: "MD" })).toBe(
 			'date 2019-07-10 does not match printed "10.07.18"',

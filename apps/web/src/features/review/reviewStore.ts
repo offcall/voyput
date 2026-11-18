@@ -1,4 +1,10 @@
-import type { NoteKind, ReadStamp, Rotation, Stamp } from "@voyput/core";
+import {
+	isValidDate,
+	type NoteKind,
+	type ReadStamp,
+	type Rotation,
+	type Stamp,
+} from "@voyput/core";
 import type { VoyputDb } from "../../db/db";
 import {
 	NO_STAYS_UNDO,
@@ -8,6 +14,7 @@ import {
 	staysAfterEvidenceChange,
 } from "../trips/evidenceChange";
 import { type ReviewView, viewFromStored } from "./queue";
+import { hasOpenProblem } from "./stays";
 
 /** Fields of a stamp the user edits on Review. */
 export type StampEdit = Partial<
@@ -24,14 +31,25 @@ export type StampEdit = Partial<
 >;
 
 /**
- * Which edited field fixes which part of a stamp's `problem`. The parser joins its
+ * Which edit fixes which part of a stamp's `problem`. The parser joins its
  * warnings with "; ": date checks start with "date ", unreadable fields with
- * "unreadable <field>".
+ * "unreadable <field>". Only a real value fixes one: clearing a field does not.
  */
-const FIXED_BY: { part: RegExp; fields: (keyof StampEdit)[] }[] = [
-	{ part: /^(date |unreadable date\b)/, fields: ["date"] },
-	{ part: /^unreadable direction\b/, fields: ["direction"] },
-	{ part: /^unreadable country code\b/, fields: ["countryCode", "country"] },
+const FIXED_BY: { part: RegExp; fixes: (edit: StampEdit) => boolean }[] = [
+	{
+		part: /^(date |unreadable date\b)/,
+		fixes: (edit) => typeof edit.date === "string" && isValidDate(edit.date),
+	},
+	{
+		part: /^unreadable direction\b/,
+		fixes: (edit) => edit.direction === "entry" || edit.direction === "exit",
+	},
+	{
+		part: /^unreadable country code\b/,
+		fixes: (edit) =>
+			typeof edit.countryCode === "string" &&
+			/^[A-Z]{2}$/.test(edit.countryCode),
+	},
 ];
 
 /** Splits a stored `problem` into its warnings. */
@@ -51,10 +69,7 @@ export function problemAfterEdit(
 ): string | null {
 	const left = problemParts(problem).filter(
 		(part) =>
-			!FIXED_BY.some(
-				(rule) =>
-					rule.part.test(part) && rule.fields.some((field) => field in edit),
-			),
+			!FIXED_BY.some((rule) => rule.part.test(part) && rule.fixes(edit)),
 	);
 	return left.length ? left.join("; ") : null;
 }
@@ -63,7 +78,7 @@ export function problemAfterEdit(
  * Saves only the edited fields, so two quick saves never undo each other. The
  * first date change also keeps the old date as `readDate`. Stays built on the
  * stamp are marked when its date, country, direction, crossing or review
- * changes.
+ * changes, or when the stamp's problem opens or closes.
  */
 export async function updateStamp(
 	db: VoyputDb,
@@ -84,26 +99,35 @@ export async function updateStamp(
 			...keepRead,
 			...(problem === stamp.problem ? {} : { problem }),
 		});
-		if (STAY_FIELDS.some((f) => f in edit && edit[f] !== stamp[f]))
+		if (
+			STAY_FIELDS.some((f) => f in edit && edit[f] !== stamp[f]) ||
+			hasOpenProblem(stamp) !== hasOpenProblem({ ...stamp, problem })
+		)
 			await staysAfterEvidenceChange(db, { changedStamps: new Set([id]) });
 	});
 }
 
-/** Hides or shows one warning, on the stored record. */
+/**
+ * Hides or shows one warning, on the stored record. Stays built on the stamp
+ * are marked when that makes its problem count or stop counting.
+ */
 export async function setDismissed(
 	db: VoyputDb,
 	id: string,
 	kind: NoteKind,
 	dismissed: boolean,
 ): Promise<void> {
-	await db.transaction("rw", db.stamps, async () => {
+	await db.transaction("rw", db.stamps, db.stays, async () => {
 		const stamp = await db.stamps.get(id);
 		if (!stamp) return;
 		const { [kind]: _, ...rest } = stamp.dismissed ?? {};
-		await db.stamps.put({
+		const next = {
 			...stamp,
 			dismissed: dismissed ? { ...rest, [kind]: true } : rest,
-		});
+		};
+		await db.stamps.put(next);
+		if (hasOpenProblem(stamp) !== hasOpenProblem(next))
+			await staysAfterEvidenceChange(db, { changedStamps: new Set([id]) });
 	});
 }
 

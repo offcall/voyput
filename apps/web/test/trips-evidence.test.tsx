@@ -16,6 +16,7 @@ import {
 import {
 	deleteStamp,
 	restoreStamp,
+	setDismissed,
 	updateStamp,
 } from "../src/features/review/reviewStore";
 import { DEFAULT_SETTINGS } from "../src/settings/settings";
@@ -208,6 +209,33 @@ describe("stays after evidence changes", () => {
 		const other = await seed();
 		await updateStamp(other, "s3", { countryCode: "BG" });
 		expect((await romania(other)).evidenceChanged).toBe(true);
+	});
+
+	it("flags the stays of a stamp whose problem is marked fine, shown again or fixed", async () => {
+		const PROBLEM = 'unreadable country code "R0"';
+		// Built while s3's problem was hidden; showing it again opens it.
+		const shown = await seed();
+		await shown.stamps.update("s3", {
+			problem: PROBLEM,
+			dismissed: { problem: true },
+		});
+		await setDismissed(shown, "s3", "icloudCheck", true);
+		expect((await romania(shown)).evidenceChanged).toBeUndefined();
+		await setDismissed(shown, "s3", "problem", false);
+		expect((await romania(shown)).evidenceChanged).toBe(true);
+
+		// An open problem marked "Looks right" makes the stamp count again.
+		const hidden = await seed();
+		await hidden.stamps.update("s3", { problem: PROBLEM });
+		await setDismissed(hidden, "s3", "problem", true);
+		expect((await romania(hidden)).evidenceChanged).toBe(true);
+
+		// An edit that only clears the problem (the code stays RO) marks it too.
+		const fixed = await seed();
+		await fixed.stamps.update("s3", { problem: PROBLEM });
+		await updateStamp(fixed, "s3", { country: "Romania", countryCode: "RO" });
+		expect((await fixed.stamps.get("s3"))?.problem).toBeNull();
+		expect((await romania(fixed)).evidenceChanged).toBe(true);
 	});
 
 	it("flags every stay built on a deleted passport's or photo's stamps", async () => {
