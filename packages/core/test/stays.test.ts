@@ -597,6 +597,47 @@ describe("mergeKept", () => {
 		const inside = [stay("pl", "ES", "2016-08-12", "2016-08-14")];
 		expect(mergeKept(inside, kept).map((s) => s.id)).toEqual(["es"]);
 	});
+
+	const fr = stay("fr", "FR", "2020-01-01", "2020-01-10", {
+		approved: true,
+		departure: {
+			date: "2020-01-10",
+			source: "stamp",
+			method: "car",
+			stampId: "fr-out",
+		},
+	});
+	const photos = (date: string) =>
+		({ date, source: "photos", method: "unknown" }) as const;
+
+	it("leaves a gap without evidence open instead of moving a neighbour across it", () => {
+		const de = stay("de", "DE", "2020-03-01", "2020-03-10", {
+			arrival: photos("2020-03-01"),
+		});
+		const [, after] = mergeKept([de], [fr]);
+		expect(after?.arrival).toEqual(photos("2020-03-01"));
+	});
+
+	it("moves an overlapping or next-day neighbour to the kept edge as an estimate", () => {
+		const estimated = {
+			date: "2020-01-10",
+			source: "estimated",
+			method: "car",
+		};
+		const overlapping = stay("de", "DE", "2020-01-05", "2020-01-20", {
+			arrival: photos("2020-01-05"),
+		});
+		expect(mergeKept([overlapping], [fr])[1]?.arrival).toEqual(estimated);
+		const nextDay = stay("de", "DE", "2020-01-11", "2020-01-20", {
+			arrival: photos("2020-01-11"),
+		});
+		expect(mergeKept([nextDay], [fr])[1]?.arrival).toEqual(estimated);
+		// Read from the same exit stamp, the edge keeps it.
+		const sameStamp = stay("de", "DE", "2020-01-08", "2020-01-20", {
+			arrival: { ...photos("2020-01-08"), stampId: "fr-out" },
+		});
+		expect(mergeKept([sameStamp], [fr])[1]?.arrival).toEqual(fr.departure);
+	});
 });
 
 describe("rebuilding around kept stays", () => {

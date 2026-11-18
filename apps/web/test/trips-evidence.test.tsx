@@ -269,11 +269,13 @@ describe("stays after evidence changes", () => {
 				approved: false,
 				stampIds: ["s2"],
 				arrival: { date: "2024-03-01", source: "stamp" },
-				// It meets the kept Moldova stay's arrival, as on a rebuild.
-				departure: { date: "2024-03-05", stampId: "s4" },
+				// It meets the kept Moldova stay's arrival, as on a rebuild, as an
+				// estimate: Moldova's entry stamp is not Romania's.
+				departure: { date: "2024-03-05", source: "estimated" },
 			}),
 		);
 		expect((await romania(db)).evidenceChanged).toBeUndefined();
+		expect((await romania(db)).departure.stampId).toBeUndefined();
 		expect(await db.stays.count()).toBe(3);
 
 		await user.click(

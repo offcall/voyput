@@ -2,7 +2,7 @@ import { day } from "../explore/dates";
 import type { LocationRow } from "../locations/types";
 import { isIsoDate } from "../passports/photos";
 import type { BorderCrossing } from "../stamps/types";
-import { type DatedStamp, locationDay } from "./evidence";
+import { type DatedStamp, daysBetween, locationDay } from "./evidence";
 import type { EdgeSource, StayEdge, TravelMethod, TravelStay } from "./types";
 
 /** What stays are suggested from. */
@@ -459,8 +459,22 @@ const exact = (e: StayEdge) => e.source === "stamp" || e.source === "manual";
  * lies inside one. Sharing a border day is not an overlap. A cut-off rest in
  * the kept stay's own country is the same stay seen by estimate, so it goes,
  * and the stay beyond it moves up to the kept edge, unless a stamp or the
- * user dated that rest.
+ * user dated that rest. Otherwise a neighbour moves up only across a border
+ * day ({@link SNAP_DAYS}); a longer gap has no evidence and stays a gap. A
+ * moved edge is an estimate: it keeps the kept edge's stamp only when it was
+ * read from that same stamp.
  */
+/** Days a suggested edge may move to meet a kept stay without other evidence. */
+const SNAP_DAYS = 1;
+
+/** `own` moved to the kept edge's date. */
+const movedEdge = (own: StayEdge, kept: StayEdge): StayEdge => {
+	if (own.stampId !== undefined && own.stampId === kept.stampId)
+		return { ...kept };
+	if (own.date === kept.date) return own;
+	return { date: kept.date, source: "estimated", method: kept.method };
+};
+
 export function mergeKept(
 	suggested: readonly TravelStay[],
 	kept: readonly TravelStay[],
@@ -468,6 +482,8 @@ export function mergeKept(
 	const keptIds = new Set(kept.map((k) => k.id));
 	// A kept stay replaces the suggestion it came from.
 	let list = suggested.filter((s) => !keptIds.has(s.id));
+	// Days covered by dropped rests: a neighbour may move up across them.
+	const dropped: Period[] = [];
 	for (const k of kept) {
 		const from = fromOf(k);
 		const to = toOf(k);
@@ -478,28 +494,52 @@ export function mergeKept(
 			if (s.countryCode === k.countryCode && a >= from && d <= to) return [];
 			if (!(a < to && d > from)) return [s];
 			const same = s.countryCode === k.countryCode;
-			const before =
-				a < from && !(same && !exact(s.arrival))
-					? [{ ...s, departure: { ...k.arrival } }]
-					: [];
-			const after =
-				d > to && !(same && !exact(s.departure))
-					? [{ ...s, id: `${s.id}-after`, arrival: { ...k.departure } }]
-					: [];
+			const keepBefore = a < from && !(same && !exact(s.arrival));
+			const keepAfter = d > to && !(same && !exact(s.departure));
+			if (same && a < from && !keepBefore)
+				dropped.push({ start: a, end: from });
+			if (same && d > to && !keepAfter) dropped.push({ start: to, end: d });
+			const before = keepBefore
+				? [{ ...s, departure: movedEdge(s.departure, k.arrival) }]
+				: [];
+			const after = keepAfter
+				? [
+						{
+							...s,
+							id: `${s.id}-after`,
+							arrival: movedEdge(s.arrival, k.departure),
+						},
+					]
+				: [];
 			return [...before, ...after];
 		});
 	}
 	const out = sortStays([...list, ...kept]);
-	// Close what a dropped rest left open: the neighbours meet the kept edges.
+	// A border day apart, or a dropped rest between them: the edges meet.
+	const bridged = (start: string | null, end: string | null) =>
+		start !== null &&
+		end !== null &&
+		(daysBetween(start, end) <= SNAP_DAYS ||
+			dropped.some((p) => p.start <= start && p.end >= end));
 	return out.map((s, i) => {
 		if (keptIds.has(s.id)) return s;
 		const prev = out[i - 1];
 		const next = out[i + 1];
 		let stay = s;
-		if (prev && keptIds.has(prev.id) && !exact(s.arrival))
-			stay = { ...stay, arrival: { ...prev.departure } };
-		if (next && keptIds.has(next.id) && !exact(s.departure))
-			stay = { ...stay, departure: { ...next.arrival } };
+		if (
+			prev &&
+			keptIds.has(prev.id) &&
+			!exact(s.arrival) &&
+			bridged(prev.departure.date, s.arrival.date)
+		)
+			stay = { ...stay, arrival: movedEdge(s.arrival, prev.departure) };
+		if (
+			next &&
+			keptIds.has(next.id) &&
+			!exact(s.departure) &&
+			bridged(s.departure.date, next.arrival.date)
+		)
+			stay = { ...stay, departure: movedEdge(s.departure, next.arrival) };
 		return stay;
 	});
 }

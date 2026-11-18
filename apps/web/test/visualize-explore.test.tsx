@@ -160,7 +160,8 @@ describe("insights stats and filter", () => {
 		await reset();
 
 		await user.click(chip("Evidence", "Estimated dates"));
-		expect(kpis()).toEqual({ stays: "2", countries: "2", days: "11" });
+		// JP, KR and the home stays cut around the trips (an estimated edge each).
+		expect(kpis()).toEqual({ stays: "4", countries: "3", days: "546" });
 		await reset();
 
 		await user.click(chip("Years", "2023"));

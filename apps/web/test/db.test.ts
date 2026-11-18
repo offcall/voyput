@@ -167,9 +167,10 @@ describe("database", () => {
 		old.close();
 
 		const db = new VoyputDb("db-migrate-dismissed");
+		// No evidence between the trip and the UA photo: the gap stays open.
 		expect(await storedStays(db)).toEqual([
 			["ES", "2024-04-30", "2024-05-03"],
-			["UA", "2024-05-03", null],
+			["UA", "2024-06-10", null],
 		]);
 		db.close();
 	});
