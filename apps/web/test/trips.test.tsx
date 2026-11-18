@@ -341,6 +341,34 @@ describe("trips", () => {
 		).toBe("primary");
 	});
 
+	it("sets the first arrival to since birth and the last departure to still there with a button", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-open-edges");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		const first = await open(user, 1, "Moldova");
+		// Only the first arrival and the last departure can be open.
+		expect(first.queryByRole("button", { name: "Still there" })).toBeNull();
+		await user.click(first.getByRole("button", { name: "Since birth" }));
+		await waitFor(async () =>
+			expect((await storedStays(db))[0]?.arrival.date).toBeNull(),
+		);
+
+		const last = await open(user, 5, "Moldova");
+		expect(last.queryByRole("button", { name: "Since birth" })).toBeNull();
+		fireEvent.change(last.getByLabelText("Departure date"), {
+			target: { value: "2024-06-01" },
+		});
+		await waitFor(async () =>
+			expect((await storedStays(db))[4]?.departure.date).toBe("2024-06-01"),
+		);
+		await user.click(last.getByRole("button", { name: "Still there" }));
+		await waitFor(async () =>
+			expect((await storedStays(db))[4]?.departure.date).toBeNull(),
+		);
+	});
+
 	it("marks a transit, edits methods and deletes in the panel; undo and redo by keyboard and menu", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-edit");
@@ -1014,6 +1042,10 @@ describe("trips", () => {
 		expect(summary()).toContain("1 error ·");
 		await user.click(moldova.getByRole("button", { name: "Close the stay" }));
 		expect(screen.getAllByText(/5 stays to check\./)).toHaveLength(2);
+		// The row says it has an error, not "approved".
+		expect((await row(2, "Romania")).getAttribute("aria-label")).toMatch(
+			/has an error$/,
+		);
 
 		const romania = await open(user, 2, "Romania");
 		expect(romania.getAllByText(/^\d \/ 5 to check$/)).toHaveLength(2);

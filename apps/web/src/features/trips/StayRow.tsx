@@ -38,7 +38,8 @@ export function StayRow({
 	const range = stayRange(stay.arrival.date ?? birth, stay.departure.date);
 	const place = stay.place.split(",")[0]?.trim() ?? "";
 	const statusName =
-		stay.approved && status !== "changed" ? "approved" : STATUS_NAMES[status];
+		// An approved stay that later got an error or changed evidence says so.
+		stay.approved && status === "ok" ? "approved" : STATUS_NAMES[status];
 	return (
 		<button
 			type="button"

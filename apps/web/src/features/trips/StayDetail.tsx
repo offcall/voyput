@@ -98,6 +98,7 @@ function EdgeEditor({
 	neighbour,
 	neighbourLabel,
 	today,
+	canOpen,
 	onChange,
 }: {
 	label: "Arrival" | "Departure";
@@ -107,6 +108,11 @@ function EdgeEditor({
 	neighbourLabel: string;
 	/** Bounds the years a typed date may have. */
 	today: string;
+	/**
+	 * The first arrival may be "Since birth" and the last departure "Still
+	 * there": an explicit button, since a cleared date field never saves.
+	 */
+	canOpen: boolean;
 	onChange: (edge: StayEdge) => void;
 }) {
 	const [typed, setTyped] = useState(edge.date ?? "");
@@ -147,6 +153,15 @@ function EdgeEditor({
 						: "Still there"
 					: SOURCE_NAMES[edge.source]}
 			</span>
+			{canOpen && edge.date !== null ? (
+				<Button
+					size="sm"
+					variant="ghost"
+					onClick={() => onChange({ ...edge, date: null, source: "manual" })}
+				>
+					{label === "Arrival" ? "Since birth" : "Still there"}
+				</Button>
+			) : null}
 			{neighbour && neighbour !== edge.date ? (
 				<Button
 					size="sm"
@@ -442,6 +457,7 @@ export function StayDetail({
 					neighbour={previous?.departure.date ?? null}
 					neighbourLabel="Use previous departure"
 					today={today}
+					canOpen={!previous}
 					onChange={(arrival) => onChange({ ...stay, arrival })}
 				/>
 				<EdgeEditor
@@ -450,6 +466,7 @@ export function StayDetail({
 					neighbour={next?.arrival.date ?? null}
 					neighbourLabel="Use next arrival"
 					today={today}
+					canOpen={!next}
 					onChange={(departure) => onChange({ ...stay, departure })}
 				/>
 			</div>
