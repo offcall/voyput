@@ -7,9 +7,9 @@ import {
 } from "@voyput/core";
 import { Button, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useState } from "react";
+import type { StaysUndo } from "../../data/evidenceChange";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
-import type { StaysUndo } from "../trips/evidenceChange";
 import { errorMessage, formatDay } from "./format";
 import { PhotoReview } from "./PhotoReview";
 import {

@@ -4,8 +4,8 @@ import {
 	photoMimeType,
 	rotateBy,
 } from "@voyput/core";
+import { staysAfterEvidenceChange } from "../../../data/evidenceChange";
 import type { PhotoRecord, VoyputDb } from "../../../db/db";
-import { staysAfterEvidenceChange } from "../../trips/evidenceChange";
 
 export interface PassportInput {
 	name: string;

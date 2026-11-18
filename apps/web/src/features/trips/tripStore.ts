@@ -1,7 +1,5 @@
 import {
 	type HistorySource,
-	isCountryCode,
-	isIsoDate,
 	isLegacyTrip,
 	type LegacyTrip,
 	type LocationRow,
@@ -12,14 +10,10 @@ import {
 	sortStays,
 	suggestHistory,
 	type TravelStay,
-	withBirthStay,
 } from "@voyput/core";
+import { BIRTH_COUNTRY_KEY, BIRTH_KEY, birthOf } from "../../data/profile";
 import { LEGACY_TRIPS_KEY, type VoyputDb } from "../../db/db";
 
-/** `db.kv` key of the birth date, the start of the first stay. */
-export const BIRTH_KEY = "trips:birth";
-/** `db.kv` key of the birth country: with the date, the first stay is there since birth. */
-export const BIRTH_COUNTRY_KEY = "trips:birthCountry";
 /** `db.kv` key of the list order on the Trips step. */
 export const ORDER_KEY = "trips:order";
 
@@ -84,17 +78,6 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 /** The stored history, or a suggestion while nothing is stored. */
 export const historyOf = (data: TripsData): TravelStay[] =>
 	data.stored.length > 0 ? data.stored : suggestHistory(data);
-
-/** Replaces the stored history: for Settings, which changes it as a whole. */
-export async function saveStays(
-	db: VoyputDb,
-	stays: readonly TravelStay[],
-): Promise<void> {
-	await db.transaction("rw", db.stays, async () => {
-		await db.stays.clear();
-		await db.stays.bulkPut([...stays]);
-	});
-}
 
 /** Stable text of a stored value: same content, same text, whatever the key order. */
 const canonical = (value: unknown): string =>
@@ -180,80 +163,6 @@ export async function saveStayChanges(
 
 export async function saveOrder(db: VoyputDb, order: StayOrder): Promise<void> {
 	await db.kv.put({ key: ORDER_KEY, value: order });
-}
-
-/** Birth country and date; an empty one is forgotten. */
-export async function saveBirth(
-	db: VoyputDb,
-	birth: { birth: string | null; birthCountry: string | null },
-): Promise<void> {
-	await Promise.all(
-		(
-			[
-				[BIRTH_KEY, birth.birth],
-				[BIRTH_COUNTRY_KEY, birth.birthCountry],
-			] as const
-		).map(([key, value]) =>
-			value ? db.kv.put({ key, value }) : db.kv.delete(key),
-		),
-	);
-}
-
-export interface Birth {
-	birth: string | null;
-	birthCountry: string | null;
-}
-
-/** Stored birth values; an invalid one reads as not set. */
-const birthOf = (birthCountry: unknown, birth: unknown): Birth => ({
-	birthCountry: isCountryCode(birthCountry) ? birthCountry : null,
-	birth: typeof birth === "string" && isIsoDate(birth) ? birth : null,
-});
-
-/** The birth setting alone, for Settings. */
-export async function loadBirth(db: VoyputDb): Promise<Birth> {
-	const [birthCountry, birth] = await Promise.all([
-		db.kv.get(BIRTH_COUNTRY_KEY),
-		db.kv.get(BIRTH_KEY),
-	]);
-	return birthOf(birthCountry?.value, birth?.value);
-}
-
-/** The birth setting and the stored history it shaped: what a Settings change replaces. */
-export interface BirthSnapshot extends Birth {
-	stays: TravelStay[];
-}
-
-/**
- * Saves the birth setting from Settings. A stored history gets its stay since
- * birth added, moved or removed, as on the Stays step; a suggestion picks the
- * setting up when it is built. Returns what was there before, for Undo.
- */
-export async function changeBirth(
-	db: VoyputDb,
-	birth: Birth,
-): Promise<BirthSnapshot> {
-	return db.transaction("rw", db.kv, db.stays, async () => {
-		const before = await loadBirth(db);
-		const stored = sortStays(await db.stays.toArray());
-		await saveBirth(db, birth);
-		if (stored.length > 0) await saveStays(db, withBirthStay(stored, birth));
-		return { ...before, stays: stored };
-	});
-}
-
-/** Puts a birth setting and its history back as they were; returns what it replaced, for Redo. */
-export async function restoreBirth(
-	db: VoyputDb,
-	snapshot: BirthSnapshot,
-): Promise<BirthSnapshot> {
-	return db.transaction("rw", db.kv, db.stays, async () => {
-		const before = await loadBirth(db);
-		const stored = sortStays(await db.stays.toArray());
-		await saveBirth(db, snapshot);
-		await saveStays(db, snapshot.stays);
-		return { ...before, stays: stored };
-	});
 }
 
 /** Keeps the trips still waiting for a country; none left removes the key. */

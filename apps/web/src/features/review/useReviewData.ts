@@ -8,12 +8,9 @@ import {
 	type Stamp,
 } from "@voyput/core";
 import { useCallback, useMemo } from "react";
+import { type LiveQueryResult, useLiveQuery } from "../../data/useLiveQuery";
 import { useDb } from "../../db/DbContext";
 import type { PhotoRecord } from "../../db/db";
-import {
-	type LiveQueryResult,
-	useLiveQuery,
-} from "../import/photos/useLiveQuery";
 import { photoDayRuns, type TravelDays, travelDaysOf } from "./strip";
 
 export interface ReviewRecords {

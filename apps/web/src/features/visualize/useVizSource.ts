@@ -5,8 +5,8 @@ import {
 	type TravelStay,
 } from "@voyput/core";
 import { useEffect, useState } from "react";
+import { BIRTH_KEY } from "../../data/profile";
 import { useDb } from "../../db/DbContext";
-import { BIRTH_KEY } from "../trips/tripStore";
 
 export type VizSource =
 	| { status: "loading" }

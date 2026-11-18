@@ -8,10 +8,10 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useLiveQuery } from "../../data/useLiveQuery";
 import { useDb } from "../../db/DbContext";
 import { focusStoredLocations } from "../import/csv/locationLine";
 import { useDemoLoaded } from "../import/demoLoaded";
-import { useLiveQuery } from "../import/photos/useLiveQuery";
 import {
 	type DemoSummary,
 	type FetchFile,

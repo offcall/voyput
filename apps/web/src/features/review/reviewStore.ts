@@ -5,14 +5,14 @@ import {
 	type Rotation,
 	type Stamp,
 } from "@voyput/core";
-import type { VoyputDb } from "../../db/db";
 import {
 	NO_STAYS_UNDO,
 	restoreStays,
 	STAY_FIELDS,
 	type StaysUndo,
 	staysAfterEvidenceChange,
-} from "../trips/evidenceChange";
+} from "../../data/evidenceChange";
+import type { VoyputDb } from "../../db/db";
 import { type ReviewView, viewFromStored } from "./queue";
 import { hasOpenProblem } from "./stays";
 

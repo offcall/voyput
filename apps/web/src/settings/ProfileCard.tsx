@@ -1,16 +1,16 @@
 import { isIsoDate } from "@voyput/core";
 import { Card, PixelArt } from "@voyput/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDb } from "../db/DbContext";
-import { DateField } from "../features/trips/DateField";
-import { CountrySelect } from "../features/trips/StayForms";
 import {
 	type Birth,
 	type BirthSnapshot,
 	changeBirth,
 	loadBirth,
 	restoreBirth,
-} from "../features/trips/tripStore";
+} from "../data/profile";
+import { useDb } from "../db/DbContext";
+import { DateField } from "../features/trips/DateField";
+import { CountrySelect } from "../features/trips/StayForms";
 import { type ToastMessage, UndoToast } from "../features/trips/UndoToast";
 
 /** Undo steps kept, as on the Stays step. */

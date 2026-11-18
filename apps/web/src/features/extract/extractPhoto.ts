@@ -7,8 +7,8 @@ import {
 } from "@voyput/core";
 import { aiModelLabel } from "../../ai/client";
 import type { AiClient, AiSettings } from "../../ai/openrouter";
+import { staysAfterEvidenceChange } from "../../data/evidenceChange";
 import type { PhotoRecord, VoyputDb } from "../../db/db";
-import { staysAfterEvidenceChange } from "../trips/evidenceChange";
 
 const errorMessage = (error: unknown): string =>
 	error instanceof Error ? error.message : String(error);

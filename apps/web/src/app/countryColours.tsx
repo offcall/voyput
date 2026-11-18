@@ -10,9 +10,9 @@ import {
 	useContext,
 	useMemo,
 } from "react";
+import { useLiveQuery } from "../data/useLiveQuery";
 import { useDb } from "../db/DbContext";
 import type { VoyputDb } from "../db/db";
-import { useLiveQuery } from "../features/import/photos/useLiveQuery";
 
 const HASHED = countryPalette([]);
 

@@ -1,6 +1,7 @@
 import { type Passport, SUPPORTED_PHOTO_TYPES } from "@voyput/core";
 import { Button, Card, Dialog, Dropzone, Menu, Notice } from "@voyput/ui";
 import { useCallback, useState } from "react";
+import { useLiveQuery } from "../../../data/useLiveQuery";
 import { useDb } from "../../../db/DbContext";
 import type { PhotoRecord } from "../../../db/db";
 import { PassportForm } from "./PassportForm";
@@ -16,7 +17,6 @@ import {
 	storageErrorMessage,
 	updatePassport,
 } from "./passportStore";
-import { useLiveQuery } from "./useLiveQuery";
 
 /** One passport: its details, a drop target for page photos and their grid. */
 export function PassportCard({ passport }: { passport: Passport }) {

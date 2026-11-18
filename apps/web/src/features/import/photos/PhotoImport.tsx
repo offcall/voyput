@@ -1,11 +1,11 @@
 import { Card, Notice, Stack } from "@voyput/ui";
 import { useCallback } from "react";
+import { useLiveQuery } from "../../../data/useLiveQuery";
 import { useDb } from "../../../db/DbContext";
 import { PassportCard } from "./PassportCard";
 import { PassportForm } from "./PassportForm";
 import { PhotoGuidance } from "./PhotoGuidance";
 import { createPassport, listPassports } from "./passportStore";
-import { useLiveQuery } from "./useLiveQuery";
 
 /** Passports and their page photos. */
 export function PhotoImport() {
