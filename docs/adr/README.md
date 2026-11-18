@@ -10,7 +10,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0004](0004-workspace-layout.md) | Workspace Layout | Accepted |
 | [0005](0005-ui-kit.md) | UI Kit | Accepted |
 | [0006](0006-routing-and-state.md) | Routing and State | Accepted; hash history superseded by 0013 |
-| [0007](0007-browser-storage.md) | Browser Storage | Accepted; `trips` table superseded by 0019 |
+| [0007](0007-browser-storage.md) | Browser Storage | Accepted; `trips` table superseded by 0019; upgrade rule amended by 0039 |
 | [0008](0008-ai-through-openrouter.md) | AI Through OpenRouter | Accepted; default model superseded by 0020 |
 | [0009](0009-testing.md) | Testing | Accepted |
 | [0010](0010-demo-data-generator.md) | Demo Data Generator | Accepted; amended by 0021 (Commons pages) and 0029 (realistic passport) |
@@ -41,3 +41,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0035](0035-download-verify-run.md) | Download, Verify, Run | Accepted |
 | [0036](0036-stays-saves-diffs-and-follows-outside-changes.md) | Stays Saves Diffs and Follows Outside Changes | Accepted |
 | [0037](0037-country-outlines-from-map-units.md) | Country Outlines from Map Units | Accepted (amends 0033) |
+| [0039](0039-frozen-database-upgrades.md) | Frozen Database Upgrades | Accepted (amends 0007) |
