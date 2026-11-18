@@ -19,5 +19,5 @@ The generated demo passport looked fake: invented places ("Demohrad", "DEMOWO D 
 ## Consequences
 
 - The demo pages are about 5 MB in total, up from 1.2 MB.
-- Transits sit on the day of the exit stamp, with the next stamp a day later. The stay builder places a transit photo taken on the day of an entry stamp after that country's photos (`TODO.md`).
+- Transits sit on the day of the exit stamp, with the next stamp a day later. The stay builder places a transit photo taken on the day of an entry stamp after that country's photos, which would split the stay.
 - Changing the trips changes the expected stays, which `apps/web/test/demo.test.tsx` lists in full.

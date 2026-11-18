@@ -24,7 +24,8 @@ const PAGES =
 	"the Collect wizard shows each section's page as one of its steps";
 const DEMO_LOADED =
 	"carries a demo load to the Locations step; its type is in csv/CsvImport.tsx";
-const SHARED_UI = "shared by Extract and Review (TODO.md: Design)";
+const SHARED_UI =
+	"shared by Extract and Review; not moved to a shared place yet";
 
 /**
  * Imports of another section that are still allowed, as `from -> to` (paths
