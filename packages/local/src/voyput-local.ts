@@ -974,8 +974,19 @@ export function runProcess(
 	});
 }
 
-/** Runs the CLIs for real: one temp dir per job, deleted afterwards. */
-export function cliRunner(paths: Partial<Record<Engine, string>>): Runner {
+/** Deletes a temp dir; retries cover Windows, where a killed CLI may still hold files. */
+const removeDir = (dir: string) =>
+	rm(dir, { recursive: true, force: true, maxRetries: 3 });
+
+/**
+ * Runs the CLIs for real: one temp dir per job, deleted afterwards. A failed
+ * delete is logged and never replaces the job's result; shutdown and the next
+ * start remove the dir.
+ */
+export function cliRunner(
+	paths: Partial<Record<Engine, string>>,
+	remove: (dir: string) => Promise<void> = removeDir,
+): Runner {
 	return {
 		async run(job, signal, deadline) {
 			const path = paths[job.engine];
@@ -1002,8 +1013,15 @@ export function cliRunner(paths: Partial<Record<Engine, string>>): Runner {
 				if (!answer.trim()) throw new Error("codex returned no text");
 				return answer;
 			} finally {
-				await rm(dir, { recursive: true, force: true });
-				active.delete(dir);
+				try {
+					await remove(dir);
+				} catch (error) {
+					process.stderr.write(
+						`  could not delete ${dir}: ${error instanceof Error ? error.message : String(error)}\n`,
+					);
+				} finally {
+					active.delete(dir);
+				}
 			}
 		},
 	};
@@ -1024,22 +1042,24 @@ const isAlive = (pid: number) => {
 	}
 };
 
-/** Removes temp dirs (with their photos) left by runs that crashed. */
-async function removeStaleDirs() {
+/**
+ * Removes temp dirs (with their photos) left by runs that crashed, and with
+ * `own` also this run's dirs whose delete failed.
+ */
+async function removeStaleDirs(own = false) {
 	const base = tmpdir();
 	for (const name of await readdir(base).catch(() => [])) {
 		const pid = tempDirPid(name);
-		if (pid === null || pid === process.pid || isAlive(pid)) continue;
-		await rm(join(base, name), { recursive: true, force: true }).catch(
-			() => {},
-		);
+		if (pid === null) continue;
+		if (pid === process.pid ? !own : isAlive(pid)) continue;
+		await removeDir(join(base, name)).catch(() => {});
 	}
 }
 
 /**
  * Stops the line (waiting jobs are rejected, none start), kills running CLI
- * trees, waits for their jobs to delete their temp dirs, removes any left,
- * then exits.
+ * trees, waits for their jobs to delete their temp dirs, removes any left
+ * (also those whose delete failed), then exits.
  */
 async function shutdown(line: JobLine, code: number) {
 	if (closing) return;
@@ -1048,10 +1068,9 @@ async function shutdown(line: JobLine, code: number) {
 	for (const child of active.values()) if (child) killTree(child);
 	await line.idle();
 	await Promise.all(
-		[...active.keys()].map((dir) =>
-			rm(dir, { recursive: true, force: true }).catch(() => {}),
-		),
+		[...active.keys()].map((dir) => removeDir(dir).catch(() => {})),
 	);
+	await removeStaleDirs(true);
 	process.exit(code);
 }
 

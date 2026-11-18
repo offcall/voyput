@@ -4,7 +4,7 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
 	admit,
 	banner,
@@ -12,6 +12,7 @@ import {
 	childEnv,
 	claudeAnswer,
 	claudeCommand,
+	cliRunner,
 	codexCommand,
 	DEFAULT_PORT,
 	type Deps,
@@ -704,6 +705,73 @@ describe.skipIf(process.platform === "win32")(
 				expect(await isAlive(cli.descendant())).toBe(false);
 			} finally {
 				await rm(cli.dir, { recursive: true, force: true });
+			}
+		});
+
+		const claudeJob: ExtractJob = {
+			engine: "claude",
+			system: "read stamps",
+			text: "",
+			image: { mediaType: "image/jpeg", data: Buffer.from("jpg") },
+		};
+		/** A temp dir delete that fails like EBUSY on Windows, then cleans up for the test. */
+		function failingRemove() {
+			const dirs: string[] = [];
+			const remove = async (dir: string) => {
+				dirs.push(dir);
+				await rm(dir, { recursive: true, force: true });
+				throw Object.assign(new Error("EBUSY: resource busy"), {
+					code: "EBUSY",
+				});
+			};
+			return { dirs, remove };
+		}
+
+		it("keeps the answer and logs when deleting the temp dir fails", async () => {
+			const result = JSON.stringify({
+				type: "result",
+				subtype: "success",
+				result: "answer",
+			});
+			const cli = await fakeCli(`cat > /dev/null\necho '${result}'`);
+			const log = vi
+				.spyOn(process.stderr, "write")
+				.mockImplementation(() => true);
+			const { dirs, remove } = failingRemove();
+			try {
+				const runner = cliRunner({ claude: cli.path }, remove);
+				await expect(
+					runner.run(
+						claudeJob,
+						new AbortController().signal,
+						Date.now() + 60_000,
+					),
+				).resolves.toBe("answer");
+				expect(dirs).toHaveLength(1);
+				expect(String(log.mock.calls[0]?.[0])).toContain("could not delete");
+			} finally {
+				log.mockRestore();
+				await rm(cli.dir, { recursive: true, force: true });
+			}
+		});
+
+		it("keeps the job's own error when deleting the temp dir fails", async () => {
+			const log = vi
+				.spyOn(process.stderr, "write")
+				.mockImplementation(() => true);
+			const { dirs, remove } = failingRemove();
+			try {
+				const runner = cliRunner({ claude: "/nonexistent/claude" }, remove);
+				await expect(
+					runner.run(
+						claudeJob,
+						new AbortController().signal,
+						Date.now() + 60_000,
+					),
+				).rejects.toThrow("ENOENT");
+				expect(dirs).toHaveLength(1);
+			} finally {
+				log.mockRestore();
 			}
 		});
 
