@@ -31,6 +31,13 @@ export const severity = (item: CheckedStamp): Severity =>
 			? "warning"
 			: "ok";
 
+/**
+ * A stamp in the Review queue: not reviewed yet, or with a warning the user has
+ * not fixed or marked as fine (a check from the extraction or the photo locations).
+ */
+export const needsAttention = (item: CheckedStamp): boolean =>
+	!item.stamp.reviewed || severity(item) !== "ok";
+
 export const photoSeverity = (items: readonly CheckedStamp[]): Severity =>
 	items.some((item) => severity(item) === "critical")
 		? "critical"

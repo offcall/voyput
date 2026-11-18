@@ -5,6 +5,7 @@ import {
 	checkStamp,
 	type LocationRow,
 	nearbyPhotos,
+	needsAttention,
 	parseValidateResponse,
 	type Stamp,
 	usableStamps,
@@ -84,6 +85,62 @@ describe("review checks", () => {
 			{ start: "2024-03-10", end: "2024-03-14", countryCode: "RO" },
 			{ start: "2024-03-20", end: "2024-03-20", countryCode: "MD" },
 		]);
+	});
+});
+
+describe("needsAttention", () => {
+	const item = (
+		overrides: Partial<Stamp>,
+		icloudCheck = "",
+	): Parameters<typeof needsAttention>[0] => ({
+		stamp: {
+			id: "s1",
+			passportId: "p1",
+			photoId: "ph1",
+			direction: "entry",
+			borderCrossing: "plane",
+			dateText: "",
+			date: "2024-03-01",
+			country: "France",
+			countryCode: "FR",
+			location: null,
+			confidence: null,
+			notes: "",
+			problem: null,
+			source: "ai",
+			reviewed: true,
+			...overrides,
+		},
+		check: { icloudCheck, suggestion: "" },
+	});
+
+	it("holds an unreviewed stamp, even without a warning", () => {
+		expect(needsAttention(item({ reviewed: false }))).toBe(true);
+	});
+
+	it("lets a reviewed stamp without open warnings go", () => {
+		expect(needsAttention(item({ reviewed: true }))).toBe(false);
+		expect(
+			needsAttention(
+				item(
+					{
+						reviewed: true,
+						problem: "date unclear",
+						dismissed: { problem: true, icloudCheck: true },
+					},
+					"no photos in FR",
+				),
+			),
+		).toBe(false);
+	});
+
+	it("holds a reviewed stamp with an open problem or photo-location warning", () => {
+		expect(
+			needsAttention(item({ reviewed: true, problem: "date unclear" })),
+		).toBe(true);
+		expect(needsAttention(item({ reviewed: true }, "no photos in FR"))).toBe(
+			true,
+		);
 	});
 });
 

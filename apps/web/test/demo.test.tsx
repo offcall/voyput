@@ -5,6 +5,7 @@ import {
 	checkStamp,
 	gapBetween,
 	mergeKept,
+	needsAttention,
 	type Stamp,
 	stayHints,
 	suggestStays,
@@ -14,7 +15,6 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { VoyputDb } from "../src/db/db";
 import { removeDemo } from "../src/features/demo/loadDemo";
-import { needsAttention } from "../src/features/review/queue";
 import { seedDemo, stubDemoFetch, stubObjectUrls } from "./fixtures/demo";
 import { renderApp } from "./renderApp";
 

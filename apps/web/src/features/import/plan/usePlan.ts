@@ -2,6 +2,7 @@ import {
 	checkStamp,
 	isCountryCode,
 	isIsoDate,
+	needsAttention,
 	type PhotoIndex,
 	type Stamp,
 	staySpan,
@@ -9,7 +10,6 @@ import {
 import { useCallback, useMemo } from "react";
 import { useDb } from "../../../db/DbContext";
 import { useSettings } from "../../../settings/SettingsContext";
-import { needsAttention } from "../../review/queue";
 import { useLocationHistory } from "../../review/useReviewData";
 import { localToday } from "../../trips/format";
 import { BIRTH_COUNTRY_KEY, BIRTH_KEY } from "../../trips/tripStore";

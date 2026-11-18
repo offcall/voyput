@@ -1,16 +1,9 @@
 import {
 	type CheckedStamp,
+	needsAttention,
 	photoMatches,
 	type ReviewFilter,
-	severity,
 } from "@voyput/core";
-
-/**
- * A stamp in the Review queue: not reviewed yet, or with a warning the user has
- * not fixed or marked as fine (a check from the extraction or the photo locations).
- */
-export const needsAttention = (item: CheckedStamp): boolean =>
-	!item.stamp.reviewed || severity(item) !== "ok";
 
 /** Which pages the photo strip shows; one select on Review. The core filters plus "needs attention". */
 export type ReviewView = "attention" | ReviewFilter;

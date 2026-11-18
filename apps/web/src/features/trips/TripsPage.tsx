@@ -11,11 +11,14 @@ import {
 	type NewStay,
 	resuggestStay,
 	type StayGap,
+	type StayStatus,
 	spanDays,
 	splitStay,
 	stayCounts,
 	stayHints,
+	stayQueue,
 	staySpan,
+	stayStatuses,
 	type TravelStay,
 	usableStamps,
 } from "@voyput/core";
@@ -46,7 +49,7 @@ import { MoreMenu } from "./MoreMenu";
 import { buildPhotoDays } from "./photoDays";
 import { type ReviewQueue, StayDetail } from "./StayDetail";
 import { AddStayForm } from "./StayForms";
-import { STATUS_NAMES, StayRow, type StayStatus } from "./StayRow";
+import { STATUS_NAMES, StayRow } from "./StayRow";
 import { defaultOpenYears, type Item, yearGroups } from "./stayGroups";
 import "./trips.css";
 import {
@@ -375,23 +378,11 @@ export function TripsPage() {
 		[usable, data],
 	);
 	const clear = clearStayIds(stays, hints, birth, evidenceDays.photos);
-	const statuses: StayStatus[] = stays.map((s, i) =>
-		s.evidenceChanged
-			? "changed"
-			: hints[i]?.some((h) => h.severity === "error")
-				? "error"
-				: s.approved || clear.includes(s.id)
-					? "ok"
-					: "check",
-	);
+	const statuses = stayStatuses(stays, hints, clear);
 	const toCheck = statuses.filter(
 		(st, i) => st === "check" && !stays[i]?.approved,
 	).length;
-	/**
-	 * Stays still to look at one by one, in list order: not approved and not
-	 * ready, and approved ones that since got an error or changed evidence.
-	 */
-	const queue = stays.filter((_, i) => statuses[i] !== "ok").map((s) => s.id);
+	const queue = stayQueue(stays, statuses);
 	if (order === "newest") queue.reverse();
 	const photoDays = useMemo(
 		() => buildPhotoDays(data?.locations ?? []),

@@ -38,6 +38,7 @@ export {
 	type CheckedStamp,
 	hasOpenIcloudCheck,
 	hasOpenProblem,
+	needsAttention,
 	photoMatches,
 	photoSeverity,
 	type ReviewFilter,
@@ -149,6 +150,11 @@ export {
 	legacyTripCountry,
 	legacyTripStays,
 } from "./trips/legacy";
+export {
+	type StayStatus,
+	stayQueue,
+	stayStatuses,
+} from "./trips/status";
 export {
 	type EdgeSource,
 	type StayEdge,

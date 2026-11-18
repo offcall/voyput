@@ -1,11 +1,10 @@
-import { spanLength, staySpan, type TravelStay } from "@voyput/core";
+import {
+	type StayStatus,
+	spanLength,
+	staySpan,
+	type TravelStay,
+} from "@voyput/core";
 import { countryName, flagOf, plural, stayRange } from "./format";
-
-/**
- * How a stay stands: approved or ready to approve, needs a look, has an
- * error, or its stamps or photos were deleted or edited since it was built.
- */
-export type StayStatus = "ok" | "check" | "error" | "changed";
 
 export const STATUS_NAMES: Readonly<Record<StayStatus, string>> = {
 	ok: "ready",
