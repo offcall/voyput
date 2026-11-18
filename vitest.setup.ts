@@ -9,6 +9,9 @@ configure({ asyncUtilTimeout: 5_000 });
 // jsdom has no scrolling; the router calls this on every navigation.
 window.scrollTo = () => {};
 
+// jsdom has no canvas; drawing code treats null as "no 2D context".
+HTMLCanvasElement.prototype.getContext = () => null;
+
 afterEach(() => {
 	cleanup();
 	localStorage.clear();
