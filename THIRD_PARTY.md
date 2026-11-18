@@ -26,7 +26,7 @@ The full licence text ships in each package's `LICENSE` file.
 
 ## Code
 
-The built site bundles npm packages under permissive licences, among them React, React DOM, Base UI and TanStack Router (MIT) and Dexie (Apache-2.0). Each package's licence is in its folder under `node_modules` after `npm install`.
+The built site bundles npm packages under permissive licences, among them React, React DOM, Base UI and TanStack Router (MIT) and Dexie (Apache-2.0). `npm run build` writes their licence texts to `apps/web/dist/third-party-licenses.txt`, served as `/third-party-licenses.txt`; each is also in the package's folder under `node_modules` after `npm install`.
 
 ## Pixel art
 

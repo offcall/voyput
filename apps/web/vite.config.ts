@@ -99,4 +99,6 @@ export default defineConfig({
 	plugins: [react(), localEngineScript(), photoExportScript(), scriptHashes()],
 	// The parse worker loads the outlines chunk the main-thread fallback uses (ADR 0040).
 	worker: { format: "es" },
+	// Licence texts of the npm packages in the client bundle (THIRD_PARTY.md).
+	build: { license: { fileName: "third-party-licenses.txt" } },
 });

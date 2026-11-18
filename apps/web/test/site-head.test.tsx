@@ -11,6 +11,7 @@ import {
 } from "../../../scripts/brand/art";
 import { cspHash, inlineScripts } from "../../../scripts/csp-hash";
 import { BrandMark } from "../src/app/icons";
+import viteConfig from "../vite.config";
 
 /** apps/web; jsdom's `URL` does not resolve file URLs, so paths are joined. */
 const WEB = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -24,6 +25,17 @@ const deploy = read("../../docs/deploy.md");
 const policies = [
 	...deploy.matchAll(/Content-Security-Policy:? "?([^"\n]+)"?/g),
 ].map(([, value]) => value ?? "");
+
+describe("third-party licences", () => {
+	it("are written by the build to the file THIRD_PARTY.md names", () => {
+		expect(viteConfig.build?.license).toEqual({
+			fileName: "third-party-licenses.txt",
+		});
+		expect(read("../../THIRD_PARTY.md")).toContain(
+			"apps/web/dist/third-party-licenses.txt",
+		);
+	});
+});
 
 describe("Content-Security-Policy in docs/deploy.md", () => {
 	it("is written for nginx and for _headers", () => {
