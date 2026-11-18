@@ -8,6 +8,7 @@ import {
 	gapBetween,
 	type LocationRow,
 	legacyTripStays,
+	locationDay,
 	mergeKept,
 	resuggestStay,
 	type Stamp,
@@ -76,6 +77,19 @@ const brief = (stays: readonly TravelStay[]) =>
 		`${s.arrival.source}/${s.departure.source}`,
 		s.kind,
 	]);
+
+describe("locationDay", () => {
+	it("is the local day the CSV wrote, not the UTC day", () => {
+		expect(locationDay(photo("2024-03-01", "FR", "00:30"))).toBe("2024-03-01");
+	});
+
+	it("is null without a two-letter country code or a full date", () => {
+		expect(locationDay(photo("2024-03-01", ""))).toBeNull();
+		expect(
+			locationDay({ ...photo("2024-03-01", "FR"), date: "2024-03" }),
+		).toBeNull();
+	});
+});
 
 describe("suggestStays", () => {
 	it("suggests stays only where there is evidence: no home since birth, none after a trip", () => {

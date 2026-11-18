@@ -111,6 +111,7 @@ export {
 } from "./trips/edit";
 export {
 	type DatedStamp,
+	locationDay,
 	usableStamps,
 } from "./trips/evidence";
 export {

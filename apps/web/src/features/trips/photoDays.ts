@@ -1,13 +1,4 @@
-import type { LocationRow } from "@voyput/core";
-
-const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-const CC_RE = /^[A-Z]{2}$/;
-
-/** Local calendar day of a photo, as in core's trip suggestions. */
-function locationDay(row: LocationRow): string | null {
-	const day = row.date.slice(0, 10);
-	return DAY_RE.test(day) && CC_RE.test(row.countryCode) ? day : null;
-}
+import { type LocationRow, locationDay } from "@voyput/core";
 
 export interface DayCountry {
 	countryCode: string;
