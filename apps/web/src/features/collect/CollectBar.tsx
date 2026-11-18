@@ -1,9 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { Dialog, PixelArt, PixelSky, Sheet } from "@voyput/ui";
 import { useState } from "react";
+import type { Plan, StepId } from "../../data/plan/planProgress";
+import { SOURCE_LABELS } from "../../data/plan/sources";
 import { useDemoActions } from "../demo/DemoActions";
-import type { Plan, StepId } from "../import/plan/planProgress";
-import { SOURCE_LABELS } from "../import/plan/sources";
 import { SourcesChoice } from "./SourcesChoice";
 import { Stepper } from "./Stepper";
 import { findStep, nextAction } from "./steps";

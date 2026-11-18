@@ -1,11 +1,11 @@
 import { PixelArt, type SpriteName } from "@voyput/ui";
 import { useState } from "react";
-import { useDb } from "../../db/DbContext";
 import {
 	SOURCE_LABELS,
 	type Sources,
 	saveSources,
-} from "../import/plan/sources";
+} from "../../data/plan/sources";
+import { useDb } from "../../db/DbContext";
 
 const OPTIONS: {
 	value: Sources;

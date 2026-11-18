@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { Plan, StepId, StepState } from "../import/plan/planProgress";
+import type { Plan, StepId, StepState } from "../../data/plan/planProgress";
 import { findStep, stepCount } from "./steps";
 
 const STATE_TEXT: Record<StepState, string> = {

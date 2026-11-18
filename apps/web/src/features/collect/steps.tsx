@@ -1,13 +1,13 @@
 import type { ReactNode } from "react";
-import { ExtractPage } from "../extract/ExtractPage";
-import { LocationsStep } from "../import/LocationsStep";
-import { PassportsStep } from "../import/PassportsStep";
 import {
 	isStepId,
 	type Plan,
 	STEP_IDS,
 	type StepId,
-} from "../import/plan/planProgress";
+} from "../../data/plan/planProgress";
+import { ExtractPage } from "../extract/ExtractPage";
+import { LocationsStep } from "../import/LocationsStep";
+import { PassportsStep } from "../import/PassportsStep";
 import { ReviewPage } from "../review/ReviewPage";
 import { TripsPage } from "../trips/TripsPage";
 

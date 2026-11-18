@@ -10,6 +10,7 @@ import {
 	summarizeLocations,
 	withoutEvidence,
 } from "@voyput/core";
+import { DEMO_LOCATION_PREFIX } from "../../data/locations";
 import type { VoyputDb } from "../../db/db";
 
 /** Reads one file of `public/demo` by name; the app fetches it, tests read it from disk. */
@@ -21,8 +22,6 @@ export const DEMO_SAMPLES_ID = "demo-samples";
 /** Demo rows carry these id prefixes; only such rows are ever replaced or removed. */
 const DEMO_PHOTO_PREFIX = "demo-photo-";
 const DEMO_STAMP_PREFIX = "demo-stamp-";
-/** uuid prefix of the demo locations. */
-export const DEMO_LOCATION_PREFIX = "demo-";
 const MANIFEST = "demo.json";
 const SAMPLES = "samples.json";
 const LOCATIONS = "photo_locations.csv";

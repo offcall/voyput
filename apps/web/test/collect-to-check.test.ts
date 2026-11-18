@@ -1,6 +1,6 @@
 import { buildPhotoIndex, type LocationRow, type Stamp } from "@voyput/core";
 import { describe, expect, it } from "vitest";
-import { countToCheck } from "../src/features/import/plan/usePlan";
+import { countToCheck } from "../src/data/plan/usePlan";
 
 const row = (date: string, countryCode: string): LocationRow => ({
 	date: `${date}T12:00:00Z`,

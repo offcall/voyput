@@ -4,7 +4,7 @@ import {
 	daysCovered,
 	type PlanInput,
 	type PlanStay,
-} from "../src/features/import/plan/planProgress";
+} from "../src/data/plan/planProgress";
 
 const stay = (
 	countryCode: string,

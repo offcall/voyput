@@ -52,6 +52,9 @@ export class Locations {
 	}
 }
 
+/** uuid prefix of the demo's location rows: stored data, never change it. */
+export const DEMO_LOCATION_PREFIX = "demo-";
+
 const LocationsContext = createContext<LiveQueryResult<Locations> | null>(null);
 
 /** Reads `locations` once per change for the whole app (ADR 0038). */

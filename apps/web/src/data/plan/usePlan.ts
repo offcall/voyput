@@ -8,12 +8,12 @@ import {
 	staySpan,
 } from "@voyput/core";
 import { createContext, useCallback, useContext, useMemo } from "react";
-import { useLocations } from "../../../data/locations";
-import { BIRTH_COUNTRY_KEY, BIRTH_KEY } from "../../../data/profile";
-import { useLiveQuery } from "../../../data/useLiveQuery";
-import { useDb } from "../../../db/DbContext";
-import { useSettings } from "../../../settings/SettingsContext";
-import { localToday } from "../../trips/format";
+import { useDb } from "../../db/DbContext";
+import { useSettings } from "../../settings/SettingsContext";
+import { useLocations } from "../locations";
+import { BIRTH_COUNTRY_KEY, BIRTH_KEY } from "../profile";
+import { localToday } from "../today";
+import { useLiveQuery } from "../useLiveQuery";
 import { buildPlan, type Plan, type PlanStay } from "./planProgress";
 import { isSources, SOURCES_KEY } from "./sources";
 

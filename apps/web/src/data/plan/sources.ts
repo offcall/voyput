@@ -1,4 +1,4 @@
-import type { VoyputDb } from "../../../db/db";
+import type { VoyputDb } from "../../db/db";
 
 /** What the user has to build the history from, chosen on the first visit to Collect. */
 export type Sources = "photos" | "passport" | "both";

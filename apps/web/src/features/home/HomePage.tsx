@@ -9,14 +9,14 @@ import {
 } from "@voyput/ui";
 import { useState } from "react";
 import { verifiedCommand } from "../../app/servedScripts";
+import type { Plan } from "../../data/plan/planProgress";
+import { saveSources } from "../../data/plan/sources";
+import { usePlan } from "../../data/plan/usePlan";
 import { useDb } from "../../db/DbContext";
 import { SourcesChoice } from "../collect/SourcesChoice";
 import { nextAction } from "../collect/steps";
 import { DemoActionsProvider, useDemoActions } from "../demo/DemoActions";
 import { DemoLoadedProvider } from "../import/demoLoaded";
-import type { Plan } from "../import/plan/planProgress";
-import { saveSources } from "../import/plan/sources";
-import { usePlan } from "../import/plan/usePlan";
 import { plural } from "../trips/format";
 import { deleteEverything } from "./deleteEverything";
 import "../collect/collect.css";

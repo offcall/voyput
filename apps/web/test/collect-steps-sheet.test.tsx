@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { saveSources } from "../src/features/import/plan/sources";
+import { saveSources } from "../src/data/plan/sources";
 import { renderApp } from "./renderApp";
 
 describe("Collect steps on a phone", () => {

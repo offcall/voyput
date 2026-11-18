@@ -16,7 +16,7 @@ import {
 import { SkyHeader, type SpriteName, Stack } from "@voyput/ui";
 import { type ReactNode, useMemo, useState } from "react";
 import { KeepCountryColours } from "../../app/countryColours";
-import { localToday } from "../trips/format";
+import { localToday } from "../../data/today";
 import { type StaysData, useStays } from "./data/useStays";
 import { activeFilterChips } from "./filterChips";
 import { photosInStays } from "./filterPhotos";

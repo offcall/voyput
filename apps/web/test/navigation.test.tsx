@@ -2,7 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { collectTarget } from "../src/app/Layout";
-import { buildPlan } from "../src/features/import/plan/planProgress";
+import { buildPlan } from "../src/data/plan/planProgress";
 import { INSIGHT_VIEWS } from "../src/features/visualize/views";
 import { renderApp } from "./renderApp";
 

@@ -1,14 +1,10 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { AppShell } from "@voyput/ui";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { isStepId, type Plan, type StepId } from "../data/plan/planProgress";
+import { PlanProvider, useLivePlan } from "../data/plan/usePlan";
 import { stepIdOf } from "../features/collect/CollectPage";
 import { firstUnfinishedStep } from "../features/collect/steps";
-import {
-	isStepId,
-	type Plan,
-	type StepId,
-} from "../features/import/plan/planProgress";
-import { PlanProvider, useLivePlan } from "../features/import/plan/usePlan";
 import {
 	FIRST_VIEW,
 	findView,

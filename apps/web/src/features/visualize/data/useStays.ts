@@ -8,8 +8,8 @@ import {
 } from "@voyput/core";
 import { useEffect, useRef, useState } from "react";
 import { useLocations } from "../../../data/locations";
+import { localToday } from "../../../data/today";
 import { useDb } from "../../../db/DbContext";
-import { localToday } from "../../trips/format";
 import { historyOf, loadTripsData } from "../../trips/tripStore";
 
 export interface StaysData {

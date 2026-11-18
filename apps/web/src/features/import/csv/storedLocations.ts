@@ -5,10 +5,9 @@ import {
 	summarizeLocations,
 } from "@voyput/core";
 import { useMemo } from "react";
-import { useLocations } from "../../../data/locations";
+import { DEMO_LOCATION_PREFIX, useLocations } from "../../../data/locations";
 import type { LiveQueryResult } from "../../../data/useLiveQuery";
 import type { VoyputDb } from "../../../db/db";
-import { DEMO_LOCATION_PREFIX } from "../../demo/loadDemo";
 
 export interface StoredLocations extends LocationSummary {
 	/** Distinct non-empty cities, counted per country. */
