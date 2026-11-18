@@ -2,7 +2,7 @@
  * Prints the CSP source (`'sha256-…'`) of every inline <script> in an HTML file,
  * for the `script-src` of docs/deploy.md. Run after changing the inline theme
  * script in apps/web/index.html, then paste the new hash into docs/deploy.md
- * (apps/web/test/site-head.test.ts fails until it matches):
+ * (apps/web/test/site-head.test.tsx fails until it matches):
  *
  *   node --experimental-strip-types scripts/csp-hash.ts [apps/web/index.html]
  *

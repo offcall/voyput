@@ -28,7 +28,7 @@ No `upgrade-insecure-requests`: it would rewrite the `http://127.0.0.1` calls to
 node --experimental-strip-types scripts/csp-hash.ts
 ```
 
-`apps/web/test/site-head.test.ts` fails while this file holds a different hash.
+`apps/web/test/site-head.test.tsx` fails while this file holds a different hash.
 
 ## Caching
 
