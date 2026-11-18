@@ -2,13 +2,14 @@ import { spawn, spawnSync } from "node:child_process";
 import {
 	chmodSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
 	statSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 /**
@@ -66,11 +67,13 @@ const value = (v: string | number | null | undefined) =>
 function library(
 	assets: Asset[],
 	schema: "bigsur" | "catalina" = "bigsur",
+	{ wal = false }: { wal?: boolean } = {},
 ): string {
 	const dir = tempDir();
 	const db = join(dir, "Photos.sqlite");
 	const table = schema === "bigsur" ? "ZASSET" : "ZGENERICASSET";
 	const lines = [
+		...(wal ? ["PRAGMA journal_mode = WAL;"] : []),
 		`CREATE TABLE ${table} (Z_PK INTEGER PRIMARY KEY, Z_ENT INTEGER, ZDATECREATED TIMESTAMP, ZLATITUDE FLOAT, ZLONGITUDE FLOAT, ZTRASHEDSTATE INTEGER, ZKIND INTEGER, ZUUID VARCHAR, ZFILENAME VARCHAR);`,
 	];
 	if (schema === "bigsur")
@@ -89,6 +92,23 @@ function library(
 	});
 	sqlite(db, lines.join("\n"));
 	return db;
+}
+
+/**
+ * Keeps a sqlite3 session open on `db`, as Photos does while it runs, after
+ * running `sql`. Resolves once the session has run it.
+ */
+async function hold(db: string, sql: string) {
+	const holder = spawn("sqlite3", [db]);
+	holder.stdin.write(`${sql}\nSELECT 'holding';\n`);
+	await new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error("holder timed out")), 5000);
+		holder.stdout.once("data", () => {
+			clearTimeout(timer);
+			resolve(undefined);
+		});
+	});
+	return holder;
 }
 
 function run(args: string[], out = join(tempDir(), "photo_locations.csv")) {
@@ -208,11 +228,76 @@ describe.skipIf(!hasSqlite)("photo-locations.sh", () => {
 		expect(result.csv).toContain(",A1\n");
 	});
 
-	it("reads a copy when Photos holds the database locked", async () => {
+	it("writes the header when no photo matches", () => {
 		const db = library([PARIS]);
-		const holder = spawn("sqlite3", [db]);
-		holder.stdin.write("BEGIN EXCLUSIVE;\nSELECT 'locked';\n");
-		await new Promise((resolve) => holder.stdout.once("data", resolve));
+		const result = run(["--library", db, "--since", "2030-01-01"]);
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.csv).toBe("date,lat,lon,is_video,filename,uuid\n");
+		expect(result.stdout).toContain("Saved 0 photo locations");
+	});
+
+	it("writes photo_locations.csv inside an --out folder", () => {
+		const folder = tempDir();
+		const result = run(["--library", library([PARIS])], `${folder}/`);
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(readdirSync(folder)).toEqual(["photo_locations.csv"]);
+		expect(readFileSync(join(folder, "photo_locations.csv"), "utf8")).toContain(
+			",A1\n",
+		);
+		expect(result.stdout).toContain(join(folder, "photo_locations.csv"));
+	});
+
+	it("creates no file next to a closed WAL database", () => {
+		const db = library([PARIS], "bigsur", { wal: true });
+		const folder = dirname(db);
+		const before = readdirSync(folder);
+		expect(before).toEqual(["Photos.sqlite"]);
+
+		const result = run(["--library", db]);
+
+		expect(result.status, result.stderr).toBe(0);
+		expect(result.csv).toContain(",A1\n");
+		expect(result.stdout).not.toContain("temporary copy");
+		expect(readdirSync(folder)).toEqual(before);
+	});
+
+	it("reads a snapshot with the rows still in the -wal file while Photos is open", async () => {
+		const db = library([PARIS], "bigsur", { wal: true });
+		const holder = await hold(
+			db,
+			`PRAGMA wal_autocheckpoint = 0;
+INSERT INTO ZASSET VALUES (2, 3, ${apple("2019-05-02T10:00:00Z")}, 38.7223, -9.1393, 0, 0, 'A9', 'IMG_0009.JPG');
+BEGIN IMMEDIATE;`,
+		);
+		try {
+			const folder = dirname(db);
+			const before = readdirSync(folder).sort();
+			expect(before).toEqual([
+				"Photos.sqlite",
+				"Photos.sqlite-shm",
+				"Photos.sqlite-wal",
+			]);
+
+			const result = run(["--library", db]);
+
+			expect(result.status, result.stderr).toBe(0);
+			expect(result.stdout).toContain("temporary copy");
+			expect(result.csv).toContain(",A1\n");
+			expect(result.csv).toContain(",A9\n");
+			expect(readdirSync(folder).sort()).toEqual(before);
+		} finally {
+			holder.kill();
+		}
+	});
+
+	it("reads a copy when Photos holds the database locked", async () => {
+		const db = library([PARIS], "bigsur", { wal: true });
+		const holder = await hold(
+			db,
+			"PRAGMA locking_mode = EXCLUSIVE;\nBEGIN EXCLUSIVE;\nUPDATE ZASSET SET ZUUID = 'A1';\nCOMMIT;",
+		);
 		try {
 			const result = run(["--library", db]);
 
@@ -222,6 +307,17 @@ describe.skipIf(!hasSqlite)("photo-locations.sh", () => {
 		} finally {
 			holder.kill();
 		}
+	});
+
+	it("reports a file that is not SQLite with its own path", () => {
+		const db = join(tempDir(), "Photos.sqlite");
+		writeFileSync(db, "not a database, just some text\n");
+		const result = run(["--library", db]);
+
+		expect(result.status).toBe(1);
+		expect(result.stderr).toContain(`could not read the Photos database ${db}`);
+		expect(result.stdout).not.toContain("temporary copy");
+		expect(result.csv).toBeNull();
 	});
 
 	it.skipIf(process.getuid?.() === 0)(

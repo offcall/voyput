@@ -4,8 +4,9 @@
 # imports as "iPhone photo locations".
 #
 # Plain POSIX sh plus the sqlite3 that ships with macOS. Reads Photos.sqlite
-# only (read-only, or a temporary copy when Photos holds it locked); opens no
-# photo file, downloads nothing from iCloud, uploads nothing.
+# only, and creates no file in the library (a snapshot copy in a temporary
+# folder while Photos is open); opens no photo file, downloads nothing from
+# iCloud, uploads nothing.
 #
 #   sh photo-locations.sh
 #   sh photo-locations.sh --since 2016-01-01
@@ -26,7 +27,8 @@ photo-locations: export your Photos locations to a CSV for voyput.
 Usage: sh photo-locations.sh [options]
 
   --out PATH          CSV to write (default ~/Desktop/photo_locations.csv,
-                      replaced if it exists)
+                      replaced if it exists); a folder gets
+                      photo_locations.csv inside it
   --library PATH      Photos library (.photoslibrary) or its Photos.sqlite
                       (default ~/Pictures/Photos Library.photoslibrary)
   --since YYYY-MM-DD  Only photos taken on or after this day
@@ -94,6 +96,7 @@ fi
 if [ -z "$out" ]; then
 	if [ -d "$HOME/Desktop" ]; then out="$HOME/Desktop/photo_locations.csv"; else out="photo_locations.csv"; fi
 fi
+[ ! -d "$out" ] || out="${out%/}/photo_locations.csv"
 out_dir=$(dirname -- "$out")
 [ -d "$out_dir" ] || die "--out: folder $out_dir does not exist"
 
@@ -125,22 +128,47 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/voyput-photos.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 trap 'exit 130' INT TERM HUP
 
-# Read-only on the library itself; if Photos holds it locked, a copy.
-readonly_flag=-readonly
 sql() {
-	sqlite3 -batch $readonly_flag "$db" "$1" </dev/null
+	sqlite3 -batch "$source" "$1" </dev/null
 }
 probe="SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('ZASSET', 'ZGENERICASSET') ORDER BY name = 'ZASSET' DESC LIMIT 1;"
-if ! table=$(sql "$probe" 2>/dev/null); then
+
+# A SQLite URI for the library's database. "%", "?" and "#" are escaped;
+# the absolute path keeps "file://" from reading a host name.
+case $db in /*) abs=$db ;; *) abs="$(pwd)/$db" ;; esac
+uri="file://$(printf '%s' "$abs" | sed 's/%/%25/g; s/?/%3f/g; s/#/%23/g')"
+
+# Nothing may be created in the library: even "sqlite3 -readonly" leaves
+# Photos.sqlite-shm and -wal next to a WAL database. With no -wal or -shm
+# there, Photos is closed and every row is in Photos.sqlite: read it as
+# immutable (no locks, no new files). Otherwise Photos is open and recent
+# rows sit in the -wal file: take a consistent snapshot with .backup through
+# the files that already exist, or copy them when Photos locks out readers.
+if [ ! -e "$db-wal" ] && [ ! -e "$db-shm" ]; then
+	source="$uri?mode=ro&immutable=1"
+else
 	say "Photos is using its database; reading a temporary copy."
-	cp -- "$db" "$work/Photos.sqlite"
-	for suffix in -wal -shm; do
-		[ ! -e "$db$suffix" ] || cp -- "$db$suffix" "$work/Photos.sqlite$suffix"
-	done
-	db="$work/Photos.sqlite"
-	readonly_flag=""
-	table=$(sql "$probe") || die "could not read the Photos database $db."
+	copy="$work/Photos.sqlite"
+	snapshot=0
+	if [ -e "$db-wal" ] && [ -e "$db-shm" ]; then
+		if error=$(sqlite3 -batch -cmd ".timeout 5000" "$uri?mode=ro" ".backup '$copy'" </dev/null 2>&1); then
+			snapshot=1
+		else
+			case $error in
+			*locked* | *busy*) ;;
+			*) die "could not read the Photos database $db: $error" ;;
+			esac
+		fi
+	fi
+	if [ "$snapshot" = 0 ]; then
+		rm -f -- "$copy"
+		cp -- "$db" "$copy" || die "could not copy $db to $work."
+		[ ! -e "$db-wal" ] || cp -- "$db-wal" "$copy-wal" || die "could not copy $db-wal to $work."
+	fi
+	source=$copy
 fi
+table=$(sql "$probe" 2>"$work/error") ||
+	die "could not read the Photos database $db: $(cat "$work/error")"
 [ -n "$table" ] || die "no photo table (ZASSET or ZGENERICASSET) in $db. Is it a Photos library database?"
 
 has_column() {
@@ -189,9 +217,10 @@ say "Reading $db ..."
 umask 077
 partial="$out_dir/.photo_locations.$$.tmp"
 trap 'rm -rf "$work" "$partial"' EXIT
-sqlite3 -batch -csv -header $readonly_flag "$db" \
+printf 'date,lat,lon,is_video,filename,uuid\n' >"$work/rows.csv"
+sqlite3 -batch -csv "$source" \
 	"SELECT date, lat, lon, is_video, filename, uuid FROM ($rows) WHERE $range ORDER BY taken;" \
-	</dev/null >"$work/rows.csv" || die "could not read the photos from $db."
+	</dev/null >>"$work/rows.csv" || die "could not read the photos from $db."
 # sqlite3 ends CSV lines with CRLF; voyput reads either, LF keeps the file plain.
 tr -d '\r' <"$work/rows.csv" >"$partial" || die "could not write $out."
 mv -f -- "$partial" "$out" || die "could not write $out."

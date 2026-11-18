@@ -40,7 +40,7 @@ sh photo-locations.sh --since 2016-01-01
 
 | Option | Meaning |
 | --- | --- |
-| `--out PATH` | CSV to write (default `~/Desktop/photo_locations.csv`) |
+| `--out PATH` | CSV to write (default `~/Desktop/photo_locations.csv`); a folder gets `photo_locations.csv` inside it |
 | `--library PATH` | Photos library (`.photoslibrary`) or its `Photos.sqlite`; default `~/Pictures/Photos Library.photoslibrary` |
 | `--since YYYY-MM-DD` | Only photos taken on or after this day (local day of the photo) |
 | `--until YYYY-MM-DD` | Only photos taken on or before this day |
@@ -48,14 +48,18 @@ sh photo-locations.sh --since 2016-01-01
 
 ## Privacy
 
-- Reads only the Photos database (`Photos.sqlite`), read-only. If Photos holds
-  it locked, it reads a copy in a temporary folder, deleted when it ends.
+- Reads only the Photos database (`Photos.sqlite`) and creates no file in the
+  library. With Photos closed it opens the database as immutable (no locks, no
+  `-shm` or `-wal` file). With Photos open (`-wal` and `-shm` next to the
+  database) it takes a snapshot with `sqlite3 .backup` into a temporary folder,
+  or copies the files there when Photos locks out readers; the folder is
+  deleted when it ends.
 - Does not open your photo files, downloads nothing from iCloud, uploads
   nothing. The only output is the CSV, readable by you only (mode 0600).
 
 ## Output
 
-UTF-8 CSV, header row, one row per photo or video with a location, oldest
+UTF-8 CSV, header row (also when no photo matches), one row per photo or video with a location, oldest
 first. Trashed items and items without a location (screenshots, saved images)
 are left out.
 
