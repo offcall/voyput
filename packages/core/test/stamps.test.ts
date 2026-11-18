@@ -155,6 +155,20 @@ describe("same-day stamps", () => {
 		]);
 	});
 
+	it("pairs same-day stamps of one direction by id, whatever the input order", () => {
+		const day = [
+			ua("in", "2019-01-01", "entry"),
+			ua("out-b", "2019-03-01", "exit"),
+			ua("out-a", "2019-03-01", "exit"),
+		];
+		const expected = [
+			["in", "out-a"],
+			[null, "out-b"],
+		];
+		expect(pairs(day)).toEqual(expected);
+		expect(pairs([...day].reverse())).toEqual(expected);
+	});
+
 	it("pairs an entry and an exit on one day when nothing is open (a transit)", () => {
 		expect(
 			pairs([ua("out", "2019-03-01", "exit"), ua("in", "2019-03-01", "entry")]),

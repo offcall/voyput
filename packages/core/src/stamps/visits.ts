@@ -109,11 +109,13 @@ export const pairCountry = (stamps: readonly Stamp[]): Visit[] => {
 /**
  * Stamps of one zone by date. On one day, exits come first while an entry is
  * open (leaving and coming back, a visa run), entries first otherwise (in and
- * out on the same day, a transit).
+ * out on the same day, a transit). Same day and direction: by id, so the
+ * result never depends on input order.
  */
 const inDayOrder = (stamps: readonly Stamp[]): Stamp[] => {
-	const byDate = [...stamps].sort((a, b) =>
-		(a.date ?? "").localeCompare(b.date ?? ""),
+	const byDate = [...stamps].sort(
+		(a, b) =>
+			(a.date ?? "").localeCompare(b.date ?? "") || a.id.localeCompare(b.id),
 	);
 	const ordered: Stamp[] = [];
 	for (let i = 0; i < byDate.length; ) {

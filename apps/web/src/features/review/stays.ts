@@ -1,4 +1,4 @@
-import { daysBetween, pairCountry, type Stamp, zoneOf } from "@voyput/core";
+import { daysBetween, pairVisits, type Stamp } from "@voyput/core";
 
 export type DatedStamp = Stamp & { date: string };
 
@@ -50,38 +50,18 @@ const itemRank = (item: TimelineItem): number =>
 const itemId = (item: TimelineItem): string =>
 	item.kind === "stay" ? item.entry.id : item.stamp.id;
 
-/** Within a zone and day an entry comes first, as core `pairVisits` has it; then id. */
-const forPairing = (a: DatedStamp, b: DatedStamp): number =>
-	a.date.localeCompare(b.date) ||
-	(a.direction === "entry" ? 0 : 1) - (b.direction === "entry" ? 0 : 1) ||
-	a.id.localeCompare(b.id);
-
 /**
- * Pairs entries with exits per zone with core `zoneOf` and `pairCountry` (the
- * Schengen area is one zone), like trips; unknown-direction stamps and those
- * with an open problem stay single, as core leaves them out. Pairing and item order are total
- * orders, so the result never depends on input order.
+ * Pairs entries with exits with core `pairVisits` (the Schengen area is one
+ * zone), like trips; unknown-direction stamps, those with an open problem and
+ * those without a country stay single. Pairing and item order are total
+ * orders, so the result never depends on input order. Undated stamps are left out.
  */
 export function buildTimeline(stamps: readonly Stamp[]): TimelineItem[] {
 	const dated = stamps.filter(isDated);
 	const byId = new Map(dated.map((s) => [s.id, s]));
 	const used = new Set<string>();
 	const items: TimelineItem[] = [];
-	const zones = new Map<string, DatedStamp[]>();
-	for (const stamp of dated) {
-		if (
-			stamp.direction === "unknown" ||
-			hasOpenProblem(stamp) ||
-			!stamp.countryCode
-		)
-			continue;
-		const zone = zoneOf(stamp);
-		zones.set(zone, [...(zones.get(zone) ?? []), stamp]);
-	}
-	const visits = [...zones.values()].flatMap((list) =>
-		pairCountry(list.sort(forPairing)),
-	);
-	for (const visit of visits) {
+	for (const visit of pairVisits(stamps)) {
 		const entry = visit.entryStampId ? byId.get(visit.entryStampId) : undefined;
 		const exit = visit.exitStampId ? byId.get(visit.exitStampId) : undefined;
 		if (entry && exit)

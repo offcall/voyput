@@ -77,6 +77,17 @@ describe("review timeline", () => {
 		expect(shape([day[1], day[2], day[0]] as Stamp[])).toEqual(first);
 	});
 
+	it("closes a stay before a same-day re-entry (a visa run), as core does", () => {
+		expect(
+			shape([
+				stamp("in-1", "2019-01-01", "UA", "entry"),
+				stamp("in-2", "2019-03-01", "UA", "entry"),
+				stamp("out-1", "2019-03-01", "UA", "exit"),
+				stamp("out-2", "2019-05-01", "UA", "exit"),
+			]),
+		).toEqual(["in-1-out-1:59", "in-2-out-2:61"]);
+	});
+
 	it("pairs a stamp whose problem was marked fine, as core does, not one still open", () => {
 		const exit = stamp("ro-out", "2024-03-05", "RO", "exit");
 		const flagged = { ...exit, problem: "date 2024-03-05 does not match" };
