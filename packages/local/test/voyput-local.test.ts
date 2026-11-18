@@ -1,6 +1,8 @@
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { createServer } from "node:http";
+import { type AddressInfo, connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -29,6 +31,7 @@ import {
 	parseExtractBody,
 	type Runner,
 	readBody,
+	refuse,
 	requestAad,
 	requestLines,
 	reserveFrom,
@@ -560,6 +563,46 @@ describe("voyput-local deadlines", () => {
 		const refused = readBody(long, 2, Date.now() + 60_000);
 		long.write("abc");
 		expect(await refused).toMatchObject({ status: 413 });
+	});
+
+	it("answers a refused upload and closes the connection without reading the body", async () => {
+		let received = 0;
+		const server = createServer((request, response) => {
+			request.on("data", (chunk: Buffer) => {
+				received += chunk.length;
+			});
+			refuse(request, response, {
+				status: 403,
+				headers: { "content-type": "application/json" },
+				body: '{"error":"wrong origin"}',
+			});
+		});
+		await new Promise<void>((resolve) =>
+			server.listen(0, "127.0.0.1", resolve),
+		);
+		try {
+			const { port } = server.address() as AddressInfo;
+			const socket = connect(port, "127.0.0.1");
+			let reply = "";
+			socket.on("data", (chunk: Buffer) => {
+				reply += chunk.toString();
+			});
+			socket.on("error", () => {});
+			const closed = new Promise<void>((resolve) =>
+				socket.on("close", () => resolve()),
+			);
+			socket.write(
+				`POST /extract HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nContent-Length: ${MAX_BODY_BYTES}\r\n\r\n`,
+			);
+			socket.write(Buffer.alloc(1024));
+			// The upload never finishes: only a server that drops it lets the socket close.
+			await closed;
+			expect(reply).toMatch(/^HTTP\/1\.1 403/);
+			expect(reply.toLowerCase()).toContain("connection: close");
+			expect(received).toBeLessThan(MAX_BODY_BYTES);
+		} finally {
+			server.close();
+		}
 	});
 
 	it("never starts a job whose deadline passed while it waited", async () => {

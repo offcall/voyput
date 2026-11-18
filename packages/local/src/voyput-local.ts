@@ -27,7 +27,11 @@ import {
 } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { createServer, type IncomingMessage } from "node:http";
+import {
+	createServer,
+	type IncomingMessage,
+	type ServerResponse,
+} from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import type { Readable } from "node:stream";
@@ -1215,6 +1219,23 @@ const headerMap = (request: IncomingMessage) => {
 	return headers;
 };
 
+/**
+ * Answers a request refused before its body and drops the connection once the
+ * answer is sent, so a refused upload is never read.
+ */
+export function refuse(
+	request: IncomingMessage,
+	response: ServerResponse,
+	result: PlainResponse,
+) {
+	if (response.destroyed) return request.destroy();
+	response.writeHead(result.status, {
+		...result.headers,
+		connection: "close",
+	});
+	response.end(result.body, () => request.destroy());
+}
+
 async function main() {
 	const { values } = parseArgs({
 		options: {
@@ -1269,7 +1290,7 @@ async function main() {
 		const admitted = admit(head, deps, started);
 		if ("response" in admitted) {
 			result = admitted.response;
-			request.resume();
+			refuse(request, response, result);
 		} else {
 			// The slot (queue place and body bytes) is held until the answer is sent.
 			try {
@@ -1299,10 +1320,6 @@ async function main() {
 			} finally {
 				admitted.slot?.release();
 			}
-		}
-		if ("response" in admitted && !response.destroyed) {
-			response.writeHead(result.status, result.headers);
-			response.end(result.body);
 		}
 		// Never log bodies: they hold passport photos and model answers.
 		const seconds = ((Date.now() - started) / 1000).toFixed(1);
