@@ -952,4 +952,47 @@ describe("trips", () => {
 		expect((await row(4, "Japan")).textContent).toContain("10 → 20 May 2024");
 		expect(arrival.value).toBe("2024-05-10");
 	});
+
+	it("saves a timeline drag over many days as one edit, on release", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-drag");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		const romania = await open(user, 2, "Romania");
+		// 25 Feb → 10 Mar 2024 (five days around 1 → 5 Mar): 15 days, 10 px each.
+		const track = document.querySelector<HTMLElement>(".vp-trips-tl-inner");
+		if (!track) throw new Error("no timeline");
+		track.getBoundingClientRect = () => ({ left: 0, width: 150 }) as DOMRect;
+		const departure = romania.getByRole("slider", { name: "Departure" });
+		departure.setPointerCapture = () => {};
+
+		fireEvent.pointerDown(departure, { pointerId: 1, clientX: 95, button: 0 });
+		for (const clientX of [105, 115, 125, 135])
+			fireEvent.pointerMove(departure, { pointerId: 1, clientX });
+		// Mid-drag the handle follows the pointer; nothing is saved yet.
+		expect(departure.getAttribute("aria-valuetext")).toBe("2024-03-09");
+		expect(screen.queryByRole("status")).toBeNull();
+		expect((await row(2, "Romania")).textContent).toContain("1 → 5 Mar 2024");
+
+		fireEvent.pointerUp(departure, { pointerId: 1, clientX: 135 });
+		expect((await row(2, "Romania")).textContent).toContain("1 → 9 Mar 2024");
+		await waitFor(async () =>
+			expect((await storedStays(db))[1]?.departure.date).toBe("2024-03-09"),
+		);
+
+		// One Undo goes back to before the drag, not one day.
+		await user.click(toastButton("Undo"));
+		expect((await row(2, "Romania")).textContent).toContain("1 → 5 Mar 2024");
+		await waitFor(async () =>
+			expect((await storedStays(db))[1]?.departure.date).toBe("2024-03-05"),
+		);
+
+		// A cancelled drag saves nothing.
+		fireEvent.pointerDown(departure, { pointerId: 2, clientX: 95, button: 0 });
+		fireEvent.pointerMove(departure, { pointerId: 2, clientX: 135 });
+		fireEvent.pointerCancel(departure, { pointerId: 2 });
+		expect(departure.getAttribute("aria-valuetext")).toBe("2024-03-05");
+		expect((await row(2, "Romania")).textContent).toContain("1 → 5 Mar 2024");
+	});
 });

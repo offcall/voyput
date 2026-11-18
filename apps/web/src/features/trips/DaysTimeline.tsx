@@ -67,18 +67,17 @@ export function DaysTimeline({
 	const days = daysIn(from, to);
 	const n = days.length;
 	const trackRef = useRef<HTMLDivElement | null>(null);
-	const [dragging, setDragging] = useState<Edge | null>(null);
-	const startIdx = Math.max(0, days.indexOf(start));
-	const endIdx = days.includes(end) ? days.indexOf(end) : n - 1;
+	/** The handle being dragged and the day under it; saved once, on release. */
+	const [drag, setDrag] = useState<{ edge: Edge; day: string } | null>(null);
+	const shownStart = drag?.edge === "start" ? drag.day : start;
+	const shownEnd = drag?.edge === "end" ? drag.day : end;
+	const startIdx = Math.max(0, days.indexOf(shownStart));
+	const endIdx = days.includes(shownEnd) ? days.indexOf(shownEnd) : n - 1;
 	const pct = (i: number) => `${(i / n) * 100}%`;
 	const flagged = runStarts(days, photoDays);
 
-	const move = (edge: Edge, day: string) => {
-		if (day < from || day > to) return;
-		if (edge === "start" && day > end) return;
-		if (edge === "end" && day < start) return;
-		onChange(edge, day);
-	};
+	const allowed = (edge: Edge, day: string) =>
+		day >= from && day <= to && (edge === "start" ? day <= end : day >= start);
 
 	const dayAt = (clientX: number) => {
 		const rect = trackRef.current?.getBoundingClientRect();
@@ -90,26 +89,31 @@ export function DaysTimeline({
 	const handlers = (edge: Edge) => ({
 		onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
 			e.currentTarget.setPointerCapture(e.pointerId);
-			setDragging(edge);
+			setDrag({ edge, day: edge === "start" ? start : end });
 		},
 		onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
-			if (dragging !== edge) return;
+			if (drag?.edge !== edge) return;
 			const day = dayAt(e.clientX);
-			const current = edge === "start" ? start : end;
-			if (day && day !== current) move(edge, day);
+			if (day && day !== drag.day && allowed(edge, day)) setDrag({ edge, day });
 		},
-		onPointerUp: () => setDragging(null),
-		onPointerCancel: () => setDragging(null),
+		// One edit per drag, however many days it crossed.
+		onPointerUp: () => {
+			if (drag?.edge === edge && drag.day !== (edge === "start" ? start : end))
+				onChange(edge, drag.day);
+			setDrag(null);
+		},
+		onPointerCancel: () => setDrag(null),
 		onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
 			if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
 			e.preventDefault();
 			const step = (e.shiftKey ? 7 : 1) * (e.key === "ArrowRight" ? 1 : -1);
-			move(edge, addDays(edge === "start" ? start : end, step));
+			const day = addDays(edge === "start" ? start : end, step);
+			if (allowed(edge, day)) onChange(edge, day);
 		},
 	});
 
 	return (
-		<div className="vp-trips-tl" data-dragging={dragging ?? undefined}>
+		<div className="vp-trips-tl" data-dragging={drag?.edge}>
 			<div className="vp-trips-tl-scroll">
 				<div
 					className="vp-trips-tl-inner"
@@ -208,7 +212,7 @@ export function DaysTimeline({
 								aria-valuemin={0}
 								aria-valuemax={n - 1}
 								aria-valuenow={edge === "start" ? startIdx : endIdx}
-								aria-valuetext={edge === "start" ? start : end}
+								aria-valuetext={edge === "start" ? shownStart : shownEnd}
 								{...handlers(edge)}
 							/>
 						))}
