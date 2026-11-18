@@ -2,7 +2,7 @@
 
 ![voyput: passport pages and photo locations become stays, a map and a replayed journey](docs/media/voyput.gif)
 
-Passport stamps + iPhone photo locations → your travel history. Bring your own key. Runs in browser. Data stays in browser.
+Passport stamps + iPhone photo locations → your travel history. Bring your own key. Runs in browser. Data stays in this browser, except page images and AI check details, which go only to the AI you pick.
 
 **Use:** https://voyput.app.offcall.link
 
@@ -35,7 +35,7 @@ No data at hand: demo passport inside the app.
 ## Private
 
 - Everything in this browser (IndexedDB). No account, no voyput server, no analytics.
-- Page images go only to the AI you pick, with your key or subscription.
+- Sent only to the AI you pick, with your key or subscription: page images. Validate with AI also sends that stamp's fields and the countries and dates of nearby photo locations (no coordinates); Rescan with AI the stamps already read from that page.
 - Photo locations CSV from your Mac: copy the command from Collect > iPhone photo locations (download, check SHA-256, run; [`tools/photos-export`](tools/photos-export)). Plain sh + macOS sqlite3, reads Photos library locally, uploads nothing.
 
 ## Dev

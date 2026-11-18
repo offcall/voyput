@@ -3,6 +3,7 @@
 ## What voyput handles
 
 - **Passport page photos** and the stamps read from them. Stored in the browser (IndexedDB); sent only to the AI the user picks.
+- **AI check details**: "Validate with AI" also sends that stamp's fields and the countries and dates of the nearest photo locations (no coordinates); "Rescan with AI" sends the stamps already read from that page. Only to the AI the user picks.
 - **Photo locations**: dates and coordinates from the user's Apple Photos library, exported on their Mac by [`tools/photos-export`](tools/photos-export) (reads the library, uploads nothing) and imported as a CSV.
 - **An OpenRouter API key**, kept in the browser and sent only to `https://openrouter.ai`.
 - **voyput-local** ([`packages/local`](packages/local)): a helper the user runs on their own computer. It listens on `127.0.0.1`, accepts only requests signed with its pairing token, decrypts the photo, and passes it to the Claude Code or Codex CLI ([ADR 0026](docs/adr/0026-local-ai-engine.md)).

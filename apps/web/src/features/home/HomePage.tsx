@@ -107,8 +107,9 @@ function Hero() {
 						</strong>{" "}
 						<span className="home-promise-note">
 							Stamps are read by the AI you choose: OpenRouter with your key, or
-							your Claude Code / Codex subscription on this computer. Only then
-							are page images sent, straight to that AI.
+							your Claude Code / Codex subscription on this computer. Only page
+							images and the details of an AI check leave this browser, straight
+							to that AI.
 						</span>
 					</span>
 				</p>
@@ -298,6 +299,12 @@ function Privacy() {
 						<strong>Stamps are read by {reader.name}</strong> {reader.text}
 					</li>
 				))}
+				<li>
+					<strong>AI checks.</strong> Validate with AI also sends the stamp's
+					fields and the countries and dates of the nearest photo locations (no
+					coordinates); Rescan with AI sends the stamps already read from that
+					page. Both go only to the AI that reads your stamps.
+				</li>
 				<li>
 					<strong>Other requests.</strong> Settings loads OpenRouter's public
 					list of models (no key, none of your data); demo data loads from this

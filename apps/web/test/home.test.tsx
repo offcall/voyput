@@ -85,7 +85,15 @@ describe("home page", () => {
 				.getAttribute("href"),
 		).toBe("/settings");
 		expect(
-			screen.getByText(/Only then\s+are page images sent, straight to that AI/),
+			screen.getByText(
+				/Only page\s+images and the details of an AI check leave this browser/,
+			),
+		).toBeTruthy();
+		// An AI check also sends places and dates, never coordinates.
+		expect(
+			screen.getByText(
+				/countries and dates of the nearest photo locations \(no\s+coordinates\)/,
+			),
 		).toBeTruthy();
 		// Privacy names both stamp readers and where each sends page images.
 		expect(screen.getByText(/straight to OpenRouter/)).toBeTruthy();
