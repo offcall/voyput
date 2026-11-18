@@ -13,13 +13,12 @@ import {
 	Stat,
 	StatGroup,
 } from "@voyput/ui";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { type ServedScript, verifiedCommand } from "../../../app/servedScripts";
+import { staysAfterEvidenceChange } from "../../../data/evidenceChange";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
-import { staysAfterEvidenceChange } from "../../trips/evidenceChange";
-import { useLiveQuery } from "../photos/useLiveQuery";
 import { LocationStrip } from "./LocationStrip";
 import {
 	focusStoredLocations,
@@ -27,10 +26,7 @@ import {
 	STORED_LOCATIONS_ID,
 } from "./locationLine";
 import { parseLocationFile } from "./parseLocations";
-import {
-	type StoredLocations,
-	summarizeStoredLocations,
-} from "./storedLocations";
+import { type StoredLocations, useStoredLocations } from "./storedLocations";
 
 type ImportState =
 	| { kind: "idle" }
@@ -115,9 +111,7 @@ export function CsvImport({
 					: current,
 		);
 	}, [demoLoaded]);
-	const { data: stored } = useLiveQuery(
-		useCallback(() => summarizeStoredLocations(db), [db]),
-	);
+	const { data: stored } = useStoredLocations();
 
 	const onFiles = async (files: File[]) => {
 		const file = files[0];

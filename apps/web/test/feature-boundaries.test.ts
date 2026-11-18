@@ -23,7 +23,7 @@ const PACKAGES = ["@voyput/core", "@voyput/ui"];
 const PAGES =
 	"the Collect wizard shows each section's page as one of its steps";
 const DEMO_LOADED =
-	"carries a demo load to the Locations step; its type is in csv/CsvImport.tsx, which another change owns";
+	"carries a demo load to the Locations step; its type is in csv/CsvImport.tsx";
 const SHARED_UI = "shared by Extract and Review (TODO.md: Design)";
 
 /**
@@ -51,8 +51,6 @@ const EXCEPTIONS: Readonly<Record<string, string>> = {
 		"the demo reports its locations in the CSV card's words",
 	"features/import/PassportsStep -> features/demo/DemoBanner":
 		"the demo card sits on the Passports step",
-	"features/import/csv/CsvImport -> features/trips/evidenceChange":
-		"re-export of data/evidenceChange until CsvImport.tsx, owned by another change, imports it",
 	"features/extract/ExtractPage -> features/review/Thumb": SHARED_UI,
 	"features/review/PhotoReview -> features/extract/failure": SHARED_UI,
 	"features/home/HomePage -> features/collect/SourcesChoice":
