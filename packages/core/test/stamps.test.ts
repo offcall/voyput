@@ -116,7 +116,7 @@ describe("Schengen join dates", () => {
 		]);
 	});
 
-	it("dates air and land crossings apart where they joined apart", () => {
+	it("counts a country as Schengen from its join date, whatever the crossing", () => {
 		const zoneOn = (
 			countryCode: string,
 			date: string,
@@ -124,14 +124,57 @@ describe("Schengen join dates", () => {
 		) =>
 			pairVisits([stamp({ id: "x", countryCode, date, borderCrossing })])[0]
 				?.zone;
+		expect(zoneOn("PL", "2007-12-20", "car")).toBe("PL");
 		expect(zoneOn("PL", "2008-01-15", "car")).toBe("Schengen");
-		expect(zoneOn("PL", "2008-01-15", "plane")).toBe("PL");
-		expect(zoneOn("PL", "2008-01-15", "unknown")).toBe("Schengen");
+		expect(zoneOn("PL", "2008-01-15", "plane")).toBe("Schengen");
 		expect(zoneOn("CH", "2008-06-01", "car")).toBe("CH");
+		expect(zoneOn("CH", "2009-01-15", "plane")).toBe("Schengen");
 		expect(zoneOn("LI", "2011-12-19", "car")).toBe("Schengen");
-		expect(zoneOn("RO", "2024-06-01", "plane")).toBe("Schengen");
-		expect(zoneOn("RO", "2024-06-01", "car")).toBe("RO");
-		expect(zoneOn("RO", "2025-01-01", "car")).toBe("Schengen");
+		expect(zoneOn("HR", "2022-12-31", "car")).toBe("HR");
+		expect(zoneOn("HR", "2023-02-01", "plane")).toBe("Schengen");
+		expect(zoneOn("RO", "2024-03-30", "plane")).toBe("RO");
+		expect(zoneOn("RO", "2024-06-01", "car")).toBe("Schengen");
+		expect(zoneOn("BG", "2024-06-01", "ship")).toBe("Schengen");
+	});
+
+	it("pairs an external-border stamp of Romania in 2024 with a plane entry", () => {
+		expect(
+			zones([
+				stamp({
+					id: "ro-in",
+					countryCode: "RO",
+					borderCrossing: "plane",
+					date: "2024-06-01",
+				}),
+				stamp({
+					id: "ro-out",
+					countryCode: "RO",
+					direction: "exit",
+					borderCrossing: "car",
+					date: "2024-06-10",
+				}),
+			]),
+		).toEqual([["Schengen", "ro-in", "ro-out"]]);
+	});
+
+	it("pairs an external-border stamp of Croatia in 2023 with an entry elsewhere", () => {
+		expect(
+			zones([
+				stamp({
+					id: "hr-in",
+					countryCode: "HR",
+					borderCrossing: "plane",
+					date: "2023-02-01",
+				}),
+				stamp({
+					id: "it-out",
+					countryCode: "IT",
+					direction: "exit",
+					borderCrossing: "plane",
+					date: "2023-02-10",
+				}),
+			]),
+		).toEqual([["Schengen", "hr-in", "it-out"]]);
 	});
 });
 

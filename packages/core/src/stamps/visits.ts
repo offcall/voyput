@@ -1,4 +1,4 @@
-import type { BorderCrossing, Stamp } from "./types";
+import type { Stamp } from "./types";
 
 /** One stay in a zone, built from an entry stamp, an exit stamp, or both. */
 export interface Visit {
@@ -14,63 +14,44 @@ export interface Conflict {
 	second: Visit;
 }
 
-/** First day without internal border checks, by kind of crossing. */
-interface SchengenSince {
-	land: string;
-	sea: string;
-	air: string;
-}
-
-const since = (land: string, air = land, sea = land): SchengenSince => ({
-	land,
-	sea,
-	air,
-});
-
-const each = (codes: string, date: SchengenSince) =>
+const each = (codes: string, date: string) =>
 	codes.split(" ").map((code) => [code, date] as const);
 
 /**
- * Date each country joined Schengen (no internal border stamps after that),
- * as dated by the Schengen implementing decisions:
+ * Date each country joined Schengen, as dated by the Schengen implementing
+ * decisions: from then on its external-border stamps are Schengen stamps.
+ * Some countries kept checks at internal borders of one kind (air, or land)
+ * for a while after that. That split matters only for a crossing between two
+ * members, which a stamp cannot tell apart, so it is not modelled:
  * - BE DE ES FR LU NL PT: 1995-03-26 (Schengen Convention in force).
- * - IT: 1997-10-26; AT: 1997-12-01 (their land checks ended 1998-04-01; not modelled).
- * - GR: 2000-01-01 (checks ended 2000-03-26; not modelled).
+ * - IT: 1997-10-26; AT: 1997-12-01 (internal land checks until 1998-04-01).
+ * - GR: 2000-01-01 (internal checks until 2000-03-26).
  * - DK FI IS NO SE: 2001-03-25 (Nordic states).
- * - CZ EE HU LT LV MT PL SI SK: land and sea 2007-12-21, air 2008-03-30.
- * - CH: land 2008-12-12, air 2009-03-29. LI: 2011-12-19 (no airport).
- * - HR: land and sea 2023-01-01, air 2023-03-26.
- * - BG RO: air and sea 2024-03-31, land 2025-01-01.
+ * - CZ EE HU LT LV MT PL SI SK: 2007-12-21 (internal air checks until 2008-03-30).
+ * - CH: 2008-12-12 (internal air checks until 2009-03-29). LI: 2011-12-19.
+ * - HR: 2023-01-01 (internal air checks until 2023-03-26).
+ * - BG RO: 2024-03-31 (internal land checks until 2025-01-01).
  */
-const SCHENGEN_SINCE: Record<string, SchengenSince> = Object.fromEntries([
-	...each("BE DE ES FR LU NL PT", since("1995-03-26")),
-	...each("IT", since("1997-10-26")),
-	...each("AT", since("1997-12-01")),
-	...each("GR", since("2000-01-01")),
-	...each("DK FI IS NO SE", since("2001-03-25")),
-	...each("CZ EE HU LT LV MT PL SI SK", since("2007-12-21", "2008-03-30")),
-	...each("CH", since("2008-12-12", "2009-03-29")),
-	...each("LI", since("2011-12-19")),
-	...each("HR", since("2023-01-01", "2023-03-26")),
-	...each("BG RO", since("2025-01-01", "2024-03-31", "2024-03-31")),
+const SCHENGEN_SINCE: Record<string, string> = Object.fromEntries([
+	...each("BE DE ES FR LU NL PT", "1995-03-26"),
+	...each("IT", "1997-10-26"),
+	...each("AT", "1997-12-01"),
+	...each("GR", "2000-01-01"),
+	...each("DK FI IS NO SE", "2001-03-25"),
+	...each("CZ EE HU LT LV MT PL SI SK", "2007-12-21"),
+	...each("CH", "2008-12-12"),
+	...each("LI", "2011-12-19"),
+	...each("HR", "2023-01-01"),
+	...each("BG RO", "2024-03-31"),
 ]);
-
-/** The join date that applies to a stamp; an unknown crossing takes the earliest. */
-const joinedOn = (dates: SchengenSince, crossing: BorderCrossing): string => {
-	if (crossing === "plane") return dates.air;
-	if (crossing === "ship") return dates.sea;
-	if (crossing === "unknown")
-		return [dates.land, dates.sea, dates.air].sort()[0] ?? dates.land;
-	return dates.land;
-};
 
 /**
  * Where a stay is counted: the whole Schengen area is one zone
  * (enter in Spain, exit in Italy = one visit), other countries are their own zone.
  */
 export const zoneOf = (stamp: Stamp): string => {
-	const dates = SCHENGEN_SINCE[stamp.countryCode ?? ""];
-	return dates && (stamp.date ?? "") >= joinedOn(dates, stamp.borderCrossing)
+	const joined = SCHENGEN_SINCE[stamp.countryCode ?? ""];
+	return joined && (stamp.date ?? "") >= joined
 		? "Schengen"
 		: (stamp.countryCode ?? "?");
 };
