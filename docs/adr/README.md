@@ -29,7 +29,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0023](0023-navigation-and-insights.md) | Navigation and Insights | Accepted |
 | [0024](0024-collect-sources.md) | Collect Sources | Accepted; `/` part superseded by 0025 |
 | [0025](0025-home-page.md) | Home Page | Accepted |
-| [0026](0026-local-ai-engine.md) | Local AI Engine | Accepted; Codex opt-in superseded by 0032; run command and pairing link amended by 0035 |
+| [0026](0026-local-ai-engine.md) | Local AI Engine | Accepted; Codex opt-in superseded by 0032; run command and pairing link amended by 0035; trusted origin by 0042 |
 | [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Superseded by 0033 |
 | [0028](0028-phone-shell-and-sheet.md) | Phone Shell and Bottom Sheet | Accepted |
 | [0029](0029-realistic-demo-passport.md) | Realistic Demo Passport | Accepted; Review part superseded by 0030 |
