@@ -36,7 +36,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0030](0030-day-aware-photo-location-check.md) | Day-Aware Photo Location Check | Accepted |
 | [0031](0031-stays-flag-changed-evidence.md) | Stays Flag Changed Evidence | Accepted |
 | [0032](0032-codex-on-by-default.md) | Codex On by Default | Accepted |
-| [0033](0033-photo-export-in-plain-sh.md) | Photo Export in Plain sh | Accepted; run command amended by 0035, outline source by 0037 |
+| [0033](0033-photo-export-in-plain-sh.md) | Photo Export in Plain sh | Accepted; run command amended by 0035, outline source by 0037, library access by 0041 |
 | [0034](0034-photo-crossings-count-as-confirmed.md) | Photo Crossings Count as Confirmed | Accepted |
 | [0035](0035-download-verify-run.md) | Download, Verify, Run | Accepted |
 | [0036](0036-stays-saves-diffs-and-follows-outside-changes.md) | Stays Saves Diffs and Follows Outside Changes | Accepted |
@@ -44,3 +44,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0038](0038-shared-data-module.md) | Shared Data Module | Accepted (amends 0006) |
 | [0039](0039-frozen-database-upgrades.md) | Frozen Database Upgrades | Accepted (amends 0007) |
 | [0040](0040-csv-import-in-a-worker.md) | CSV Import in a Worker | Accepted |
+| [0041](0041-read-only-photos-library-access.md) | Read-Only Photos Library Access | Accepted (amends 0033) |
