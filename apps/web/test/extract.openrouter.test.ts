@@ -57,6 +57,16 @@ describe("openrouter client", () => {
 		).rejects.toThrow(/provider timed out/);
 	});
 
+	it("says to wait a minute when OpenRouter rate-limits", async () => {
+		await expect(
+			clientWith(
+				json({ error: { message: "Rate limit exceeded" } }, 429),
+			).client.askAboutImage(settings, question),
+		).rejects.toThrow(
+			"Rate limited by OpenRouter (429), try again in a minute: Rate limit exceeded",
+		);
+	});
+
 	it("explains key and credit errors", async () => {
 		await expect(
 			clientWith(json({}, 401)).client.askAboutImage(settings, question),
@@ -75,6 +85,23 @@ describe("openrouter client", () => {
 		expect(bodies[0]).toHaveProperty("response_format");
 		expect(bodies[1]).not.toHaveProperty("response_format");
 		expect(bodies[1]).not.toHaveProperty("reasoning");
+	});
+
+	it("keeps the first 400's message when the retry fails too", async () => {
+		await expect(
+			clientWith(
+				json({ error: { message: "image too large" } }, 400),
+				json({ error: { message: "bad request" } }, 400),
+			).client.askAboutImage(settings, question),
+		).rejects.toThrow(
+			"OpenRouter error 400: image too large (retry without reasoning and JSON mode: OpenRouter error 400: bad request)",
+		);
+		await expect(
+			clientWith(
+				json({ error: { message: "no such model" } }, 400),
+				json({ error: { message: "no such model" } }, 400),
+			).client.askAboutImage(settings, question),
+		).rejects.toThrow(/^OpenRouter error 400: no such model$/);
 	});
 
 	it("lists only models that accept images", async () => {

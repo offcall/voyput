@@ -22,6 +22,10 @@ const RULES: { test: RegExp; summary: string }[] = [
 			"Your OpenRouter account is out of credits. Add credits, then retry.",
 	},
 	{
+		test: /Rate limited by OpenRouter/,
+		summary: "Rate limited by OpenRouter. Try again in a minute.",
+	},
+	{
 		test: /stopped abnormally|returned no text/,
 		summary:
 			"The AI stopped before it finished. Retry, or add the stamps by hand in Review.",

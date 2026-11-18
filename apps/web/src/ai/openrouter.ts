@@ -62,12 +62,25 @@ export const httpErrorMessage = (
 		return `OpenRouter refused the request (${status}): check your OpenRouter key in Settings.`;
 	if (status === 402)
 		return "OpenRouter says you are out of credits (402). Add credits and retry.";
+	if (status === 429)
+		return "Rate limited by OpenRouter (429), try again in a minute";
 	return `OpenRouter error ${status}${statusText ? ` ${statusText}` : ""}`;
 };
 
 const errorDetail = (body: unknown): string => {
 	if (!isObject(body) || !isObject(body.error)) return "";
 	return typeof body.error.message === "string" ? body.error.message : "";
+};
+
+/** The thrown message for a failed response; key errors leave out the server's words. */
+const failureMessage = (response: Response, body: unknown): string => {
+	const detail = errorDetail(body);
+	return (
+		httpErrorMessage(response.status, response.statusText) +
+		(detail && response.status !== 401 && response.status !== 403
+			? `: ${detail}`
+			: "")
+	);
 };
 
 const readJson = async (response: Response): Promise<unknown> => {
@@ -154,16 +167,19 @@ export function createOpenRouterClient({
 				settings.openRouterKey,
 			);
 			// Some models reject reasoning or JSON mode; the prompt alone asks for JSON.
-			if (response.status === 400)
+			// The first 400 is kept: it usually names the real cause.
+			let first: string | null = null;
+			if (response.status === 400) {
+				first = failureMessage(response, await readJson(response));
 				response = await post(request, settings.openRouterKey);
+			}
 			const body = await readJson(response);
 			if (!response.ok) {
-				const detail = errorDetail(body);
+				const last = failureMessage(response, body);
 				throw new Error(
-					httpErrorMessage(response.status, response.statusText) +
-						(detail && response.status !== 401 && response.status !== 403
-							? `: ${detail}`
-							: ""),
+					first === null || first === last
+						? last
+						: `${first} (retry without reasoning and JSON mode: ${last})`,
 				);
 			}
 			return answerFrom(body);

@@ -25,6 +25,13 @@ describe("describeFailure", () => {
 		).toMatch(/credits/);
 	});
 
+	it("tells a rate limit apart from a general error", () => {
+		expect(
+			describeFailure("Rate limited by OpenRouter (429), try again in a minute")
+				.summary,
+		).toBe("Rate limited by OpenRouter. Try again in a minute.");
+	});
+
 	it("falls back to a general line for an unknown message", () => {
 		expect(describeFailure("OpenRouter error 502 Bad Gateway").summary).toMatch(
 			/service had a problem/,
