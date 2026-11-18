@@ -916,4 +916,40 @@ describe("trips", () => {
 			expect((await storedStays(db)).map((s) => s.countryCode)).toContain("BG"),
 		);
 	});
+
+	it("saves only a whole, plausible typed date: clearing or half-typing saves nothing", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-typed-date");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		const japan = await open(user, 4, "Japan");
+		const arrival = japan.getByLabelText<HTMLInputElement>("Arrival date");
+		// Chrome reports "" while a part is cleared and 0002… while a year is typed.
+		for (const value of ["", "0002-05-12", "0020-05-12", "0202-05-12"])
+			fireEvent.change(arrival, { target: { value } });
+		expect(japan.queryByText("Since birth")).toBeNull();
+		expect(screen.queryByRole("status")).toBeNull();
+		expect((await row(4, "Japan")).textContent).toContain("10 → 20 May 2024");
+
+		fireEvent.change(arrival, { target: { value: "2024-05-12" } });
+		expect(screen.getByRole("status").textContent).toContain("Changed Japan");
+		await waitFor(async () =>
+			expect((await storedStays(db))[3]?.arrival.date).toBe("2024-05-12"),
+		);
+
+		// A cleared field is not "since birth": leaving it shows the stored date.
+		fireEvent.change(arrival, { target: { value: "" } });
+		fireEvent.blur(arrival);
+		expect(arrival.value).toBe("2024-05-12");
+		fireEvent.change(arrival, { target: { value: "1899-12-31" } });
+		fireEvent.keyDown(arrival, { key: "Enter" });
+		expect(arrival.value).toBe("2024-05-12");
+		expect(japan.queryByText("Since birth")).toBeNull();
+
+		// One Undo takes back the one saved date.
+		await user.click(toastButton("Undo"));
+		expect((await row(4, "Japan")).textContent).toContain("10 → 20 May 2024");
+		expect(arrival.value).toBe("2024-05-10");
+	});
 });

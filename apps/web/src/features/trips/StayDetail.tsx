@@ -1,7 +1,6 @@
 import {
 	COUNTRY_CODES,
 	type DatedStamp,
-	isIsoDate,
 	type NewStay,
 	type Stamp,
 	type StayEdge,
@@ -15,7 +14,7 @@ import {
 import { Badge, Button } from "@voyput/ui";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { useCountryColour } from "../../app/countryColours";
-import { DateField } from "./DateField";
+import { DateField, isPlausibleDay } from "./DateField";
 import { DaysTimeline } from "./DaysTimeline";
 import {
 	addDays,
@@ -98,6 +97,7 @@ function EdgeEditor({
 	edge,
 	neighbour,
 	neighbourLabel,
+	today,
 	onChange,
 }: {
 	label: "Arrival" | "Departure";
@@ -105,6 +105,8 @@ function EdgeEditor({
 	/** The other side of this crossing: the previous departure or the next arrival. */
 	neighbour: string | null;
 	neighbourLabel: string;
+	/** Bounds the years a typed date may have. */
+	today: string;
 	onChange: (edge: StayEdge) => void;
 }) {
 	const [typed, setTyped] = useState(edge.date ?? "");
@@ -114,6 +116,7 @@ function EdgeEditor({
 		setShown(edge.date);
 		setTyped(edge.date ?? "");
 	}
+	const showStored = () => setTyped(edge.date ?? "");
 	return (
 		<div className="vp-stay-edge" data-source={edge.source}>
 			<div className="vp-stay-edge-fields">
@@ -122,9 +125,14 @@ function EdgeEditor({
 					value={typed}
 					onChange={(value) => {
 						setTyped(value);
-						if (value === "" || isIsoDate(value))
-							onChange(manualEdge(edge, value === "" ? null : value));
+						// Only a whole, plausible date saves: a cleared or half-typed
+						// field never becomes "Since birth", "Still there" or year 0002.
+						if (value !== edge.date && isPlausibleDay(value, today))
+							onChange(manualEdge(edge, value));
 					}}
+					// Leaving a half-typed or cleared field shows the stored date again.
+					onBlur={showStored}
+					onEnter={showStored}
 				/>
 				<MethodPick
 					label={`${label} method`}
@@ -433,6 +441,7 @@ export function StayDetail({
 					edge={stay.arrival}
 					neighbour={previous?.departure.date ?? null}
 					neighbourLabel="Use previous departure"
+					today={today}
 					onChange={(arrival) => onChange({ ...stay, arrival })}
 				/>
 				<EdgeEditor
@@ -440,6 +449,7 @@ export function StayDetail({
 					edge={stay.departure}
 					neighbour={next?.arrival.date ?? null}
 					neighbourLabel="Use next arrival"
+					today={today}
 					onChange={(departure) => onChange({ ...stay, departure })}
 				/>
 			</div>
