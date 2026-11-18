@@ -652,6 +652,49 @@ describe("voyput-local deadlines", () => {
 		expect(output.text()).toBe("ёё");
 	});
 
+	it("does not queue a job whose client already went away", async () => {
+		const release: (() => void)[] = [];
+		let started = 0;
+		const line = limitJobs(
+			{
+				run: async () => {
+					started++;
+					await new Promise<void>((resolve) => release.push(resolve));
+					return "ok";
+				},
+			},
+			1,
+			1,
+		);
+		const first = line.reserve()?.run(job, open(), Date.now() + 60_000);
+		const gone = new AbortController();
+		gone.abort();
+		const slot = line.reserve();
+		// Rejected at once, while the only run is still busy.
+		await expect(
+			slot?.run(job, gone.signal, Date.now() + 60_000),
+		).rejects.toThrow("client went away");
+		slot?.release();
+		expect(line.reserve()).not.toBeNull();
+		release.shift()?.();
+		expect(await first).toBe("ok");
+		expect(started).toBe(1);
+	});
+
+	it("does not spawn a CLI for a client that already went away", async () => {
+		const gone = new AbortController();
+		gone.abort();
+		await expect(
+			runProcess(
+				"/nonexistent/claude",
+				{ program: "claude", args: [], stdin: "", answerFile: null },
+				tmpdir(),
+				gone.signal,
+				Date.now() + 60_000,
+			),
+		).rejects.toThrow("client went away before the CLI could start");
+	});
+
 	it("does not spawn a CLI after the deadline", async () => {
 		await expect(
 			runProcess(

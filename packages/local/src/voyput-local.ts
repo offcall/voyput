@@ -523,6 +523,7 @@ export function limitJobs(
 	const enqueue = (job: ExtractJob, signal: AbortSignal, deadline: number) =>
 		new Promise<string>((resolve, reject) => {
 			if (closed) return reject(aborted("voyput-local is shutting down"));
+			if (signal.aborted) return reject(aborted("client went away"));
 			if (now() >= deadline)
 				return reject(aborted("deadline passed before the job could start"));
 			const timer = setTimeout(
@@ -902,6 +903,8 @@ export function runProcess(
 		if (closing) return reject(aborted("voyput-local is shutting down"));
 		if (Date.now() >= deadline)
 			return reject(aborted("deadline passed before the CLI could start"));
+		if (signal.aborted)
+			return reject(aborted("client went away before the CLI could start"));
 		const child = spawn(
 			windows ? quoteForCmd(path) : path,
 			windows ? command.args.map(quoteForCmd) : command.args,
@@ -974,7 +977,6 @@ export function runProcess(
 		});
 		child.stdin?.on("error", () => {});
 		child.stdin?.end(command.stdin);
-		if (signal.aborted) onAbort();
 	});
 }
 
