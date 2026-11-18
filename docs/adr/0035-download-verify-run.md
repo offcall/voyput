@@ -2,11 +2,13 @@
 
 ## Status
 
-Accepted. Amends ADR 0026 (how voyput-local is run) and ADR 0033 (how the photo export is run).
+Accepted. Amends ADR 0026 (how voyput-local is run, how a pairing link is applied) and ADR 0033 (how the photo export is run).
 
 ## Context
 
 The site tells users to run two scripts it serves: `photo-locations.sh` (`curl -fsSL <site>/photo-locations.sh | sh`, in a terminal with Full Disk Access) and `voyput-local.mjs` (`curl … -o voyput-local.mjs && node voyput-local.mjs`). Nothing checked that the file that arrived is the file this build of the app was made with. A truncated download, a stale or poisoned cache, a proxy, or a tampered file on the host would run as is.
+
+Separately, opening `/settings#local=<token>&port=<n>` applied the token and port and switched the AI to Local at once. Any page or message can link there; someone who can listen on the user's 127.0.0.1 (another OS user, a container on the host network) could pair the app with their own server and receive the passport photos, and anyone could silently break an existing pairing (security reviews of 2026-11-18).
 
 ## Decision
 
@@ -15,6 +17,7 @@ The site tells users to run two scripts it serves: `photo-locations.sh` (`curl -
   `curl -fsSLo <file> <site>/<file> && echo "<sha256>  <file>" | shasum -a 256 -c - && <sh|node> <file> [options]`.
   `curl` and `shasum` ship with macOS and most Linux systems. A mismatch stops the line before the script runs. The file stays in the current folder, where the user can read it.
 - **The export writes its CSV with `umask 077`** (mode 0600), so other users of the computer cannot read where the user has been.
+- **Pairing links ask first.** Settings reads `#local=…` from the router's location, removes it at once (address bar and router), and shows "Pair with voyput-local on 127.0.0.1:<port>?" with the port. It says when the link would replace an existing pairing or switch stamp reading from OpenRouter. Only **Pair** stores the token and port and selects Local; **Cancel** leaves the settings as they were. A malformed link is dropped.
 
 ## Consequences
 
@@ -22,3 +25,4 @@ The site tells users to run two scripts it serves: `photo-locations.sh` (`curl -
 - The hash differs between builds, so commands in Markdown cannot pin it; `README.md` and `tools/photos-export/README.md` show the shape and send users to the app for the current line.
 - A deploy must publish the bundle and the scripts together. Both are `no-cache` (`docs/deploy.md`), so a mismatch after a deploy shows as a failed check, not as an unchecked run.
 - The command is longer than `curl … | sh`, and options go after `sh photo-locations.sh` instead of `sh -s --`.
+- Pairing takes one more click.

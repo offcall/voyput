@@ -1,3 +1,4 @@
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
 	Badge,
 	Button,
@@ -28,23 +29,25 @@ const PROVIDERS: { id: AiProviderId; label: string }[] = [
 	},
 ];
 
+type Pairing = NonNullable<ReturnType<typeof parsePairingHash>>;
+
 /** Settings for whoever reads the stamps: OpenRouter or voyput-local (ADR 0026). */
 export function AiCard() {
 	const { settings, update } = useSettings();
+	const navigate = useNavigate();
+	const hash = useRouterState({ select: (state) => state.location.hash });
+	const [offer, setOffer] = useState<Pairing | null>(null);
 	const [paired, setPaired] = useState(false);
 
 	// A pairing link from voyput-local: `/settings#local=<token>&port=<n>`.
+	// Nothing is applied until the user confirms (ADR 0035); the token leaves
+	// the address bar and the router's location right away.
 	useEffect(() => {
-		const pairing = parsePairingHash(window.location.hash);
-		if (!pairing) return;
-		update({ aiProvider: "local", ...pairing });
-		setPaired(true);
-		window.history.replaceState(
-			null,
-			"",
-			window.location.pathname + window.location.search,
-		);
-	}, [update]);
+		if (!new URLSearchParams(hash).has("local")) return;
+		setOffer(parsePairingHash(hash));
+		setPaired(false);
+		void navigate({ to: "/settings", hash: "", replace: true });
+	}, [hash, navigate]);
 
 	const ready =
 		settings.aiProvider === "local"
@@ -87,6 +90,17 @@ export function AiCard() {
 						</label>
 					))}
 				</fieldset>
+				{offer ? (
+					<PairingOffer
+						offer={offer}
+						onPair={() => {
+							update({ aiProvider: "local", ...offer });
+							setOffer(null);
+							setPaired(true);
+						}}
+						onCancel={() => setOffer(null)}
+					/>
+				) : null}
 				{paired ? (
 					<Notice tone="good" role="status">
 						Paired with voyput-local from its link.
@@ -99,6 +113,52 @@ export function AiCard() {
 				)}
 			</Stack>
 		</Card>
+	);
+}
+
+/** Asks before a pairing link changes the AI settings. */
+function PairingOffer({
+	offer,
+	onPair,
+	onCancel,
+}: {
+	offer: Pairing;
+	onPair: () => void;
+	onCancel: () => void;
+}) {
+	const { settings } = useSettings();
+	const replaces =
+		settings.localToken !== "" &&
+		(settings.localToken !== offer.localToken ||
+			settings.localPort !== offer.localPort);
+	return (
+		<section className="ai-pairing" aria-label="Pairing link">
+			<p className="ai-pairing-title">
+				Pair with voyput-local on 127.0.0.1:{offer.localPort}?
+			</p>
+			<p className="vp-field-description">
+				Only pair with a link that voyput-local printed on this computer just
+				now. Photos to read will go to the program on port {offer.localPort}.
+			</p>
+			{replaces ? (
+				<p className="vp-field-description" role="alert">
+					This replaces your current pairing (port {settings.localPort}).
+				</p>
+			) : null}
+			{settings.aiProvider === "openrouter" ? (
+				<p className="vp-field-description" role="alert">
+					This switches stamp reading from OpenRouter to voyput-local.
+				</p>
+			) : null}
+			<div className="ai-pairing-actions">
+				<Button variant="primary" onClick={onPair}>
+					Pair
+				</Button>
+				<Button variant="ghost" onClick={onCancel}>
+					Cancel
+				</Button>
+			</div>
+		</section>
 	);
 }
 

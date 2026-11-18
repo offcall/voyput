@@ -21,7 +21,11 @@ import {
 } from "../src/ai/local";
 import type { AiClient } from "../src/ai/openrouter";
 import { scriptSha256 } from "../src/app/servedScripts";
-import { DEFAULT_SETTINGS, loadSettings } from "../src/settings/settings";
+import {
+	DEFAULT_SETTINGS,
+	loadSettings,
+	saveSettings,
+} from "../src/settings/settings";
 import { offlineAi, renderApp } from "./renderApp";
 
 const question = {
@@ -345,41 +349,91 @@ const withHealth = (
 };
 
 describe("Settings AI card", () => {
-	it("pairs from the link voyput-local prints and shows Found", async () => {
-		window.history.replaceState(null, "", "/settings#local=tok-abcdefgh");
+	it("pairs from the link voyput-local prints only after Pair, and shows Found", async () => {
+		const user = userEvent.setup();
 		const ai = withHealth(() => ({
 			state: "found",
 			version: "3",
 			engines: ["codex"],
 			maxJobs: 3,
 		}));
-		renderApp("/settings", { ai });
+		const { router } = renderApp("/settings#local=tok-abcdefgh&port=5000", {
+			ai,
+		});
+		expect(
+			await screen.findByText("Pair with voyput-local on 127.0.0.1:5000?"),
+		).toBeTruthy();
+		expect(
+			screen.getByText(/switches stamp reading from OpenRouter/),
+		).toBeTruthy();
+		expect(screen.queryByText(/replaces your current pairing/)).toBeNull();
+		// The token leaves the router's location before anything is applied.
+		await waitFor(() => expect(router.state.location.hash).toBe(""));
+		expect(router.state.location.pathname).toBe("/settings");
+		expect(loadSettings(localStorage).aiProvider).toBe("openrouter");
+		expect(ai.asked).toEqual([]);
+
+		await user.click(screen.getByRole("button", { name: "Pair" }));
 		expect(
 			await screen.findByText("Paired with voyput-local from its link."),
 		).toBeTruthy();
+		expect(screen.queryByText(/^Pair with voyput-local/)).toBeNull();
 		expect((screen.getByLabelText(/^Local/) as HTMLInputElement).checked).toBe(
 			true,
 		);
 		expect(await screen.findByText(/Found · v3 · Codex CLI/)).toBeTruthy();
-		expect(window.location.hash).toBe("");
 		expect(ai.asked).toContain("tok-abcdefgh");
 		await waitFor(() =>
 			expect(loadSettings(localStorage)).toMatchObject({
 				aiProvider: "local",
 				localToken: "tok-abcdefgh",
+				localPort: 5000,
 			}),
 		);
 		expect(screen.getByText(/only on your own computer/)).toBeTruthy();
 		expect(
 			screen.getByText(
-				`curl -fsSLo voyput-local.mjs ${window.location.origin}/voyput-local.mjs && echo "${scriptSha256("voyput-local.mjs")}  voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs`,
+				`curl -fsSLo voyput-local.mjs ${window.location.origin}/voyput-local.mjs && echo "${scriptSha256("voyput-local.mjs")}  voyput-local.mjs" | shasum -a 256 -c - && node voyput-local.mjs --port 5000`,
 				{ normalizer: (text) => text },
 			),
 		).toBeTruthy();
 		expect(
 			screen.getByRole("option", { name: "Claude Code (not available)" }),
 		).toBeTruthy();
-		window.history.replaceState(null, "", "/");
+	});
+
+	it("keeps the current pairing when a link is cancelled", async () => {
+		const user = userEvent.setup();
+		saveSettings(localStorage, {
+			...DEFAULT_SETTINGS,
+			aiProvider: "local",
+			localToken: "mine-abcdefgh",
+		});
+		const { router } = renderApp("/settings#local=evil-abcdefgh&port=6000");
+		expect(
+			await screen.findByText("Pair with voyput-local on 127.0.0.1:6000?"),
+		).toBeTruthy();
+		expect(
+			screen.getByText("This replaces your current pairing (port 47615)."),
+		).toBeTruthy();
+		expect(screen.queryByText(/switches stamp reading/)).toBeNull();
+		await waitFor(() => expect(router.state.location.hash).toBe(""));
+
+		await user.click(screen.getByRole("button", { name: "Cancel" }));
+		expect(screen.queryByText(/^Pair with voyput-local/)).toBeNull();
+		expect(loadSettings(localStorage)).toMatchObject({
+			aiProvider: "local",
+			localToken: "mine-abcdefgh",
+			localPort: 47615,
+		});
+	});
+
+	it("drops a malformed pairing link without asking", async () => {
+		const { router } = renderApp("/settings#local=%3Cscript%3E");
+		expect(await screen.findByText("Read stamps with")).toBeTruthy();
+		await waitFor(() => expect(router.state.location.hash).toBe(""));
+		expect(screen.queryByText(/^Pair with voyput-local/)).toBeNull();
+		expect(loadSettings(localStorage).localToken).toBe("");
 	});
 
 	it("shows Wrong token, Not running and an unproven server", async () => {
