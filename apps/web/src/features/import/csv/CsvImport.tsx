@@ -2,7 +2,6 @@ import {
 	dayOf,
 	type LocationRow,
 	type LocationSummary,
-	parseLocationCsv,
 	summarizeLocations,
 } from "@voyput/core";
 import {
@@ -21,13 +20,13 @@ import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
 import { staysAfterEvidenceChange } from "../../trips/evidenceChange";
 import { useLiveQuery } from "../photos/useLiveQuery";
-import { loadCountryLocator } from "./countryLocator";
 import { LocationStrip } from "./LocationStrip";
 import {
 	focusStoredLocations,
 	locationLine,
 	STORED_LOCATIONS_ID,
 } from "./locationLine";
+import { parseLocationFile } from "./parseLocations";
 import {
 	type StoredLocations,
 	summarizeStoredLocations,
@@ -52,11 +51,7 @@ async function importLocationCsv(
 	db: VoyputDb,
 	file: File,
 ): Promise<ImportState> {
-	const [text, countryAt] = await Promise.all([
-		file.text(),
-		loadCountryLocator(),
-	]);
-	const result = parseLocationCsv(text, countryAt);
+	const result = await parseLocationFile(await file.text());
 	if (!result.ok) {
 		const problem =
 			"missingColumns" in result

@@ -97,4 +97,6 @@ export function scriptHashes(): Plugin {
 
 export default defineConfig({
 	plugins: [react(), localEngineScript(), photoExportScript(), scriptHashes()],
+	// The parse worker loads the outlines chunk the main-thread fallback uses (ADR 0040).
+	worker: { format: "es" },
 });

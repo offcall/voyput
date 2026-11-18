@@ -56,6 +56,11 @@ describe("Content-Security-Policy in docs/deploy.md", () => {
 				"connect-src 'self' https://openrouter.ai http://127.0.0.1:*;",
 			);
 	});
+
+	it("allows the CSV parse worker from this site only (ADR 0040)", () => {
+		for (const policy of policies)
+			expect(policy).toContain("worker-src 'self';");
+	});
 });
 
 describe("favicon, manifest and share image", () => {
