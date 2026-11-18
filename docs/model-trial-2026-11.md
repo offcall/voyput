@@ -26,7 +26,7 @@ Baseline on 3 hard pages (19, 21 and 31 of the Canadian passport):
 | `google/gemini-3.8-flash` | 13/13 (100%) | 0 | 0 | 13/13 (100%) | 12/12 (100%) | 7/10 (70%) | 0 | $0.094 | 60.7 |
 | `google/gemini-3.5-flash-lite` | 12/13 (92%) | 1 | 1 | 12/13 (92%) | 12/12 (100%) | 8/10 (80%) | 0 | $0.017 | 6.0 |
 
-Prices on 2026-11-13 (USD per million input / output tokens): gemini-3.8-flash $0.825 / $4.125, gemini-3.5-flash-lite $0.30 / $2.50, gpt-6-sol $2 / $10. The whole trial cost **$0.24**, under the approved limit of $0.50.
+Prices on 2026-11-13 (USD per million input / output tokens): gemini-3.8-flash $0.825 / $4.125, gemini-3.5-flash-lite $0.30 / $2.50, gpt-6-sol $2 / $10. The answers in these tables cost **$0.29** in total ($0.153 + $0.053 + $0.084; the 3-page Gemini rows reuse answers from the 10-page runs), under the script's $0.50 budget guard.
 
 ## Observations
 
