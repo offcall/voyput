@@ -857,6 +857,24 @@ function killTree(child: ChildProcess) {
 	}
 }
 
+/**
+ * Collects a CLI pipe as bytes, at most `max` of them, and decodes it once, so a
+ * UTF-8 character split across two chunks stays whole.
+ */
+export function outputCollector(max: number) {
+	const chunks: Buffer[] = [];
+	let size = 0;
+	return {
+		add(chunk: Buffer) {
+			if (size >= max) return;
+			const part = chunk.subarray(0, max - size);
+			chunks.push(part);
+			size += part.length;
+		},
+		text: () => Buffer.concat(chunks).toString("utf8"),
+	};
+}
+
 /** Jobs running now: their CLI process and temp dir, for shutdown. */
 const active = new Map<string, ChildProcess | null>();
 /** Set on shutdown: no CLI may start after it. */
@@ -897,8 +915,8 @@ export function runProcess(
 		let exit: { code: number | null; signal: string | null } | null = null;
 		let settled = false;
 		let grace: ReturnType<typeof setTimeout> | undefined;
-		let stdout = "";
-		let stderr = "";
+		const stdout = outputCollector(MAX_OUTPUT_BYTES);
+		const stderr = outputCollector(MAX_OUTPUT_BYTES);
 		const finish = (error?: Error) => {
 			if (settled) return;
 			settled = true;
@@ -919,10 +937,10 @@ export function runProcess(
 			else if (result.code !== 0)
 				reject(
 					new Error(
-						`${command.program} exited with code ${result.code}: ${lastLine(stderr) || lastLine(stdout)}`,
+						`${command.program} exited with code ${result.code}: ${lastLine(stderr.text()) || lastLine(stdout.text())}`,
 					),
 				);
-			else resolve(stdout);
+			else resolve(stdout.text());
 		};
 		/** Kills the tree, then gives the pipes `graceMs` before giving up on them. */
 		const stop = (reason: string) => {
@@ -937,12 +955,8 @@ export function runProcess(
 		);
 		const onAbort = () => stop("cancelled: the client went away");
 		signal.addEventListener("abort", onAbort);
-		child.stdout?.on("data", (chunk: Buffer) => {
-			if (stdout.length < MAX_OUTPUT_BYTES) stdout += chunk.toString();
-		});
-		child.stderr?.on("data", (chunk: Buffer) => {
-			if (stderr.length < MAX_OUTPUT_BYTES) stderr += chunk.toString();
-		});
+		child.stdout?.on("data", (chunk: Buffer) => stdout.add(chunk));
+		child.stderr?.on("data", (chunk: Buffer) => stderr.add(chunk));
 		child.on("error", (error) => finish(error));
 		child.on("exit", (code, exitSignal) => {
 			exit = { code, signal: exitSignal };

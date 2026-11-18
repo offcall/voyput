@@ -23,6 +23,7 @@ import {
 	limitJobs,
 	MAX_BODY_BYTES,
 	NonceGuard,
+	outputCollector,
 	pairingLink,
 	parseExtractBody,
 	type Runner,
@@ -589,6 +590,22 @@ describe("voyput-local deadlines", () => {
 			"deadline passed before the job could start",
 		);
 		expect(started).toBe(1);
+	});
+
+	it("keeps a UTF-8 character whole when a pipe splits it across chunks", () => {
+		const bytes = Buffer.from("Türkiye → Москва", "utf8");
+		const split = bytes.indexOf(Buffer.from("→", "utf8")) + 1;
+		const output = outputCollector(1024);
+		output.add(bytes.subarray(0, split));
+		output.add(bytes.subarray(split));
+		expect(output.text()).toBe("Türkiye → Москва");
+	});
+
+	it("caps CLI output in bytes, not UTF-16 units", () => {
+		const output = outputCollector(4);
+		output.add(Buffer.from("ёё", "utf8"));
+		output.add(Buffer.from("ё", "utf8"));
+		expect(output.text()).toBe("ёё");
 	});
 
 	it("does not spawn a CLI after the deadline", async () => {
