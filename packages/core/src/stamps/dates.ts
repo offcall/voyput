@@ -243,13 +243,6 @@ const wordMonth = (
 
 const twoDigits = (month: number): string => String(month).padStart(2, "0");
 
-/** "2 DEC 2019" → " 2  12  2019", "12.VII.2019" → "12. 07 .2019": every format becomes plain digit groups. */
-export const monthNamesToNumbers = (text: string): string =>
-	text.replace(/\p{L}+/gu, (word, offset: number) => {
-		const read = wordMonth(word, offset, text);
-		return read ? ` ${twoDigits(read.month)} ` : " ";
-	});
-
 /** One number of the printed date; a month word becomes its two-digit month. */
 interface Group {
 	digits: string;

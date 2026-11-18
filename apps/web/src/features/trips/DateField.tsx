@@ -48,12 +48,3 @@ export function isPlausibleDay(value: string, today: string): boolean {
 	const year = Number(value.slice(0, 4));
 	return year >= FIRST_YEAR && year <= Number(today.slice(0, 4)) + 1;
 }
-
-const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-/** Why a start/end pair cannot be saved, or null when it can. */
-export function periodError(start: string, end: string): string | null {
-	if (!DAY_RE.test(start) || !DAY_RE.test(end)) return "Set both dates.";
-	if (start > end) return "The end is before the start.";
-	return null;
-}

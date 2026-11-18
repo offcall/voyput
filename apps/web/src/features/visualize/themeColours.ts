@@ -66,11 +66,3 @@ export function fade(rgb: string, alpha: number): string {
 	if (!match) return rgb;
 	return `rgba(${match[1]},${match[2]},${match[3]},${alpha})`;
 }
-
-/** `[r, g, b]` of a computed `rgb(…)` colour. */
-export function channels(rgb: string): [number, number, number] {
-	const match = /(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)\D+(\d+(?:\.\d+)?)/.exec(rgb);
-	return match
-		? [Number(match[1]), Number(match[2]), Number(match[3])]
-		: [0, 0, 0];
-}

@@ -3,8 +3,6 @@ import type { Passport } from "../passports/types";
 import type { DatedStamp } from "./evidence";
 import type { TravelMethod, TravelStay } from "./types";
 
-export type HintSeverity = "error" | "warning" | "info";
-
 /**
  * What a stay's row says about it. The crossing hints compare the previous
  * departure (`from`) with this arrival (`to`).

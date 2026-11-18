@@ -8,7 +8,6 @@ export {
 	summarizeLocations,
 } from "./locations/parseLocationCsv";
 export type { LocationRow } from "./locations/types";
-export { LOCATION_CSV_COLUMNS } from "./locations/types";
 export { isIsoDate, photoMimeType, rotateBy } from "./passports/photos";
 export type {
 	Passport,
@@ -32,7 +31,6 @@ export {
 	hasOpenProblem,
 	photoMatches,
 	photoSeverity,
-	REVIEW_FILTERS,
 	type ReviewFilter,
 	type Severity,
 	severity,
@@ -61,7 +59,6 @@ export {
 	dateProblem,
 	isInRange,
 	isValidDate,
-	monthNamesToNumbers,
 } from "./stamps/dates";
 export {
 	parsePhotoResponse,
@@ -120,7 +117,6 @@ export {
 	clearStayIds,
 	gapBetween,
 	type HintContext,
-	type HintSeverity,
 	hasError,
 	type StayCounts,
 	type StayGap,

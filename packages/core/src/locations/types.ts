@@ -12,17 +12,3 @@ export interface LocationRow {
 	filename: string;
 	uuid: string;
 }
-
-/** Columns the export writes, in order. */
-export const LOCATION_CSV_COLUMNS = [
-	"date",
-	"lat",
-	"lon",
-	"country_code",
-	"country",
-	"city",
-	"source",
-	"is_video",
-	"filename",
-	"uuid",
-] as const;

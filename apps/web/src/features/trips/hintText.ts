@@ -1,14 +1,6 @@
 import type { StayHint } from "@voyput/core";
 import { countryName, longDay, METHOD_NAMES, plural } from "./format";
 
-/** Hints about the crossing into a stay; shown above its row. */
-export const CROSSING_HINTS: ReadonlySet<StayHint["kind"]> = new Set([
-	"overnight",
-	"long-window",
-	"overlap",
-	"method-mismatch",
-]);
-
 export const HINT_ICONS: Readonly<Record<StayHint["kind"], string>> = {
 	overnight: "🌙",
 	"long-window": "⛴️",

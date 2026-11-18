@@ -9,15 +9,6 @@ export type ReviewFilter =
 	| "unreviewed"
 	| "reviewed";
 
-export const REVIEW_FILTERS: readonly ReviewFilter[] = [
-	"all",
-	"problem",
-	"icloud",
-	"empty",
-	"unreviewed",
-	"reviewed",
-];
-
 export type Severity = "critical" | "warning" | "ok";
 
 /** A stamp with what the location history says about it. */
