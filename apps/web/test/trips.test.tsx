@@ -981,6 +981,41 @@ describe("trips", () => {
 		expect(arrival.value).toBe("2024-05-10");
 	});
 
+	it("saves a typed day only when the field is left or Enter is pressed", async () => {
+		const user = userEvent.setup();
+		const db = new VoyputDb("trips-typed-day");
+		await seed(db);
+		renderApp("/collect/trips", { db });
+
+		const japan = await open(user, 4, "Japan");
+		const arrival = japan.getByLabelText<HTMLInputElement>("Arrival date");
+		// Typing day 12 over 10 reports a whole date after the "1" key.
+		fireEvent.keyDown(arrival, { key: "1" });
+		fireEvent.change(arrival, { target: { value: "2024-05-01" } });
+		fireEvent.keyDown(arrival, { key: "2" });
+		fireEvent.change(arrival, { target: { value: "2024-05-12" } });
+		expect(arrival.value).toBe("2024-05-12");
+		expect(screen.queryByRole("status")).toBeNull();
+		expect((await row(4, "Japan")).textContent).toContain("10 → 20 May 2024");
+
+		fireEvent.blur(arrival);
+		expect(screen.getByRole("status").textContent).toContain("Changed Japan");
+		expect((await row(4, "Japan")).textContent).toContain("12 → 20 May 2024");
+		await waitFor(async () =>
+			expect((await storedStays(db))[3]?.arrival.date).toBe("2024-05-12"),
+		);
+
+		// Enter saves too; one Undo takes back only that date.
+		fireEvent.keyDown(arrival, { key: "1" });
+		fireEvent.change(arrival, { target: { value: "2024-05-11" } });
+		expect((await row(4, "Japan")).textContent).toContain("12 → 20 May 2024");
+		fireEvent.keyDown(arrival, { key: "Enter" });
+		expect((await row(4, "Japan")).textContent).toContain("11 → 20 May 2024");
+		await user.click(toastButton("Undo"));
+		expect((await row(4, "Japan")).textContent).toContain("12 → 20 May 2024");
+		expect(arrival.value).toBe("2024-05-12");
+	});
+
 	it("saves a timeline drag over many days as one edit, on release", async () => {
 		const user = userEvent.setup();
 		const db = new VoyputDb("trips-drag");

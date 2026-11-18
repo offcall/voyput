@@ -122,7 +122,22 @@ function EdgeEditor({
 		setShown(edge.date);
 		setTyped(edge.date ?? "");
 	}
-	const showStored = () => setTyped(edge.date ?? "");
+	// Keys were pressed since the field was last left: the value is being typed.
+	const typing = useRef(false);
+	/**
+	 * Only a whole, plausible date saves: a cleared or half-typed field never
+	 * becomes "Since birth", "Still there" or year 0002.
+	 */
+	const save = (value: string): boolean => {
+		if (value === edge.date || !isPlausibleDay(value, today)) return false;
+		onChange(manualEdge(edge, value));
+		return true;
+	};
+	// Leaving the field or Enter saves a typed date, or shows the stored one again.
+	const commit = () => {
+		typing.current = false;
+		if (!save(typed)) setTyped(edge.date ?? "");
+	};
 	return (
 		<div className="vp-stay-edge" data-source={edge.source}>
 			<div className="vp-stay-edge-fields">
@@ -131,14 +146,15 @@ function EdgeEditor({
 					value={typed}
 					onChange={(value) => {
 						setTyped(value);
-						// Only a whole, plausible date saves: a cleared or half-typed
-						// field never becomes "Since birth", "Still there" or year 0002.
-						if (value !== edge.date && isPlausibleDay(value, today))
-							onChange(manualEdge(edge, value));
+						// Typing a day or month reports a whole date after each digit:
+						// only a value from the date picker saves at once.
+						if (!typing.current) save(value);
 					}}
-					// Leaving a half-typed or cleared field shows the stored date again.
-					onBlur={showStored}
-					onEnter={showStored}
+					onType={() => {
+						typing.current = true;
+					}}
+					onBlur={commit}
+					onEnter={commit}
 				/>
 				<MethodPick
 					label={`${label} method`}

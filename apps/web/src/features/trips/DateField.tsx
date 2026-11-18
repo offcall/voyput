@@ -7,12 +7,15 @@ export function DateField({
 	onChange,
 	onBlur,
 	onEnter,
+	onType,
 }: {
 	label: string;
 	value: string;
 	onChange: (value: string) => void;
 	onBlur?: () => void;
 	onEnter?: () => void;
+	/** Any other key: the value is being typed, not picked. */
+	onType?: () => void;
 }) {
 	return (
 		<label className="vp-field">
@@ -24,9 +27,10 @@ export function DateField({
 				onChange={(e) => onChange(e.target.value)}
 				onBlur={onBlur}
 				onKeyDown={
-					onEnter
+					onEnter || onType
 						? (e) => {
-								if (e.key === "Enter") onEnter();
+								if (e.key === "Enter") onEnter?.();
+								else onType?.();
 							}
 						: undefined
 				}
