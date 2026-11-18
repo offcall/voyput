@@ -103,7 +103,12 @@ async function hold(db: string, sql: string) {
 	holder.stdin.write(`${sql}\nSELECT 'holding';\n`);
 	await new Promise((resolve, reject) => {
 		const timer = setTimeout(() => reject(new Error("holder timed out")), 5000);
-		holder.stdout.once("data", () => {
+		// Wait for the marker, not the first output: a PRAGMA prints too, and
+		// resolving on it raced the statements after it.
+		let seen = "";
+		holder.stdout.on("data", (chunk: Buffer) => {
+			seen += chunk.toString();
+			if (!seen.includes("holding")) return;
 			clearTimeout(timer);
 			resolve(undefined);
 		});
