@@ -6,6 +6,7 @@ import {
 	clearStayIds,
 	dayOf,
 	type LegacyTrip,
+	type LocationRow,
 	legacyTripStays,
 	mergeKept,
 	type NewStay,
@@ -34,6 +35,8 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useLocations } from "../../data/locations";
+import { NO_PHOTO_DAYS } from "../../data/photoDays";
 import { useDb } from "../../db/DbContext";
 import { EMPTY_EDITS, editReducer, type Snapshot } from "./editHistory";
 import {
@@ -46,7 +49,6 @@ import {
 } from "./format";
 import { LegacyTrips } from "./LegacyTrips";
 import { MoreMenu } from "./MoreMenu";
-import { buildPhotoDays } from "./photoDays";
 import { type ReviewQueue, StayDetail } from "./StayDetail";
 import { AddStayForm } from "./StayForms";
 import { STATUS_NAMES, StayRow } from "./StayRow";
@@ -197,6 +199,13 @@ function NextToCheck({
 export function TripsPage() {
 	const db = useDb();
 	const [data, setData] = useState<TripsData | null>(null);
+	const { data: locations, error: locationsError } = useLocations();
+	/** The latest locations, for loads; the page waits for the first read. */
+	const latestLocations = useRef(locations);
+	latestLocations.current = locations;
+	const ready = locations !== undefined;
+	/** Locations the last load suggested from. */
+	const usedRows = useRef<readonly LocationRow[] | undefined>(undefined);
 	const [stored, setStored] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [edits, dispatch] = useReducer(editReducer, EMPTY_EDITS);
@@ -251,8 +260,11 @@ export function TripsPage() {
 
 	/** Reads everything again and starts a fresh undo history: nothing stale comes back. */
 	const load = useCallback(() => {
+		const rows = latestLocations.current?.rows;
+		if (!rows) return;
 		const at = ++loads.current;
-		loadTripsData(db)
+		usedRows.current = rows;
+		loadTripsData(db, rows)
 			.then((loaded) => {
 				if (at !== loads.current) return;
 				saved.current = loaded.stored;
@@ -276,6 +288,7 @@ export function TripsPage() {
 	// Loads on open, and again whenever stays change outside this page:
 	// Review, Import, Settings, the demo, or another tab (ADR 0036).
 	useEffect(() => {
+		if (!ready) return;
 		let first = true;
 		const subscription = liveQuery(() => db.stays.toArray()).subscribe({
 			next: (rows) => {
@@ -291,7 +304,18 @@ export function TripsPage() {
 			loads.current++;
 			subscription.unsubscribe();
 		};
-	}, [db, load, fail]);
+	}, [db, ready, load, fail]);
+
+	// A suggestion follows new locations, as reading them again would; a
+	// stored history shows them in its photo days (ADR 0038).
+	useEffect(() => {
+		const rows = locations?.rows;
+		if (!rows || !usedRows.current || rows === usedRows.current) return;
+		if (saved.current.length === 0) load();
+	}, [locations, load]);
+	useEffect(() => {
+		if (locationsError) setError(locationsError);
+	}, [locationsError]);
 
 	// Every edit, undo and redo is saved as a diff; loading is not.
 	const { version } = edits;
@@ -373,9 +397,9 @@ export function TripsPage() {
 	const evidenceDays = useMemo(
 		() => ({
 			stamps: new Map(usable.map((s) => [s.id, s.date])),
-			photos: new Map((data?.locations ?? []).map((r) => [r.uuid, dayOf(r)])),
+			photos: new Map((locations?.rows ?? []).map((r) => [r.uuid, dayOf(r)])),
 		}),
-		[usable, data],
+		[usable, locations],
 	);
 	const clear = clearStayIds(stays, hints, birth, evidenceDays.photos);
 	const statuses = stayStatuses(stays, hints, clear);
@@ -384,10 +408,7 @@ export function TripsPage() {
 	).length;
 	const queue = stayQueue(stays, statuses);
 	if (order === "newest") queue.reverse();
-	const photoDays = useMemo(
-		() => buildPhotoDays(data?.locations ?? []),
-		[data],
-	);
+	const photoDays = locations?.photoDays ?? NO_PHOTO_DAYS;
 	const countries = new Set(
 		stays.filter((s) => s.kind === "stay").map((s) => s.countryCode),
 	);
@@ -407,7 +428,7 @@ export function TripsPage() {
 		);
 	// Approved and edited stays stay as they are; the rest is suggested again.
 	const rebuild = () =>
-		loadTripsData(db)
+		loadTripsData(db, latestLocations.current?.rows ?? [])
 			.then((fresh) => {
 				setData(fresh);
 				edit(
@@ -423,7 +444,7 @@ export function TripsPage() {
 			.catch(fail);
 	// A stay whose stamps or photos changed: suggested again within its days, the rest stays.
 	const resuggest = (stay: TravelStay) =>
-		loadTripsData(db)
+		loadTripsData(db, latestLocations.current?.rows ?? [])
 			.then((fresh) => {
 				setData(fresh);
 				if (stay.id === selectedId) select(null);

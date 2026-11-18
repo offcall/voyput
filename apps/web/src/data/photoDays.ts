@@ -9,6 +9,8 @@ export interface DayCountry {
 /** Photos per day and country, in the order countries first appear that day. */
 export type PhotoDays = ReadonlyMap<string, readonly DayCountry[]>;
 
+export const NO_PHOTO_DAYS: PhotoDays = new Map();
+
 export function buildPhotoDays(locations: readonly LocationRow[]): PhotoDays {
 	const days = new Map<string, DayCountry[]>();
 	const sorted = [...locations].sort((a, b) => a.date.localeCompare(b.date));

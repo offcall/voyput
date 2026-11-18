@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; hash history partly superseded by [0013](0013-browser-history-routes.md)
+Accepted; hash history partly superseded by [0013](0013-browser-history-routes.md); shared section data amended by [0038](0038-shared-data-module.md)
 
 ## Context
 

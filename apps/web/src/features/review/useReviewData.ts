@@ -1,13 +1,12 @@
-import {
-	buildDayRuns,
-	buildPhotoIndex,
-	type DayRun,
-	type Passport,
-	type PhotoExtraction,
-	type PhotoIndex,
-	type Stamp,
+import type {
+	DayRun,
+	Passport,
+	PhotoExtraction,
+	PhotoIndex,
+	Stamp,
 } from "@voyput/core";
 import { useCallback, useMemo } from "react";
+import { useLocations } from "../../data/locations";
 import { type LiveQueryResult, useLiveQuery } from "../../data/useLiveQuery";
 import { useDb } from "../../db/DbContext";
 import type { PhotoRecord } from "../../db/db";
@@ -59,17 +58,15 @@ export interface LocationHistory {
 
 /** The location history as a sorted index; read apart from stamps so edits do not reload 30k rows. */
 export function useLocationHistory(): LiveQueryResult<LocationHistory> {
-	const db = useDb();
-	const query = useCallback(() => db.locations.toArray(), [db]);
-	const { data: rows, error } = useLiveQuery(query);
+	const { data: locations, error } = useLocations();
 	const data = useMemo(() => {
-		if (!rows) return undefined;
-		const index = buildPhotoIndex(rows);
+		if (!locations) return undefined;
+		const index = locations.photoIndex;
 		return {
 			index,
-			dayRuns: photoDayRuns(buildDayRuns(index), index.days),
-			travelDays: travelDaysOf(rows),
+			dayRuns: photoDayRuns(locations.dayRuns, index.days),
+			travelDays: travelDaysOf(locations.rows),
 		};
-	}, [rows]);
+	}, [locations]);
 	return { data, error };
 }

@@ -1,8 +1,12 @@
 import {
 	countryNameOf,
+	type LocationRow,
 	type LocationSummary,
 	summarizeLocations,
 } from "@voyput/core";
+import { useMemo } from "react";
+import { useLocations } from "../../../data/locations";
+import type { LiveQueryResult } from "../../../data/useLiveQuery";
 import type { VoyputDb } from "../../../db/db";
 import { DEMO_LOCATION_PREFIX } from "../../demo/loadDemo";
 
@@ -76,11 +80,27 @@ export function locationPeriods(
 	});
 }
 
-/** What the location table holds now. */
+/** What the location table holds now, read from the database. */
 export async function summarizeStoredLocations(
 	db: VoyputDb,
 ): Promise<StoredLocations> {
-	const rows = await db.locations.toArray();
+	return summarizeLocationRows(await db.locations.toArray());
+}
+
+/** What the location table holds now, from the shared read model (ADR 0038). */
+export function useStoredLocations(): LiveQueryResult<StoredLocations> {
+	const { data: locations, error } = useLocations();
+	const data = useMemo(
+		() => (locations ? summarizeLocationRows(locations.rows) : undefined),
+		[locations],
+	);
+	return { data, error };
+}
+
+/** What these location rows hold. */
+export function summarizeLocationRows(
+	rows: readonly LocationRow[],
+): StoredLocations {
 	const cities = new Set(
 		rows.flatMap((row) => (row.city ? [`${row.countryCode}|${row.city}`] : [])),
 	);

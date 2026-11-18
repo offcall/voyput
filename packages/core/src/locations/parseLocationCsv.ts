@@ -102,7 +102,9 @@ export interface LocationSummary {
 	countryCount: number;
 }
 
-export function summarizeLocations(rows: LocationRow[]): LocationSummary {
+export function summarizeLocations(
+	rows: readonly LocationRow[],
+): LocationSummary {
 	let firstDay: string | null = null;
 	let lastDay: string | null = null;
 	const countries = new Set<string>();

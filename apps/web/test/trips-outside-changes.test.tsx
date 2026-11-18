@@ -1,6 +1,11 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type Stamp, suggestHistory, type TravelStay } from "@voyput/core";
+import {
+	type LocationRow,
+	type Stamp,
+	suggestHistory,
+	type TravelStay,
+} from "@voyput/core";
 import { describe, expect, it } from "vitest";
 import { VoyputDb } from "../src/db/db";
 import { deleteStamp } from "../src/features/review/reviewStore";
@@ -151,5 +156,31 @@ describe("Stays page and outside changes", () => {
 			expect((await db.stays.get(ro.id))?.evidenceChanged).toBeUndefined(),
 		);
 		expect((await db.stays.get(ro.id))?.stampIds).toEqual(["s2"]);
+	});
+
+	it("suggests again from photo locations written elsewhere while nothing is stored", async () => {
+		const db = new VoyputDb(`trips-outside-${++n}`);
+		const photo = (day: string, countryCode: string): LocationRow => ({
+			date: `${day}T12:00:00+02:00`,
+			lat: 0,
+			lon: 0,
+			countryCode,
+			country: "",
+			city: "",
+			source: "apple",
+			isVideo: false,
+			filename: `IMG_${day}.jpg`,
+			uuid: `${day}-${countryCode}`,
+		});
+		await db.locations.put(photo("2024-03-01", "FR"));
+		renderApp("/collect/trips", { db });
+		await screen.findByRole("button", { name: /^1\. France,/ });
+
+		// Elsewhere (another tab): more photo locations arrive.
+		await db.locations.put(photo("2024-04-01", "DE"));
+		expect(
+			await screen.findByRole("button", { name: /^2\. Germany,/ }),
+		).toBeTruthy();
+		expect(await db.stays.count()).toBe(0);
 	});
 });

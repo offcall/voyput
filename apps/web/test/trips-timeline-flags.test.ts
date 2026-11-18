@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { PhotoDays } from "../src/data/photoDays";
 import { runStarts } from "../src/features/trips/DaysTimeline";
-import type { PhotoDays } from "../src/features/trips/photoDays";
 
 const day = (countryCode: string, photos = 1) => ({
 	countryCode,

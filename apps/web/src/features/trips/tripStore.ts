@@ -26,7 +26,7 @@ export { suggestHistory };
 
 export interface TripsData extends HistorySource {
 	stamps: Stamp[];
-	locations: LocationRow[];
+	locations: readonly LocationRow[];
 	passports: Passport[];
 	dismissed: Period[];
 	/** The stored history, in date order; empty until the user edits a suggestion. */
@@ -39,10 +39,13 @@ export interface TripsData extends HistorySource {
 	legacy: LegacyTrip[];
 }
 
-export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
+/** Everything the Stays step reads, with the locations from the shared read model. */
+export async function loadTripsData(
+	db: VoyputDb,
+	locations: readonly LocationRow[],
+): Promise<TripsData> {
 	const [
 		stamps,
-		locations,
 		passports,
 		stored,
 		birthCountry,
@@ -52,7 +55,6 @@ export async function loadTripsData(db: VoyputDb): Promise<TripsData> {
 		legacy,
 	] = await Promise.all([
 		db.stamps.toArray(),
-		db.locations.toArray(),
 		db.passports.toArray(),
 		db.stays.toArray(),
 		db.kv.get(BIRTH_COUNTRY_KEY),

@@ -8,11 +8,11 @@ import {
 	staySpan,
 } from "@voyput/core";
 import { useCallback, useMemo } from "react";
+import { useLocations } from "../../../data/locations";
 import { BIRTH_COUNTRY_KEY, BIRTH_KEY } from "../../../data/profile";
 import { useLiveQuery } from "../../../data/useLiveQuery";
 import { useDb } from "../../../db/DbContext";
 import { useSettings } from "../../../settings/SettingsContext";
-import { useLocationHistory } from "../../review/useReviewData";
 import { localToday } from "../../trips/format";
 import { buildPlan, type Plan, type PlanStay } from "./planProgress";
 import { isSources, SOURCES_KEY } from "./sources";
@@ -39,7 +39,7 @@ export function countToCheck(
 /** The Collect plan, kept up to date with the database. */
 export function usePlan(): Plan | undefined {
 	const db = useDb();
-	const history = useLocationHistory();
+	const photoLocations = useLocations();
 	const { settings } = useSettings();
 	const base = useLiveQuery(
 		useCallback(async () => {
@@ -112,15 +112,15 @@ export function usePlan(): Plan | undefined {
 			};
 		}, [db]),
 	).data;
-	const index = history.data?.index;
+	const index = photoLocations.data?.photoIndex;
 	const windowDays = settings.locationWindowDays;
 	return useMemo(() => {
 		if (!base) return undefined;
 		// Wait for the photo locations so the count does not jump once they load.
-		if (!history.data && !history.error) return undefined;
+		if (!photoLocations.data && !photoLocations.error) return undefined;
 		return buildPlan({
 			...base.input,
 			toReview: countToCheck(base.stampRows, index, windowDays),
 		});
-	}, [base, history.data, history.error, index, windowDays]);
+	}, [base, photoLocations.data, photoLocations.error, index, windowDays]);
 }

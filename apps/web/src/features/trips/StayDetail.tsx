@@ -16,6 +16,7 @@ import {
 import { Badge, Button } from "@voyput/ui";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { useCountryColour } from "../../app/countryColours";
+import type { PhotoDays } from "../../data/photoDays";
 import { DateField, isPlausibleDay } from "./DateField";
 import { DaysTimeline } from "./DaysTimeline";
 import {
@@ -29,7 +30,6 @@ import {
 	stayRange,
 } from "./format";
 import { HINT_ICONS, hintText } from "./hintText";
-import type { PhotoDays } from "./photoDays";
 import { AddStayForm, SplitForm } from "./StayForms";
 import { useSheetSwipe } from "./sheetSwipe";
 

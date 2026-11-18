@@ -4,7 +4,8 @@ import {
 	sortStays,
 	type TravelStay,
 } from "@voyput/core";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLocations } from "../../data/locations";
 import { BIRTH_KEY } from "../../data/profile";
 import { useDb } from "../../db/DbContext";
 
@@ -13,7 +14,7 @@ export type VizSource =
 	| { status: "error"; message: string }
 	| {
 			status: "ready";
-			rows: LocationRow[];
+			rows: readonly LocationRow[];
 			/** The stored stays, in date order: the chart filter lists them. */
 			stays: TravelStay[];
 			/** The birth date, the first day of a stay since birth; null while unknown. */
@@ -26,15 +27,20 @@ export type VizSource =
 export function useVizSource(): VizSource {
 	const db = useDb();
 	const [source, setSource] = useState<VizSource>({ status: "loading" });
+	const { data: locations, error } = useLocations();
+	/** Read once: later location changes do not redraw the open page. */
+	const located = useRef(locations?.rows);
+	located.current ??= locations?.rows;
+	const ready = locations !== undefined;
 	useEffect(() => {
+		if (error && !ready) setSource({ status: "error", message: error });
+	}, [error, ready]);
+	useEffect(() => {
+		const rows = located.current;
+		if (!ready || !rows) return;
 		let alive = true;
-		Promise.all([
-			db.locations.toArray(),
-			db.stays.toArray(),
-			db.kv.get(BIRTH_KEY),
-			db.stamps.count(),
-		])
-			.then(([rows, stored, birth, stamps]) => {
+		Promise.all([db.stays.toArray(), db.kv.get(BIRTH_KEY), db.stamps.count()])
+			.then(([stored, birth, stamps]) => {
 				if (!alive) return;
 				setSource({
 					status: "ready",
@@ -57,6 +63,6 @@ export function useVizSource(): VizSource {
 		return () => {
 			alive = false;
 		};
-	}, [db]);
+	}, [db, ready]);
 	return source;
 }
