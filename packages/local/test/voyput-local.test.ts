@@ -92,7 +92,10 @@ function depsWith(
 		nonces: new NonceGuard(),
 		reserve:
 			reserve ??
-			reserveFrom(limitJobs(recording, 3, 6), byteBudget(64 * 1024 * 1024)),
+			reserveFrom(
+				limitJobs(recording, 3, 6, () => NOW),
+				byteBudget(64 * 1024 * 1024),
+			),
 	};
 }
 
