@@ -1,10 +1,36 @@
 import type { DatedStamp } from "@voyput/core";
 import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import { useCountryColour } from "../../app/countryColours";
-import { addDays, countryName, daysIn, monthOf, weekdayOf } from "./format";
+import {
+	addDays,
+	countryName,
+	daysIn,
+	flagOf,
+	monthOf,
+	weekdayOf,
+} from "./format";
 import type { PhotoDays } from "./photoDays";
 
 type Edge = "start" | "end";
+
+/**
+ * Where the photos' country changes along the strip, as `day|country` keys:
+ * the first photo bar of each run of days in one country carries its flag.
+ */
+export function runStarts(
+	days: readonly string[],
+	photoDays: PhotoDays,
+): Set<string> {
+	const starts = new Set<string>();
+	let current: string | null = null;
+	for (const day of days)
+		for (const { countryCode } of photoDays.get(day) ?? []) {
+			if (countryCode === current) continue;
+			starts.add(`${day}|${countryCode}`);
+			current = countryCode;
+		}
+	return starts;
+}
 
 const directionMark = (s: DatedStamp) =>
 	s.direction === "entry" ? "▲" : s.direction === "exit" ? "▼" : "◆";
@@ -45,6 +71,7 @@ export function DaysTimeline({
 	const startIdx = Math.max(0, days.indexOf(start));
 	const endIdx = days.includes(end) ? days.indexOf(end) : n - 1;
 	const pct = (i: number) => `${(i / n) * 100}%`;
+	const flagged = runStarts(days, photoDays);
 
 	const move = (edge: Edge, day: string) => {
 		if (day < from || day > to) return;
@@ -109,7 +136,10 @@ export function DaysTimeline({
 							const inTrip = i >= startIdx && i <= endIdx;
 							const summary = countries.length
 								? countries
-										.map((c) => `${c.country}: ${c.photos} photos`)
+										.map(
+											(c) =>
+												`${countryName(c.countryCode)}: ${c.photos} photos`,
+										)
 										.join(", ")
 								: "no photos";
 							return (
@@ -133,7 +163,13 @@ export function DaysTimeline({
 													flexGrow: c.photos,
 													background: colorOf(c.countryCode),
 												}}
-											/>
+											>
+												{flagged.has(`${day}|${c.countryCode}`) ? (
+													<span className="vp-trips-tl-flag" aria-hidden="true">
+														{flagOf(c.countryCode)}
+													</span>
+												) : null}
+											</span>
 										))}
 									</span>
 									<span className="vp-trips-tl-stamps">

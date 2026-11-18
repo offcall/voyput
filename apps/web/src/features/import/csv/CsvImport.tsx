@@ -130,7 +130,6 @@ export function CsvImport({
 		try {
 			const next = await importLocationCsv(db, file);
 			setState(next);
-			if (next.kind === "done") focusStoredLocations();
 		} catch (error) {
 			setState({
 				kind: "error",
@@ -139,9 +138,18 @@ export function CsvImport({
 		}
 	};
 
+	// After an import, move to what is stored once it shows (it is hidden while empty).
+	const imported = state.kind === "done";
+	const hasRows = (stored?.rowCount ?? 0) > 0;
+	useEffect(() => {
+		if (imported && hasRows) focusStoredLocations();
+	}, [imported, hasRows]);
+	const empty = stored !== undefined && !hasRows;
+
 	return (
 		<Card>
-			<div className="import-csv">
+			{/* Nothing imported yet: no empty summary, the how-to open across the card. */}
+			<div className="import-csv" data-empty={empty || undefined}>
 				<section
 					id={STORED_LOCATIONS_ID}
 					className="import-stored"
@@ -157,7 +165,7 @@ export function CsvImport({
 					hint="A new file replaces the photo locations imported before."
 					onFiles={onFiles}
 				/>
-				<HowToGetFile />
+				<HowToGetFile open={empty} />
 			</div>
 		</Card>
 	);
@@ -210,11 +218,14 @@ export function exportCommand(origin: string): string {
 /** Steps to write photo_locations.csv on a Mac with the export script. */
 export function HowToGetFile({
 	origin = window.location.origin,
+	open = false,
 }: {
 	origin?: string;
+	/** Open from the start, as when nothing is imported yet. */
+	open?: boolean;
 }) {
 	return (
-		<Disclosure summary="How to get this file">
+		<Disclosure summary="How to get this file" defaultOpen={open}>
 			<p>
 				A small script reads the Apple Photos library on your Mac and writes one
 				row per photo or video with GPS coordinates. It needs nothing but macOS,

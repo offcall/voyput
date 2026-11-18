@@ -20,4 +20,11 @@ describe("how to get the photo locations file", () => {
 			container.querySelector<HTMLAnchorElement>("a")?.getAttribute("href"),
 		).toBe("https://voyput.example/photo-locations.sh");
 	});
+
+	it("opens the how-to when asked, as with nothing imported yet", () => {
+		const { container } = render(
+			<HowToGetFile origin="https://voyput.example" open />,
+		);
+		expect(container.querySelector("details")?.open).toBe(true);
+	});
 });

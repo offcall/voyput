@@ -46,7 +46,8 @@ describe("import location CSV", () => {
 		const stored = screen.getByRole("region", {
 			name: "Stored photo locations",
 		});
-		expect(document.activeElement).toBe(stored);
+		// Focus moves once the new summary has rendered.
+		await waitFor(() => expect(document.activeElement).toBe(stored));
 		await within(stored).findByText("2019–2019");
 		expect(
 			within(stored)
@@ -69,9 +70,17 @@ describe("import location CSV", () => {
 	it("finds countries from the coordinates in the export script's file", async () => {
 		const user = userEvent.setup();
 		const { db } = renderApp("/collect/locations");
+		// Nothing imported yet: no summary column, the how-to open.
+		const picker = await screen.findByLabelText(PICKER);
+		await waitFor(() =>
+			expect(document.querySelector(".import-csv[data-empty]")).not.toBeNull(),
+		);
+		expect(
+			document.querySelector<HTMLDetailsElement>(".import-csv details")?.open,
+		).toBe(true);
 
 		await user.upload(
-			await screen.findByLabelText(PICKER),
+			picker,
 			csvFile([
 				"date,lat,lon,is_video,filename,uuid",
 				"2019-05-01T23:30:05+02:00,48.856600,2.352200,false,IMG_0001.HEIC,u1",
@@ -81,6 +90,9 @@ describe("import location CSV", () => {
 		);
 
 		await screen.findByText(/Imported 2 locations · 2 countries · 2019/);
+		await waitFor(() =>
+			expect(document.querySelector(".import-csv[data-empty]")).toBeNull(),
+		);
 		const rows = await db.locations.orderBy("date").toArray();
 		expect(rows.map((r) => [r.uuid, r.countryCode, r.isVideo])).toEqual([
 			["u1", "FR", false],

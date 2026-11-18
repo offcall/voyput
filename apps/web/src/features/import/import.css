@@ -347,3 +347,16 @@
 		min-height: 44px;
 	}
 }
+
+/* Nothing imported yet: no empty summary, the drop zone and how-to across the card. */
+.import-csv[data-empty] > .import-stored {
+	display: none;
+}
+@container (min-width: 760px) {
+	.import-csv[data-empty] {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.import-csv[data-empty] > :not(.import-stored) {
+		grid-column: 1;
+	}
+}
