@@ -5,7 +5,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0001](0001-use-architecture-decision-records.md) | Use Architecture Decision Records | Accepted |
-| [0002](0002-toolchain.md) | Toolchain | Accepted; module resolution superseded by 0004 |
+| [0002](0002-toolchain.md) | Toolchain | Accepted; module resolution superseded by 0004; dev runtime minimum amended by 0043 |
 | [0003](0003-client-only-web-app.md) | Client-Only Web App | Accepted |
 | [0004](0004-workspace-layout.md) | Workspace Layout | Accepted |
 | [0005](0005-ui-kit.md) | UI Kit | Accepted |
@@ -46,3 +46,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0040](0040-csv-import-in-a-worker.md) | CSV Import in a Worker | Accepted |
 | [0041](0041-read-only-photos-library-access.md) | Read-Only Photos Library Access | Accepted (amends 0033) |
 | [0042](0042-voyput-local-site-flag.md) | voyput-local Site Flag | Accepted (amends 0026) |
+| [0043](0043-node-22-22-for-development.md) | Node 22.22 for Development | Accepted (amends 0002) |

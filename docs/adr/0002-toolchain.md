@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. The module resolution line is superseded by [ADR 0004](0004-workspace-layout.md).
+Accepted. The module resolution line is superseded by [ADR 0004](0004-workspace-layout.md); the development runtime minimum is amended by [ADR 0043](0043-node-22-22-for-development.md).
 
 ## Context
 

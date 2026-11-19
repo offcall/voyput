@@ -50,7 +50,7 @@ No data at hand: demo passport inside the app.
 
 ## Dev
 
-Node >= 22.12. `npm ci` for a clean install.
+Node >= 22.22.2 to develop (jsdom and undici need it; voyput-local itself runs on 22.12+). `npm ci` for a clean install.
 
 ```bash
 npm ci
