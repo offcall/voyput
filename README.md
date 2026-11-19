@@ -1,6 +1,6 @@
 # voyput
 
-![voyput: passport pages and photo locations become stays, a map and a replayed journey](docs/media/voyput.gif)
+![voyput: copy the export command, import photo locations, approve stays, add passport pages, review a stamp, replay the journey](docs/media/voyput.gif)
 
 Passport stamps + iPhone photo locations → your travel history. Bring your own key. Runs in browser. Data stays in this browser, except page images and AI check details, which go only to the AI you pick.
 

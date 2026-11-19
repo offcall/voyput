@@ -3,7 +3,11 @@
  * (docs/media/voyput-poster.png): the real app in headless Chromium, walking
  * the whole flow on the demo data only (fictional traveller).
  *
- *   node scripts/readme-gif/record.mjs [--url http://127.0.0.1:5173/]
+ *   node scripts/readme-gif/record.mjs [--variant a|b|c] [--out <dir>] [--url http://127.0.0.1:5173/]
+ *
+ * Variants: a (desktop, about 20 s), b (desktop, about 33 s, longer holds),
+ * c (phone, portrait, about 25 s). With --out the GIF and poster go to
+ * <dir>/variant-<v>.gif and .png; without it to docs/media.
  *
  * Without --url it starts its own Vite (apps/web) on a free port and stops it
  * at the end. Every run starts from an empty browser profile.
@@ -43,9 +47,30 @@ const DEMO = join(ROOT, "apps/web/public/demo");
 const CACHE = join(HERE, ".cache");
 const OUT = join(HERE, ".out");
 const MEDIA = join(ROOT, "docs/media");
-const VIEWPORT = { width: 1280, height: 800 };
-const GIF_WIDTH = 980;
-const GIF_FPS = 14;
+const DESKTOP = { width: 1280, height: 800 };
+
+/**
+ * GIF variants: viewport, GIF width and frame rate, the GIF length the scenes
+ * are fitted into, and longer holds (recorded time × factor) per scene.
+ */
+const VARIANTS = {
+	a: { viewport: DESKTOP, width: 980, fps: 14, seconds: 20, holds: {} },
+	b: {
+		viewport: DESKTOP,
+		width: 980,
+		fps: 14,
+		seconds: 33,
+		holds: { home: 1.3, stays: 2, review: 2, journey: 1.8, map: 1.4 },
+	},
+	c: {
+		viewport: { width: 390, height: 844 },
+		mobile: true,
+		width: 390,
+		fps: 14,
+		seconds: 25,
+		holds: { stays: 1.3, review: 1.3, journey: 1.2 },
+	},
+};
 
 // ---------------------------------------------------------------- setup
 
@@ -191,13 +216,13 @@ const demoAnswers = () => {
 // ---------------------------------------------------------------- in-page helpers
 
 /** A visible cursor and click ripple (headless video shows no pointer), plus the flag font. */
-function pageDecor(withFlags) {
+function pageDecor({ withFlags, touch }) {
 	const css = `
 		${withFlags ? '@font-face{font-family:"GifFlags";src:url(http://gif.invalid/flags.woff2) format("woff2");unicode-range:U+1F1E6-1F1FF}' : ""}
 		:root{${withFlags ? '--vp-font:"Inter Variable","GifFlags",ui-sans-serif,system-ui,sans-serif !important;--vp-font-pixel:"Silkscreen","GifFlags",ui-monospace,monospace !important;' : ""}}
 		#gif-cursor{position:fixed;left:0;top:0;width:24px;height:24px;z-index:2147483647;pointer-events:none;
 			background:url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M3 2l15 11-6.5 1 3.8 7.2-2.6 1.3-3.8-7.3L4 20z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>')}") no-repeat;
-			transform:translate(-3px,-2px);filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+			transform:translate(-3px,-2px);filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))${touch ? ";display:none" : ""}}
 		.gif-ripple{position:fixed;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;z-index:2147483646;pointer-events:none;
 			border:3px solid #6fdc6f;background:rgba(111,220,111,.25);animation:gif-ripple .5s ease-out forwards}
 		@keyframes gif-ripple{from{transform:scale(.3);opacity:1}to{transform:scale(1.4);opacity:0}}`;
@@ -218,18 +243,20 @@ function pageDecor(withFlags) {
 			},
 			true,
 		);
-		addEventListener(
-			"mousedown",
-			(event) => {
-				const ripple = document.createElement("div");
-				ripple.className = "gif-ripple";
-				ripple.style.left = `${event.clientX}px`;
-				ripple.style.top = `${event.clientY}px`;
-				document.body.appendChild(ripple);
-				setTimeout(() => ripple.remove(), 600);
-			},
-			true,
-		);
+		const ripple = ({ clientX, clientY }) => {
+			const ring = document.createElement("div");
+			ring.className = "gif-ripple";
+			ring.style.left = `${clientX}px`;
+			ring.style.top = `${clientY}px`;
+			document.body.appendChild(ring);
+			setTimeout(() => ring.remove(), 600);
+		};
+		if (touch)
+			addEventListener("touchstart", (event) => ripple(event.touches[0]), {
+				capture: true,
+				passive: true,
+			});
+		else addEventListener("mousedown", ripple, true);
 	};
 	if (document.body) install();
 	else addEventListener("DOMContentLoaded", install);
@@ -237,14 +264,21 @@ function pageDecor(withFlags) {
 
 // ---------------------------------------------------------------- recording
 
-const record = async (url, flags) => {
+const record = async (url, flags, variant) => {
 	const { chromium } = loadPlaywright();
 	const browser = await chromium.launch({ executablePath: findChromium() });
 	rmSync(OUT, { recursive: true, force: true });
 	mkdirSync(join(OUT, "frames"), { recursive: true });
 	const context = await browser.newContext({
-		viewport: VIEWPORT,
+		viewport: variant.viewport,
+		...(variant.mobile
+			? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
+			: {}),
 		colorScheme: "dark",
+	});
+	// The Copy buttons write to the clipboard and only then show "Copied".
+	await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+		origin: new URL(url).origin,
 	});
 	const page = await context.newPage();
 	// Lossless frames, sent only when the screen changes: far smaller GIF than a
@@ -274,7 +308,10 @@ const record = async (url, flags) => {
 			JSON.stringify({ openRouterKey: "sk-or-v1-fake-key-for-the-readme-gif" }),
 		);
 	});
-	await page.addInitScript(pageDecor, flags !== null);
+	await page.addInitScript(pageDecor, {
+		withFlags: flags !== null,
+		touch: variant.mobile === true,
+	});
 	if (flags)
 		await page.route("http://gif.invalid/flags.woff2", (route) =>
 			route.fulfill({ body: flags, contentType: "font/woff2" }),
@@ -307,9 +344,14 @@ const record = async (url, flags) => {
 		});
 	});
 
-	/** Glides the cursor to the element, then clicks it. */
+	/** Glides the cursor to the element, then clicks it; on the phone, taps it. */
 	const click = async (locator, { pause = 150 } = {}) => {
 		await locator.scrollIntoViewIfNeeded();
+		if (variant.mobile) {
+			await wait(pause);
+			await locator.tap();
+			return;
+		}
 		const box = await locator.boundingBox();
 		if (!box) throw new Error("click target is not visible");
 		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
@@ -320,8 +362,13 @@ const record = async (url, flags) => {
 	};
 	/** Glides the cursor over the element (for file pickers, which open no dialog here). */
 	const point = async (locator) => {
+		await locator.scrollIntoViewIfNeeded();
 		const box = await locator.boundingBox();
 		if (!box) throw new Error("point target is not visible");
+		if (variant.mobile) {
+			await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+			return;
+		}
 		await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
 			steps: 14,
 		});
@@ -336,23 +383,98 @@ const record = async (url, flags) => {
 		await wait(700);
 	};
 
-	// 1. Home: the BYOK hero, the "Bring your own key" section, then Collect "Both".
+	const mobile = variant.mobile === true;
+	const hold = (scene, ms) => wait(ms * (variant.holds[scene] ?? 1));
+	/** The step and section links: the phone shows a short nav, the desktop a sidebar. */
+	const nav = (name) => page.getByRole("link", { name }).first();
+	const settle = async (locator) => {
+		await locator.waitFor();
+		await wait(250);
+	};
+
+	// 1. Home: a beat on the hero, then Collect "Both".
 	await page.goto(url);
 	await page.getByRole("button", { name: /^Both/ }).waitFor();
-	await wait(600);
+	await wait(500);
 	mark("home");
-	await page.mouse.move(700, 450);
-	await wait(900);
-	const ownKey = await page
-		.getByRole("heading", { name: /^bring your own key$/i })
-		.boundingBox();
-	await smoothScroll(Math.max(0, (ownKey?.y ?? 420) - 40));
-	await wait(900);
+	if (!mobile) await page.mouse.move(700, 450, { steps: 8 });
+	await hold("home", 1300);
 	await click(page.getByRole("button", { name: /^Both/ }));
 
-	// 2. Passports: add one, then its ten page photos.
-	const name = page.locator("main input[type=text]").first();
-	await name.waitFor();
+	// 2. Collect → Photo locations: how to get the CSV, copy its export command.
+	await click(page.getByRole("link", { name: /^next: photo locations/i }));
+	const how = page.locator("details", { hasText: /how to get this file/i });
+	await settle(how);
+	mark("collect");
+	await hold("collect", 400);
+	if (!(await how.evaluate((element) => element.open)))
+		await click(how.locator("summary"));
+	const copy = page.getByRole("button", { name: /copy the export command/i });
+	await copy.scrollIntoViewIfNeeded();
+	await smoothScroll(
+		Math.max(
+			0,
+			(await how.evaluate(
+				(element) => element.getBoundingClientRect().top + scrollY,
+			)) - (mobile ? 70 : 120),
+		),
+	);
+	await hold("collect", 500);
+	await click(copy);
+	await page
+		.getByRole("button", { name: /copy the export command/i })
+		.filter({ hasText: /copied/i })
+		.waitFor({ timeout: 3000 })
+		.catch(() => console.warn("the Copy button did not show Copied"));
+	await hold("collect", 1100);
+
+	// 3. Import the CSV: the summary of countries and the period.
+	await smoothScroll(0);
+	const csv = page.locator("input[type=file]").first();
+	await csv.waitFor({ state: "attached" });
+	mark("import");
+	await point(page.getByText(/drop photo_locations\.csv/i).first());
+	await csv.setInputFiles(join(DEMO, "photo_locations.csv"));
+	await page.getByText(/^Imported /).waitFor();
+	await wait(300);
+	const stored = page.getByRole("region", { name: /stored photo locations/i });
+	if (mobile) await stored.scrollIntoViewIfNeeded();
+	await hold("import", 1700);
+
+	// 4. Stays: the suggested list, one stay opened, approved.
+	await click(nav(/^stays$/i));
+	mark("skip");
+	await page
+		.getByText(/\d+ ready/)
+		.first()
+		.waitFor();
+	await wait(300);
+	mark("stays");
+	await hold("stays", 1100);
+	await click(page.getByRole("button", { name: /^\d+\. Greece, /i }).first());
+	const detail = page.getByRole("region", { name: /^stay: /i });
+	await settle(detail);
+	await hold("stays", 500);
+	const approve = detail.getByRole("button", { name: /approve/i });
+	await approve.scrollIntoViewIfNeeded();
+	await hold("stays", 1000);
+	await click(approve);
+	await hold("stays", 900);
+	// The phone shows the stay as a sheet over the nav.
+	if (mobile)
+		await click(detail.getByRole("button", { name: /close the stay/i }));
+
+	// 5. Collect → Passports: one passport, its ten page photos.
+	await click(nav(/^collect/i));
+	const name = page.getByRole("textbox", { name: /passport name/i });
+	// Collect reopens the last step (Photo locations); its link leads on to Passports.
+	const toPassports = page
+		.getByRole("link", { name: /add your passport photos/i })
+		.first();
+	await name.or(toPassports).first().waitFor();
+	if (!(await name.isVisible())) await click(toPassports);
+	await settle(name);
+	await page.evaluate(() => window.scrollTo({ top: 0 }));
 	mark("passports");
 	await click(name);
 	await name.pressSequentially("Demo passport", { delay: 25 });
@@ -364,34 +486,28 @@ const record = async (url, flags) => {
 	await pages.setInputFiles(
 		Array.from({ length: 10 }, (_, i) => join(DEMO, `page-${i + 1}.png`)),
 	);
-	await page.getByText("page-5.png").waitFor();
-	await wait(1200);
+	await page.getByText("page-5.png").first().waitFor();
+	await hold("passports", 1000);
 
-	// 3. Photo locations.
-	await click(page.getByRole("link", { name: /import your photo locations/i }));
-	const csv = page.locator("input[type=file]").first();
-	await csv.waitFor({ state: "attached" });
-	mark("locations");
-	await wait(300);
-	await point(page.getByText(/drop photo_locations\.csv/i));
-	await csv.setInputFiles(join(DEMO, "photo_locations.csv"));
-	await page.getByText(/^Imported /).waitFor();
-	await wait(1800);
-
-	// 4. Extract with the faked model.
-	await click(page.getByRole("link", { name: /read the stamps on/i }));
-	await page.getByRole("button", { name: /^extract$/i }).waitFor();
+	// 6. Extract with the faked model, then one stamp reviewed.
+	await page.evaluate(() => window.scrollTo({ top: 0 }));
+	await click(
+		page.getByRole("link", { name: /read the stamps|next: extract/i }).first(),
+	);
+	const extract = page.getByRole("button", { name: /^extract$/i });
+	await settle(extract);
 	mark("extract");
-	await wait(400);
-	await click(page.getByRole("button", { name: /^extract$/i }));
+	await click(extract);
 	await page
 		.getByRole("link", { name: /review \d+ stamps/i })
 		.waitFor({ timeout: 30_000 });
-	await wait(1000);
-
-	// 5. Review: one stamp checked, marked, next.
+	await hold("extract", 800);
 	await click(page.getByRole("link", { name: /review \d+ stamps/i }));
 	mark("skip");
+	const stamp = page
+		.getByRole("article")
+		.filter({ has: page.getByRole("listitem") })
+		.first();
 	await page
 		.getByRole("button", { name: /mark reviewed/i })
 		.first()
@@ -399,44 +515,71 @@ const record = async (url, flags) => {
 	await page.locator("main img").first().waitFor();
 	await wait(300);
 	mark("review");
-	await wait(900);
-	const reviewed = page.getByRole("button", { name: /mark reviewed/i }).first();
-	const box = await reviewed.boundingBox();
+	await hold("review", 900);
+	const history = stamp.getByRole("heading", {
+		name: /photo location history/i,
+	});
 	await smoothScroll(
-		Math.max(0, (box?.y ?? 0) + (await page.evaluate(() => scrollY)) - 520),
+		Math.max(
+			0,
+			(await history.evaluate(
+				(element) => element.getBoundingClientRect().top + scrollY,
+			)) - (mobile ? 260 : 380),
+		),
 	);
-	await click(reviewed);
-	await wait(900);
-	await click(page.getByRole("button", { name: /^next →$/i }).first());
-	await wait(1000);
+	await hold("review", 1400);
+	await click(stamp.getByRole("button", { name: /mark reviewed/i }));
+	await hold("review", 1100);
 
-	// 6. Stays, then Insights: Journey at 16×, ending on the map.
+	// 7. Insights: Journey at 16×, then Map, Calendar and Stats.
 	await page.evaluate(() => window.scrollTo({ top: 0 }));
-	await click(page.getByRole("link", { name: /^stays$/i }).first());
+	await click(nav(mobile ? /^insights$/i : /^journey$/i));
 	mark("skip");
-	await page.getByText(/\d+ stays · \d+ countries/).waitFor();
-	mark("stays");
-	await wait(1600);
-	await click(page.getByRole("link", { name: /^journey$/i }).first());
-	mark("skip");
-	await page.getByRole("button", { name: "16×" }).waitFor();
+	const speed = mobile
+		? page.getByRole("button", { name: /^speed /i })
+		: page.getByRole("button", { name: "16×" });
+	await speed.waitFor();
 	await wait(200);
 	mark("journey");
-	await click(page.getByRole("button", { name: "16×" }), { pause: 80 });
-	await page.mouse.move(1180, 560, { steps: 10 });
-	await wait(6000);
+	if (mobile) {
+		for (let i = 0; i < 3; i++) {
+			await click(speed, { pause: 60 });
+			await wait(120);
+		}
+		// The speed button sits under the map: bring the whole map back into view.
+		const map = page.getByRole("img", { name: /route player map/i });
+		await smoothScroll(
+			Math.max(
+				0,
+				(await map.evaluate(
+					(element) => element.getBoundingClientRect().top + scrollY,
+				)) - 64,
+			),
+		);
+	} else {
+		await click(speed, { pause: 80 });
+		await page.mouse.move(1180, 560, { steps: 10 });
+	}
+	await hold("journey", 4500);
 	await page.screenshot({
 		path: join(OUT, "poster.png"),
 		style: "#gif-cursor{display:none}",
 	});
-	await wait(1300);
-	await click(page.getByRole("link", { name: /^map$/i }).first());
-	mark("skip");
-	await page.getByText(/where you went/i).waitFor();
-	await wait(300);
-	mark("map");
-	await page.mouse.move(1180, 760, { steps: 10 });
-	await wait(1000);
+	await hold("journey", 1000);
+	for (const [view, ready] of [
+		["map", /where you went/i],
+		["calendar", /where you were/i],
+		["stats", null],
+	]) {
+		await click(nav(new RegExp(`^${view}$`, "i")));
+		mark("skip");
+		if (ready) await page.getByText(ready).first().waitFor();
+		else
+			await page.getByRole("heading", { level: 1, name: /stats/i }).waitFor();
+		await wait(400);
+		mark(view);
+		await hold(view, 1300);
+	}
 	mark("end");
 
 	await cdp.send("Page.stopScreencast");
@@ -453,22 +596,22 @@ const record = async (url, flags) => {
  * (route chunks loading) are dropped.
  */
 const SPEED = {
-	home: 1.4,
-	passports: 1.9,
-	locations: 1.5,
-	extract: 2.2,
-	review: 1.9,
+	home: 1.2,
+	collect: 1.3,
+	import: 1.4,
 	stays: 1.3,
+	passports: 1.9,
+	extract: 2.2,
+	review: 1.5,
 	journey: 1.9,
-	map: 1,
+	map: 1.2,
+	calendar: 1.2,
+	stats: 1.2,
 };
 /** GIF seconds at most for a scene whose recorded length varies by machine (stamp reads wait on canvas work). */
 const MAX_SECONDS = { extract: 2.5 };
-/** The whole GIF; every scene is sped up evenly when the recording runs longer. */
-const MAX_TOTAL = 19.5;
-
-/** Speed per scene: SPEED, capped by MAX_SECONDS, then scaled to fit MAX_TOTAL. */
-const sceneSpeeds = (marks) => {
+/** Speed per scene: SPEED, capped by MAX_SECONDS, then scaled to fit the variant's seconds. */
+const sceneSpeeds = (marks, maxTotal) => {
 	const scenes = marks.slice(0, -1).flatMap(({ name, at }, i) => {
 		if (name === "skip") return [];
 		const length = marks[i + 1].at - at;
@@ -479,12 +622,13 @@ const sceneSpeeds = (marks) => {
 		return [{ i, length, speed }];
 	});
 	const total = scenes.reduce((sum, s) => sum + s.length / s.speed, 0);
-	const fit = Math.max(1, total / MAX_TOTAL);
+	const fit = Math.max(1, total / maxTotal);
 	return new Map(scenes.map((s) => [s.i, s.speed * fit]));
 };
 
-/** Resamples the frames scene by scene to GIF_FPS, then palettes them into the GIF. */
-const toGif = ({ frames, marks }) => {
+/** Resamples the frames scene by scene to the variant's fps, then palettes them into the GIF. */
+const toGif = ({ frames, marks }, variant, gif) => {
+	const GIF_FPS = variant.fps;
 	const parts = [];
 	const picks = [];
 	let next = 0;
@@ -492,7 +636,7 @@ const toGif = ({ frames, marks }) => {
 		while (next + 1 < frames.length && frames[next + 1].at <= time) next++;
 		return frames[next].file;
 	};
-	const speeds = sceneSpeeds(marks);
+	const speeds = sceneSpeeds(marks, variant.seconds);
 	for (let i = 0; i < marks.length - 1; i++) {
 		const { name, at: start } = marks[i];
 		const end = marks[i + 1].at;
@@ -518,12 +662,11 @@ const toGif = ({ frames, marks }) => {
 	const list = join(OUT, "frames.txt");
 	writeFileSync(list, `${lines.join("\n")}\n`);
 	const filter = [
-		`fps=${GIF_FPS},scale=${GIF_WIDTH}:-1:flags=lanczos,split[a][b]`,
+		`fps=${GIF_FPS},scale=${variant.width}:-1:flags=lanczos,split[a][b]`,
 		"[a]palettegen=max_colors=192:stats_mode=diff[pal]",
 		"[b][pal]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
 	].join(";");
-	mkdirSync(MEDIA, { recursive: true });
-	const gif = join(MEDIA, "voyput.gif");
+	mkdirSync(dirname(gif), { recursive: true });
 	const args = [
 		"-y",
 		"-loglevel",
@@ -546,14 +689,31 @@ const toGif = ({ frames, marks }) => {
 
 // ---------------------------------------------------------------- main
 
-const urlArg = process.argv.indexOf("--url");
-const vite = urlArg === -1 ? await startVite() : null;
+const arg = (name) => {
+	const at = process.argv.indexOf(name);
+	return at === -1 ? undefined : process.argv[at + 1];
+};
+const variantName = arg("--variant") ?? "a";
+const variant = VARIANTS[variantName];
+if (!variant)
+	throw new Error(
+		`unknown --variant ${variantName}: ${Object.keys(VARIANTS).join(", ")}`,
+	);
+const outDir = arg("--out");
+const gifPath = outDir
+	? join(outDir, `variant-${variantName}.gif`)
+	: join(MEDIA, "voyput.gif");
+const posterPath = outDir
+	? join(outDir, `variant-${variantName}.png`)
+	: join(MEDIA, "voyput-poster.png");
+
+const urlArg = arg("--url");
+const vite = urlArg === undefined ? await startVite() : null;
 try {
-	const url = vite?.url ?? process.argv[urlArg + 1];
-	const recording = await record(url, await flagFont());
-	const { gif, parts } = toGif(recording);
-	const poster = join(MEDIA, "voyput-poster.png");
-	writeFileSync(poster, readFileSync(recording.poster));
+	const url = vite?.url ?? urlArg;
+	const recording = await record(url, await flagFont(), variant);
+	const { gif, parts } = toGif(recording, variant, gifPath);
+	writeFileSync(posterPath, readFileSync(recording.poster));
 	let total = 0;
 	for (const part of parts) {
 		total += part.seconds;
@@ -562,7 +722,7 @@ try {
 		);
 	}
 	console.log(
-		`total ${total.toFixed(1)} s · ${(statSync(gif).size / 1e6).toFixed(2)} MB · ${GIF_FPS} fps · ${gif}`,
+		`total ${total.toFixed(1)} s · ${(statSync(gif).size / 1e6).toFixed(2)} MB · ${variant.fps} fps · ${gif}`,
 	);
 } finally {
 	vite?.stop();
