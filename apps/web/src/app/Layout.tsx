@@ -13,6 +13,7 @@ import {
 } from "../features/visualize/views";
 import { CountryColoursProvider } from "./countryColours";
 import { BrandMark, icons } from "./icons";
+import { SOURCE_URL } from "./links";
 import "./layout.css";
 import { type ThemeMode, useTheme } from "./theme";
 import { TOUCH_LAYOUT, useMediaQuery } from "./useMediaQuery";
@@ -181,11 +182,20 @@ export function Layout() {
 						<ThemeSwitch mode={theme} onChange={setTheme} />
 						<p
 							className="vp-local-note"
-							title="Your data never leaves this browser."
+							title="Your data stays in this browser; only page images and AI check details go to the AI you pick."
 						>
 							{icons.lock}
 							<span>Local only</span>
 						</p>
+						<a
+							className="vp-local-note vp-source-link"
+							href={SOURCE_URL}
+							target="_blank"
+							rel="noreferrer"
+						>
+							{icons.code}
+							<span>Source on GitHub</span>
+						</a>
 					</>
 				)
 			}

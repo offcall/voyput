@@ -1,5 +1,6 @@
 import { Card, Notice, PageHeader, PixelArt, Stack } from "@voyput/ui";
 import { useState } from "react";
+import { SOURCE_URL } from "../app/links";
 import { AiCard } from "./AiCard";
 import { ProfileCard } from "./ProfileCard";
 import { useSettings } from "./SettingsContext";
@@ -75,6 +76,12 @@ export function SettingsPage() {
 					</div>
 				</Card>
 			</div>
+			<p className="settings-source">
+				voyput is open source:{" "}
+				<a href={SOURCE_URL} target="_blank" rel="noreferrer">
+					github.com/offcall/voyput
+				</a>
+			</p>
 		</Stack>
 	);
 }

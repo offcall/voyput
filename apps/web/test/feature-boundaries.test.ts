@@ -13,6 +13,7 @@ const SHARED = [
 	"ai/",
 	"settings/SettingsContext",
 	"app/countryColours",
+	"app/links",
 	"app/servedScripts",
 	"app/useMediaQuery",
 ];

@@ -206,6 +206,14 @@
 	width: 13px;
 	height: 13px;
 }
+.vp-source-link {
+	cursor: pointer;
+	text-decoration: none;
+}
+.vp-source-link:hover,
+.vp-source-link:focus-visible {
+	color: var(--vp-text);
+}
 
 @media (max-width: 860px) {
 	.vp-local-note {

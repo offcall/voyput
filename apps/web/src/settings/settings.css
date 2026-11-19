@@ -17,3 +17,10 @@
 	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 	gap: var(--vp-space-3);
 }
+
+/* The link to the public source, under the cards. */
+.settings-source {
+	margin: 0;
+	font-size: var(--vp-text-sm);
+	color: var(--vp-muted);
+}

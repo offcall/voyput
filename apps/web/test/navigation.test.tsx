@@ -52,7 +52,7 @@ describe("collect, stays and insights navigation", () => {
 		renderApp("/collect/passports");
 		const note = await screen.findByText("Local only");
 		expect(note.parentElement?.getAttribute("title")).toBe(
-			"Your data never leaves this browser.",
+			"Your data stays in this browser; only page images and AI check details go to the AI you pick.",
 		);
 	});
 

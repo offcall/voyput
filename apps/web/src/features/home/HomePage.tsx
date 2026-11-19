@@ -10,6 +10,7 @@ import {
 } from "@voyput/ui";
 import { useState } from "react";
 import { localCommands } from "../../ai/local";
+import { SOURCE_URL } from "../../app/links";
 import type { Plan } from "../../data/plan/planProgress";
 import { saveSources } from "../../data/plan/sources";
 import { usePlan } from "../../data/plan/usePlan";
@@ -24,7 +25,6 @@ import "../collect/collect.css";
 import "./home.css";
 
 /** Where the source code lives. The one constant to change if the repository moves. */
-export const SOURCE_URL = "https://github.com/offcall/voyput";
 
 /**
  * Who reads the stamps. Each entry is one line in Privacy; a local engine is one

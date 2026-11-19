@@ -58,6 +58,12 @@ export const icons = {
 			<path d="M5 20V12M10 20V5M15 20v-9M20 20v-5M3.5 20h17" />
 		</Icon>
 	),
+	/** Angle brackets: the source code. */
+	code: (
+		<Icon>
+			<path d="m8.5 7.5-5 4.5 5 4.5M15.5 7.5l5 4.5-5 4.5" />
+		</Icon>
+	),
 	/** A padlock: data stays local. */
 	lock: (
 		<Icon>
