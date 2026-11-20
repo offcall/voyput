@@ -1,4 +1,5 @@
 import {
+	isIsoDate,
 	type LocationRow,
 	type Passport,
 	type PassportPhoto,
@@ -230,25 +231,45 @@ const listOf =
 	(check: Check): Check =>
 	(v) =>
 		Array.isArray(v) && v.every(check);
+/** The first field of `value` that fails its check; "" for a value that is not an object, null when all pass. */
+const badField = <T>(fields: Shape<T>, value: unknown): string | null => {
+	if (!isObject(value)) return "";
+	const bad = Object.entries(fields).find(
+		([key, check]) => !(check as Check)(value[key]),
+	);
+	return bad ? bad[0] : null;
+};
 const shape =
 	<T>(fields: Shape<T>) =>
 	(value: unknown): value is T =>
-		isObject(value) &&
-		Object.entries(fields).every(([key, check]) =>
-			(check as Check)(value[key]),
-		);
+		badField(fields, value) === null;
 
-const isPassport = shape<Passport>({
+/** A real calendar day, YYYY-MM-DD, as stamp, passport and stay dates are stored. */
+const day: Check = (v) => typeof v === "string" && isIsoDate(v);
+/** A timestamp that starts with a real calendar day, as photo locations are stored. */
+const dayTime: Check = (v) =>
+	typeof v === "string" && isIsoDate(v.slice(0, 10));
+const between =
+	(min: number, max: number): Check =>
+	(v) =>
+		num(v) && (v as number) >= min && (v as number) <= max;
+const countryCode: Check = (v) => typeof v === "string" && /^[A-Z]{2}$/.test(v);
+
+const passportFields: Shape<Passport> = {
 	id: str,
 	name: str,
-	validFrom: orNull(str),
-	validTo: orNull(str),
+	validFrom: orNull(day),
+	validTo: orNull(day),
 	createdAt: str,
-});
+};
 
 const BASE64_RE = /^[A-Za-z0-9+/]*={0,2}$/;
+/** Base64 of at least one byte: a photo without bytes cannot be shown. */
 const isBase64: Check = (v) =>
-	typeof v === "string" && v.length % 4 === 0 && BASE64_RE.test(v);
+	typeof v === "string" &&
+	v.length > 0 &&
+	v.length % 4 === 0 &&
+	BASE64_RE.test(v);
 
 const photoFields: Shape<PassportPhoto> = {
 	id: str,
@@ -259,29 +280,33 @@ const photoFields: Shape<PassportPhoto> = {
 	size: optional(num),
 	addedAt: str,
 };
-const isBackupPhoto = shape<BackupPhoto>({ ...photoFields, data: isBase64 });
+const backupPhotoFields: Shape<BackupPhoto> = {
+	...photoFields,
+	data: isBase64,
+};
 
-const isExtraction = shape<PhotoExtraction>({
+const extractionFields: Shape<PhotoExtraction> = {
 	photoId: str,
 	status: oneOf(["ok", "failed"]),
 	notes: str,
 	model: str,
 	seconds: num,
 	finishedAt: str,
-});
+};
 
 /** A number from 0 to 1, as stamp boxes are stored. */
 const unit: Check = (v) => typeof v === "number" && v >= 0 && v <= 1;
 
 const isTrue: Check = (v) => v === true;
-const isStamp = shape<Stamp>({
+const stampFields: Shape<Stamp> = {
 	id: str,
 	passportId: str,
 	photoId: str,
 	direction: oneOf(["entry", "exit", "unknown"]),
 	borderCrossing: oneOf(["car", "plane", "train", "ship", "foot", "unknown"]),
 	dateText: str,
-	date: orNull(str),
+	// Any real day, also one no traveller could have: stored as read (ADR 0044).
+	date: orNull(day),
 	country: orNull(str),
 	countryCode: orNull(str),
 	location: orNull(str),
@@ -299,32 +324,32 @@ const isStamp = shape<Stamp>({
 					isTrue(flag),
 			),
 	),
-	readDate: optional(orNull(str)),
+	readDate: optional(orNull(day)),
 	box: optional(
 		shape<StampBox>({ x: unit, y: unit, width: unit, height: unit }),
 	),
-});
+};
 
-const isLocation = shape<LocationRow>({
-	date: str,
-	lat: num,
-	lon: num,
-	countryCode: str,
+const locationFields: Shape<LocationRow> = {
+	date: dayTime,
+	lat: between(-90, 90),
+	lon: between(-180, 180),
+	countryCode,
 	country: str,
 	city: str,
 	source: str,
 	isVideo: bool,
 	filename: str,
 	uuid: str,
-});
+};
 
 const isEdge = shape<StayEdge>({
-	date: orNull(str),
+	date: orNull(day),
 	source: oneOf(["stamp", "photos", "estimated", "manual"]),
 	method: oneOf(TRAVEL_METHODS),
 	stampId: optional(str),
 });
-const isStay = shape<TravelStay>({
+const stayFields: Shape<TravelStay> = {
 	id: str,
 	countryCode: str,
 	place: str,
@@ -337,10 +362,12 @@ const isStay = shape<TravelStay>({
 	edited: optional(bool),
 	evidenceChanged: optional(bool),
 	sinceBirth: optional(bool),
-});
+};
 
-const isKv = (value: unknown): value is KvRecord =>
-	isObject(value) && typeof value.key === "string" && "value" in value;
+const kvFields: Shape<KvRecord> = {
+	key: str,
+	value: (v) => v !== undefined,
+};
 
 /** Primary key per table, to reject a file whose rows would collide. */
 const KEY_OF: Record<keyof BackupTables, string> = {
@@ -366,16 +393,17 @@ const ROW_NAME: Record<keyof BackupTables, string> = {
 function readTable<T>(
 	tables: Record<string, unknown>,
 	name: keyof BackupTables,
-	isRow: (value: unknown) => value is T,
+	fields: Shape<T>,
 ): T[] {
 	const rows = tables[name];
 	if (!Array.isArray(rows))
 		throw new BackupError(`The file has no "${name}" list.`);
 	const keys = new Set<unknown>();
 	rows.forEach((row: unknown, i) => {
-		if (!isRow(row))
+		const bad = badField(fields, row);
+		if (bad !== null)
 			throw new BackupError(
-				`The file is damaged: ${ROW_NAME[name]} ${i + 1} of ${rows.length} is not valid.`,
+				`The file is damaged: ${ROW_NAME[name]} ${i + 1} of ${rows.length} is not valid${bad ? ` (its "${bad}" is wrong)` : ""}.`,
 			);
 		const key = (row as Record<string, unknown>)[KEY_OF[name]];
 		if (keys.has(key))
@@ -385,6 +413,57 @@ function readTable<T>(
 		keys.add(key);
 	});
 	return rows as T[];
+}
+
+/**
+ * Throws for the first row that points at a row the file does not have: a
+ * page without its passport, a stamp without its passport or page, an
+ * extraction without its page, a stay without its stamps or photo locations.
+ * Without photos in the file, pages are not checked.
+ */
+function checkReferences(tables: BackupTables, includesPhotos: boolean): void {
+	const ids = <T>(rows: readonly T[], key: (row: T) => string) =>
+		new Set(rows.map(key));
+	const passports = ids(tables.passports, (p) => p.id);
+	const photos = ids(tables.photos, (p) => p.id);
+	const stamps = ids(tables.stamps, (s) => s.id);
+	const locations = ids(tables.locations, (l) => l.uuid);
+	const check = <T>(
+		name: keyof BackupTables,
+		rows: readonly T[],
+		missing: (row: T) => string | null,
+	) => {
+		rows.forEach((row, i) => {
+			const what = missing(row);
+			if (what)
+				throw new BackupError(
+					`The file is damaged: ${ROW_NAME[name]} ${i + 1} of ${rows.length} points to ${what} that is not in the file.`,
+				);
+		});
+	};
+	check("photos", tables.photos, (p) =>
+		passports.has(p.passportId) ? null : "a passport",
+	);
+	check("stamps", tables.stamps, (s) =>
+		!passports.has(s.passportId)
+			? "a passport"
+			: includesPhotos && !photos.has(s.photoId)
+				? "a page photo"
+				: null,
+	);
+	if (includesPhotos)
+		check("extractions", tables.extractions, (e) =>
+			photos.has(e.photoId) ? null : "a page photo",
+		);
+	check("stays", tables.stays, (s) =>
+		[...s.stampIds, s.arrival.stampId, s.departure.stampId].some(
+			(id) => id !== undefined && !stamps.has(id),
+		)
+			? "a stamp"
+			: s.photoIds.some((id) => !locations.has(id))
+				? "a photo location"
+				: null,
+	);
 }
 
 /**
@@ -423,18 +502,19 @@ export function parseBackup(text: string, dbVersion: number): Backup {
 		throw new BackupError("The file is damaged: it has no tables.");
 	const t = raw.tables;
 	const tables: BackupTables = {
-		passports: readTable(t, "passports", isPassport),
-		photos: readTable(t, "photos", isBackupPhoto),
-		extractions: readTable(t, "extractions", isExtraction),
-		stamps: readTable(t, "stamps", isStamp),
-		locations: readTable(t, "locations", isLocation),
-		stays: readTable(t, "stays", isStay),
-		kv: readTable(t, "kv", isKv),
+		passports: readTable(t, "passports", passportFields),
+		photos: readTable(t, "photos", backupPhotoFields),
+		extractions: readTable(t, "extractions", extractionFields),
+		stamps: readTable(t, "stamps", stampFields),
+		locations: readTable(t, "locations", locationFields),
+		stays: readTable(t, "stays", stayFields),
+		kv: readTable(t, "kv", kvFields),
 	};
 	if (!raw.includesPhotos && tables.photos.length > 0)
 		throw new BackupError(
 			"The file is damaged: it says it has no photos but lists some.",
 		);
+	checkReferences(tables, raw.includesPhotos);
 	return {
 		exportedAt: raw.exportedAt,
 		dbVersion,

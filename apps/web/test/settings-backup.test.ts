@@ -10,6 +10,7 @@ import {
 	restoreBackup,
 } from "../src/settings/backup";
 import { DEFAULT_SETTINGS, type Settings } from "../src/settings/settings";
+import { seedDemo } from "./fixtures/demo";
 
 // Synthetic data only: made-up ids, places and bytes.
 
@@ -285,6 +286,160 @@ describe("backup file", () => {
 		const text = typeof result === "string" ? result : JSON.stringify(result);
 		expect(() => parseBackup(text, db.verno)).toThrow(BackupError);
 		expect(() => parseBackup(text, db.verno)).toThrow(message);
+		expect(await snapshot(db)).toEqual(before);
+	});
+
+	it.each([
+		[
+			"a stamp date that is no calendar day",
+			"stamps",
+			1,
+			{ date: "2021-02-30" },
+			/stamp 2 of 5 is not valid \(its "date" is wrong\)/,
+		],
+		[
+			"a stamp date that is not a date",
+			"stamps",
+			1,
+			{ date: "soon" },
+			/stamp 2 of 5 is not valid/,
+		],
+		[
+			"a passport date that is no calendar day",
+			"passports",
+			0,
+			{ validFrom: "2020-13-01" },
+			/passport 1 of 1 .*"validFrom"/,
+		],
+		[
+			"a stay date that is no calendar day",
+			"stays",
+			0,
+			{ arrival: { ...stay.arrival, date: "2021-1-1" } },
+			/stay 1 of 1 .*"arrival"/,
+		],
+		[
+			"a location without a day",
+			"locations",
+			0,
+			{ date: "yesterday" },
+			/photo location 1 of 1 .*"date"/,
+		],
+		[
+			"a latitude out of range",
+			"locations",
+			0,
+			{ lat: 999 },
+			/photo location 1 of 1 .*"lat"/,
+		],
+		[
+			"a longitude out of range",
+			"locations",
+			0,
+			{ lon: -181 },
+			/photo location 1 of 1 .*"lon"/,
+		],
+		[
+			"empty photo bytes",
+			"photos",
+			0,
+			{ data: "" },
+			/page photo 1 of 2 .*"data"/,
+		],
+		[
+			"a page of a missing passport",
+			"photos",
+			1,
+			{ passportId: "p9" },
+			/page photo 2 of 2 points to a passport/,
+		],
+		[
+			"a stamp of a missing passport",
+			"stamps",
+			2,
+			{ passportId: "p9" },
+			/stamp 3 of 5 points to a passport/,
+		],
+		[
+			"a stamp on a missing page",
+			"stamps",
+			3,
+			{ photoId: "ph9" },
+			/stamp 4 of 5 points to a page photo/,
+		],
+		[
+			"an extraction of a missing page",
+			"extractions",
+			0,
+			{ photoId: "ph9" },
+			/extraction result 1 of 1 points to a page photo/,
+		],
+		[
+			"a stay on a missing stamp",
+			"stays",
+			0,
+			{ stampIds: ["s9"] },
+			/stay 1 of 1 points to a stamp/,
+		],
+		[
+			"a stay edge on a missing stamp",
+			"stays",
+			0,
+			{ departure: { ...stay.departure, stampId: "s9" } },
+			/stay 1 of 1 points to a stamp/,
+		],
+		[
+			"a stay on a missing photo location",
+			"stays",
+			0,
+			{ photoIds: ["u9"] },
+			/stay 1 of 1 points to a photo location/,
+		],
+	] as const)(
+		"rejects %s and keeps the old data",
+		async (_name, table, row, patch, message) => {
+			const db = await filledDb();
+			const before = await snapshot(db);
+			const raw = JSON.parse(await exportText(db));
+			const rows = [...raw.tables[table]];
+			rows[row] = { ...rows[row], ...patch };
+			const text = JSON.stringify({
+				...raw,
+				tables: { ...raw.tables, [table]: rows },
+			});
+			expect(() => parseBackup(text, db.verno)).toThrow(BackupError);
+			expect(() => parseBackup(text, db.verno)).toThrow(message);
+			expect(await snapshot(db)).toEqual(before);
+		},
+	);
+
+	it("keeps stamps on pages and extractions that a file without photos leaves out", () => {
+		const raw = {
+			format: "voyput-backup",
+			version: 1,
+			exportedAt: NOW.toISOString(),
+			dbVersion: 5,
+			includesPhotos: false,
+			settings: {},
+			tables: {
+				passports: [passport],
+				photos: [],
+				extractions: [],
+				stamps: [stamp(1)],
+				locations: [],
+				stays: [],
+				kv: [],
+			},
+		};
+		expect(parseBackup(JSON.stringify(raw), 5).tables.stamps).toHaveLength(1);
+	});
+
+	it("round trips the demo library", async () => {
+		const db = new VoyputDb(`backup-${++dbCount}`);
+		await seedDemo(db);
+		const before = await snapshot(db);
+		const backup = parseBackup(await exportText(db), db.verno);
+		await restoreBackup(db, backup);
 		expect(await snapshot(db)).toEqual(before);
 	});
 

@@ -53,8 +53,9 @@ async function dbWithStamps(ids: string[]): Promise<VoyputDb> {
 
 async function backupFile(ids: string[]): Promise<File> {
 	const source = await dbWithStamps(ids);
+	// Without photos: the stamps' page is not in this database either.
 	const blob = await exportBackup(source, {
-		includePhotos: true,
+		includePhotos: false,
 		settings: { ...DEFAULT_SETTINGS, locationWindowDays: 21 },
 		now: new Date("2026-02-03T00:00:00Z"),
 	});
