@@ -63,6 +63,8 @@ RULES
 - country: the country that issued the stamp, not the passport's country. English names.
 - countryCode: ISO 3166-1 alpha-2 uppercase (Spain is "ES" even though its stamp says "E").
 - confidence: number from 0 to 100.
+- box: where the stamp is on the photo as you see it, [x, y, width, height] as fractions
+  0..1 of the photo's width and height, x and y from the top-left corner. Cover the whole stamp frame.
 - If the page has no border stamps, return "stamps": []. Never invent examples.
 
 Return ONLY this JSON object, without markdown:
@@ -78,6 +80,7 @@ Return ONLY this JSON object, without markdown:
       "countryCode": "UA",
       "location": "Rava-Ruska road checkpoint",
       "confidence": 90,
+      "box": [0.08, 0.12, 0.35, 0.22],
       "notes": "short evidence or uncertainty"
     }
   ]

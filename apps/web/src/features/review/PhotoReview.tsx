@@ -9,13 +9,20 @@ import {
 	type Stamp,
 } from "@voyput/core";
 import { Button, EmptyState, Notice, PixelArt } from "@voyput/ui";
-import { type Dispatch, type SetStateAction, useMemo } from "react";
+import {
+	type Dispatch,
+	type SetStateAction,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import { useAi } from "../../ai/AiContext";
 import { aiSetupNeeded } from "../../ai/client";
 import type { StaysUndo } from "../../data/evidenceChange";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
 import { describeFailure } from "../extract/failure";
+import { photoBoxes } from "./boxes";
 import { errorMessage } from "./format";
 import { PhotoList } from "./PhotoList";
 import { PhotoViewer } from "./PhotoViewer";
@@ -55,6 +62,7 @@ export function PhotoReview({
 	rescans,
 	setRescans,
 	onNext,
+	onOpenStamp,
 }: {
 	records: ReviewRecords;
 	index: PhotoIndex;
@@ -83,10 +91,19 @@ export function PhotoReview({
 	setRescans: Dispatch<SetStateAction<Record<string, RescanEntry>>>;
 	/** Next in the queue from a stamp; missing when nothing is left to check. */
 	onNext: ((stampId: string) => void) | undefined;
+	/** Opens a stamp's card and scrolls to it, as from the timeline. */
+	onOpenStamp: (stamp: Stamp) => void;
 }) {
 	const db = useDb();
 	const ai = useAi();
 	const { settings } = useSettings();
+	/** The card under the pointer, and the card last opened: their boxes stand out. */
+	const [hoveredId, setHoveredId] = useState<string | null>(null);
+	const [openedId, setOpenedId] = useState<string | null>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: each focus, even of the same stamp
+	useEffect(() => {
+		if (focusStampId) setOpenedId(focusStampId);
+	}, [focusStampId, focusSeq]);
 
 	const countryCodes = useMemo(() => {
 		const map = countryNamesToCodes();
@@ -170,7 +187,15 @@ export function PhotoReview({
 						) : null}
 						{photo.name}
 					</h2>
-					<PhotoViewer photo={photo} />
+					<PhotoViewer
+						photo={photo}
+						boxes={photoBoxes(items)}
+						activeStampId={hoveredId ?? openedId}
+						onPickStamp={(id) => {
+							const picked = items.find((item) => item.stamp.id === id);
+							if (picked) onOpenStamp(picked.stamp);
+						}}
+					/>
 					<RescanPanel
 						entry={rescans[photo.id] ?? IDLE_RESCAN}
 						update={(change) =>
@@ -255,11 +280,17 @@ export function PhotoReview({
 							countryCodes={countryCodes}
 							countryNames={countryNames}
 							validation={validations[item.stamp.id]}
-							onToggle={() =>
+							onToggle={() => {
+								if (!isExpanded(item.stamp)) setOpenedId(item.stamp.id);
 								setExpanded((e) => ({
 									...e,
 									[item.stamp.id]: !isExpanded(item.stamp),
-								}))
+								}));
+							}}
+							onHover={(on) =>
+								setHoveredId((id) =>
+									on ? item.stamp.id : id === item.stamp.id ? null : id,
+								)
 							}
 							onEdit={(edit) => {
 								// Marking a stamp reviewed folds it away; unmarking opens it.

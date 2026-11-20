@@ -50,3 +50,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0044](0044-implausible-stamp-dates-read-as-undated.md) | Implausible Stamp Dates Read as Undated | Accepted |
 | [0045](0045-photo-check-looks-one-side-of-a-crossing.md) | Photo Check Looks One Side of a Crossing | Accepted (amends 0030) |
 | [0046](0046-photo-check-suggests-a-misread-year.md) | Photo Check Suggests a Misread Year | Accepted (amends 0030, 0045) |
+| [0047](0047-stamp-boxes.md) | Stamp Boxes | Accepted |

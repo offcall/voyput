@@ -68,6 +68,7 @@ export {
 	type ValidateStamp,
 } from "./review/prompts";
 export * from "./route";
+export { parseBox, unrotateBox, unrotateStampBox } from "./stamps/box";
 export { mapConcurrent } from "./stamps/concurrency";
 export {
 	type DateRange,
@@ -92,6 +93,7 @@ export type {
 	NoteKind,
 	PhotoExtraction,
 	Stamp,
+	StampBox,
 } from "./stamps/types";
 export {
 	type Conflict,

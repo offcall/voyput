@@ -470,11 +470,64 @@
 .review-viewer-frame[data-zoomed]:active {
 	cursor: grabbing;
 }
-.review-viewer-frame img {
+.review-viewer-page {
 	position: absolute;
 	top: 50%;
 	left: 50%;
+}
+.review-viewer-page img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	max-width: inherit;
+	max-height: inherit;
 	user-select: none;
+}
+/* A stamp's outline; lines and number keep their size at any zoom. */
+.review-stamp-box {
+	--review-box: rgb(255 255 255 / 0.85);
+	position: absolute;
+	padding: 0;
+	background: transparent;
+	border: calc(1.5px / var(--review-zoom, 1)) solid var(--review-box);
+	border-radius: calc(3px / var(--review-zoom, 1));
+	box-shadow: 0 0 0 calc(1px / var(--review-zoom, 1)) rgb(0 0 0 / 0.45);
+	cursor: pointer;
+}
+.review-stamp-box[data-tone="reviewed"] {
+	--review-box: var(--vp-good);
+}
+.review-stamp-box[data-tone="attention"] {
+	--review-box: var(--vp-warn);
+}
+.review-stamp-box[data-tone="problem"] {
+	--review-box: var(--vp-bad);
+}
+.review-stamp-box:hover,
+.review-stamp-box:focus-visible,
+.review-stamp-box[data-active] {
+	border-width: calc(3px / var(--review-zoom, 1));
+	background: color-mix(in srgb, var(--review-box) 18%, transparent);
+	outline: none;
+}
+.review-stamp-box-number {
+	position: absolute;
+	top: 0;
+	left: 0;
+	min-width: 18px;
+	padding: 1px 4px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 16px;
+	color: #111;
+	text-align: center;
+	background: var(--review-box);
+	border-radius: 3px;
+	/* Upright on a turned photo, turned about its own centre. */
+	transform: scale(calc(1 / var(--review-zoom, 1))) translate(50%, 50%)
+		rotate(var(--review-turn, 0deg)) translate(-50%, -50%);
+	transform-origin: top left;
+	pointer-events: none;
 }
 .review-viewer-tools {
 	position: absolute;

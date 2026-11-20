@@ -1,3 +1,4 @@
+import { parseBox } from "./box";
 import {
 	type DateRange,
 	dateProblem,
@@ -20,6 +21,7 @@ export type ReadStamp = Pick<
 	| "confidence"
 	| "notes"
 	| "problem"
+	| "box"
 >;
 
 const DIRECTIONS: readonly string[] = ["entry", "exit", "unknown"];
@@ -83,6 +85,7 @@ const readStamp = (
 	const date =
 		typeof raw.date === "string" && isPlausibleDay(raw.date) ? raw.date : null;
 	const dateText = typeof raw.dateText === "string" ? raw.dateText : "";
+	const box = parseBox(raw.box);
 	const problems = [
 		...stampProblems(raw),
 		dateProblem(date, dateText, range) ?? "",
@@ -102,6 +105,7 @@ const readStamp = (
 		confidence: confidenceOf(raw.confidence),
 		notes: typeof raw.notes === "string" ? raw.notes : "",
 		problem: problems.length ? problems.join("; ") : null,
+		...(box ? { box } : {}),
 	};
 };
 

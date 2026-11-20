@@ -160,6 +160,7 @@ export function StampCard({
 	onDismiss,
 	onValidate,
 	onNext,
+	onHover,
 }: {
 	item: CheckedStamp;
 	number: number;
@@ -185,6 +186,8 @@ export function StampCard({
 	onValidate: (() => void) | undefined;
 	/** The queue's Next from this stamp; shown beside the main action on phones only. Missing when nothing is left. */
 	onNext?: (() => void) | undefined;
+	/** The pointer entered (true) or left (false) the card. */
+	onHover?: (on: boolean) => void;
 }) {
 	const { stamp, check } = item;
 	const level = severity(item);
@@ -220,6 +223,8 @@ export function StampCard({
 			data-reviewed={stamp.reviewed || undefined}
 			data-focused={focusSeq !== null || undefined}
 			aria-label={label}
+			onPointerEnter={() => onHover?.(true)}
+			onPointerLeave={() => onHover?.(false)}
 		>
 			<div className="review-stamp-summary">
 				<button

@@ -319,6 +319,7 @@ export function ReviewPage() {
 										validations={validations}
 										setValidations={setValidations}
 										onNext={queue.length > 0 ? goNext : undefined}
+										onOpenStamp={(stamp) => openStamp(stamp)}
 									/>
 								</>
 							),

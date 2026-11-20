@@ -36,6 +36,16 @@ export interface Stamp {
 	 * absent until the date is first changed. Review's reset returns to it.
 	 */
 	readDate?: string | null;
+	/** Where the stamp is on the stored photo (unturned), as read by the model; absent on older and hand-added stamps. */
+	box?: StampBox;
+}
+
+/** A part of a photo, in 0..1 of its width and height from the top-left corner. */
+export interface StampBox {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
 }
 
 /** Review warnings a user can hide: our date check and the location history check. */

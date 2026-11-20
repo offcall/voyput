@@ -1,4 +1,4 @@
-import { rotateBy } from "@voyput/core";
+import { rotateBy, type StampBox } from "@voyput/core";
 import { Button } from "@voyput/ui";
 import {
 	type CSSProperties,
@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useDb } from "../../db/DbContext";
 import type { PhotoRecord } from "../../db/db";
+import type { BoxTone } from "./boxes";
 import { setPhotoRotation } from "./reviewStore";
 
 const MAX_SCALE = 8;
@@ -34,15 +35,46 @@ const middle = (a: Point, b: Point): Point => ({
 	y: (a.y + b.y) / 2,
 });
 
-/** The page photo, fitted to its frame and never cropped; zoom, pan and rotate. */
-export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
+/** One stamp's outline on the photo. */
+export interface PhotoBox {
+	stampId: string;
+	/** The stamp card's number. */
+	number: number;
+	box: StampBox;
+	tone: BoxTone;
+}
+/** Moving less than this after pressing on the photo is a click, not a pan. */
+const CLICK_PX = 4;
+
+/**
+ * The page photo, fitted to its frame and never cropped; zoom, pan and rotate.
+ * Stamp boxes sit on the photo and turn, zoom and pan with it.
+ */
+export function PhotoViewer({
+	photo,
+	boxes = [],
+	activeStampId = null,
+	onPickStamp,
+}: {
+	photo: PhotoRecord;
+	boxes?: readonly PhotoBox[];
+	/** The stamp whose card is hovered or open: its box stands out. */
+	activeStampId?: string | null;
+	onPickStamp?: (stampId: string) => void;
+}) {
 	const db = useDb();
 	const frameRef = useRef<HTMLDivElement>(null);
 	const [url, setUrl] = useState<string | null>(null);
 	const [natural, setNatural] = useState({ w: 0, h: 0 });
 	const [frame, setFrame] = useState({ w: 0, h: 0 });
 	const [view, setView] = useState<View>(FITTED);
-	const drag = useRef<{ x: number; y: number } | null>(null);
+	/** A press that pans once it moves; the pointer is captured only then, so a still press clicks a box. */
+	const drag = useRef<{
+		x: number;
+		y: number;
+		start: Point;
+		captured: boolean;
+	} | null>(null);
 	/** Fingers on the photo, in px from the frame centre. */
 	const pointers = useRef(new Map<number, Point>());
 	/** A two-finger pinch: where it started and the view then. */
@@ -132,8 +164,12 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 			return;
 		}
 		if (pointers.current.size > 2 || view.scale <= 1) return;
-		event.currentTarget.setPointerCapture?.(event.pointerId);
-		drag.current = { x: event.clientX, y: event.clientY };
+		drag.current = {
+			x: event.clientX,
+			y: event.clientY,
+			start: { x: event.clientX, y: event.clientY },
+			captured: false,
+		};
 	};
 	const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
 		if (pointers.current.has(event.pointerId))
@@ -160,7 +196,11 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 		}
 		const last = drag.current;
 		if (!last) return;
-		drag.current = { x: event.clientX, y: event.clientY };
+		const at = { x: event.clientX, y: event.clientY };
+		const captured = last.captured || distance(last.start, at) > CLICK_PX;
+		if (captured && !last.captured)
+			event.currentTarget.setPointerCapture?.(event.pointerId);
+		drag.current = { ...at, start: last.start, captured };
 		setView((current) =>
 			clamp({
 				...current,
@@ -228,25 +268,52 @@ export function PhotoViewer({ photo }: { photo: PhotoRecord }) {
 				}}
 			>
 				{url ? (
-					<img
-						src={url}
-						alt={photo.name}
-						draggable={false}
-						data-rotation={photo.rotation}
-						onLoad={(event) =>
-							setNatural({
-								w: event.currentTarget.naturalWidth,
-								h: event.currentTarget.naturalHeight,
-							})
+					<div
+						className="review-viewer-page"
+						style={
+							{
+								width: fit ? natural.w * fit : undefined,
+								height: fit ? natural.h * fit : undefined,
+								maxWidth: fit ? undefined : "100%",
+								maxHeight: fit ? undefined : "100%",
+								transform: `translate(-50%, -50%) translate(${view.x}px, ${view.y}px) scale(${view.scale}) rotate(${photo.rotation}deg)`,
+								"--review-zoom": view.scale,
+								"--review-turn": `${-photo.rotation}deg`,
+							} as CSSProperties
 						}
-						style={{
-							width: fit ? natural.w * fit : undefined,
-							height: fit ? natural.h * fit : undefined,
-							maxWidth: fit ? undefined : "100%",
-							maxHeight: fit ? undefined : "100%",
-							transform: `translate(-50%, -50%) translate(${view.x}px, ${view.y}px) scale(${view.scale}) rotate(${photo.rotation}deg)`,
-						}}
-					/>
+					>
+						<img
+							src={url}
+							alt={photo.name}
+							draggable={false}
+							data-rotation={photo.rotation}
+							onLoad={(event) =>
+								setNatural({
+									w: event.currentTarget.naturalWidth,
+									h: event.currentTarget.naturalHeight,
+								})
+							}
+						/>
+						{boxes.map(({ stampId, number, box, tone }) => (
+							<button
+								key={stampId}
+								type="button"
+								className="review-stamp-box"
+								data-tone={tone}
+								data-active={stampId === activeStampId || undefined}
+								aria-label={`Show stamp ${number}`}
+								style={{
+									left: `${box.x * 100}%`,
+									top: `${box.y * 100}%`,
+									width: `${box.width * 100}%`,
+									height: `${box.height * 100}%`,
+								}}
+								onClick={() => onPickStamp?.(stampId)}
+							>
+								<span className="review-stamp-box-number">{number}</span>
+							</button>
+						))}
+					</div>
 				) : null}
 			</div>
 			<div className="review-viewer-tools">

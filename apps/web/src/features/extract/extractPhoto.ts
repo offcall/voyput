@@ -4,6 +4,7 @@ import {
 	type PhotoExtraction,
 	parsePhotoResponse,
 	type Stamp,
+	unrotateStampBox,
 } from "@voyput/core";
 import { aiModelLabel } from "../../ai/client";
 import type { AiClient, AiSettings } from "../../ai/openrouter";
@@ -51,7 +52,7 @@ export async function extractPhoto(
 		});
 		const result = parsePhotoResponse(answer.text, range);
 		const stamps: Stamp[] = result.stamps.map((read) => ({
-			...read,
+			...unrotateStampBox(read, photo.rotation),
 			id: crypto.randomUUID(),
 			passportId: passport.id,
 			photoId: photo.id,

@@ -11,6 +11,7 @@ import {
 	type RescanExistingStamp,
 	type Stamp,
 	type StampCheck,
+	unrotateStampBox,
 	VALIDATE_SYSTEM,
 	type ValidateResult,
 } from "@voyput/core";
@@ -66,5 +67,8 @@ export async function rescanPhoto(
 		text: buildRescanText(photo.name, stamps.map(existingOf), hint),
 		image: { blob: photo.blob, rotation: photo.rotation },
 	});
-	return missedStamps(parsePhotoResponse(answer.text, range).stamps, stamps);
+	const found = parsePhotoResponse(answer.text, range).stamps.map((read) =>
+		unrotateStampBox(read, photo.rotation),
+	);
+	return missedStamps(found, stamps);
 }
