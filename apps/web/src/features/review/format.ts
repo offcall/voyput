@@ -76,6 +76,14 @@ export const formatDayRange = (start: string, end: string): string => {
 	return `${a.day} ${a.month} – ${formatDay(end)}`;
 };
 
-/** Free text (notes, AI answers) with every YYYY-MM-DD date written as `formatDay` does. */
+/**
+ * Free text (notes, AI answers) with every YYYY-MM-DD date written as
+ * `formatDay` does, and "from <date> to <date>" as one `formatDayRange`.
+ */
 export const formatDatesIn = (text: string): string =>
-	text.replace(/\b\d{4}-\d{2}-\d{2}\b/g, (iso) => formatDay(iso));
+	text
+		.replace(
+			/\bfrom (\d{4}-\d{2}-\d{2}) to (\d{4}-\d{2}-\d{2})\b/g,
+			(_, start: string, end: string) => formatDayRange(start, end),
+		)
+		.replace(/\b\d{4}-\d{2}-\d{2}\b/g, (iso) => formatDay(iso));

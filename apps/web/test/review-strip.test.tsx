@@ -46,6 +46,9 @@ describe("Review date format", () => {
 		expect(formatDatesIn("Photos on 2023-04-26 show SG (not 2023-4-26)")).toBe(
 			"Photos on 26 Apr 2023 show SG (not 2023-4-26)",
 		);
+		expect(
+			formatDatesIn("Maybe 2017? Photos in US from 2017-08-12 to 2017-08-15"),
+		).toBe("Maybe 2017? Photos in US 12 Aug – 15 Aug 2017");
 	});
 });
 
