@@ -6,6 +6,9 @@
  *   node scripts/model-trial/run.mjs --env ../.env --out /tmp/trial \
  *     --models google/gemini-3.8-flash --pages sample-01.jpg,sample-02.jpg
  *
+ * --dir reads the pages from another folder (same file names), e.g. the same
+ * pages at another size.
+ *
  * Answers are cached in --out: a rerun only asks for what is missing, and
  * without --pages it prints the table only. Spending stops before a call
  * could take the trial past --budget (USD, counted across reruns).
@@ -19,7 +22,7 @@ import { createOpenRouterClient } from "../../apps/web/src/ai/openrouter.ts";
 import { GROUND_TRUTH } from "./groundTruth.ts";
 import { addScores, EMPTY_SCORE, type PageScore, scorePage } from "./score.ts";
 
-const PAGES_DIR = join(import.meta.dirname, "../../apps/web/public/demo");
+const DEMO_DIR = join(import.meta.dirname, "../../apps/web/public/demo");
 /** The sample pages carry no passport validity, so no date range is given. */
 const RANGE = { from: null, to: null };
 /** Assumed worst cost of one call until a model's first answer shows the real one. */
@@ -42,6 +45,7 @@ const { values } = parseArgs({
 		pages: { type: "string", default: "" },
 		budget: { type: "string", default: "0.5" },
 		effort: { type: "string", default: "medium" },
+		dir: { type: "string", default: DEMO_DIR },
 	},
 });
 if (!values.out || !values.models)
@@ -50,6 +54,7 @@ const out = values.out;
 const models = values.models.split(",");
 const pages = values.pages ? values.pages.split(",") : [];
 const budget = Number(values.budget);
+const pagesDir = values.dir;
 const efforts = ["low", "medium", "high"] as const;
 const effort = (() => {
 	const found = efforts.find((e) => e === values.effort);
@@ -115,7 +120,7 @@ const client = createOpenRouterClient({
 
 async function ask(model: string, file: string, key: string): Promise<Answer> {
 	const started = performance.now();
-	const blob = new Blob([readFileSync(join(PAGES_DIR, file))], {
+	const blob = new Blob([readFileSync(join(pagesDir, file))], {
 		type: "image/jpeg",
 	});
 	const seconds = () => (performance.now() - started) / 1000;

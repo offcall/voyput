@@ -46,7 +46,7 @@ No data at hand: demo passport inside the app.
 
 - Everything in this browser (IndexedDB). No account, no voyput server, no analytics. After the first passport photo or location file, voyput asks the browser once to keep the data when space runs low; Settings > Your data shows whether it does.
 - Backup: Settings > Your data exports everything to one JSON file (passport photos optional, no key or pairing token) and imports it on another browser, replacing what is there ([ADR 0048](docs/adr/0048-backup-file-format.md)).
-- Sent only to the AI you pick, with your key or subscription: page images. Validate with AI also sends that stamp's fields and the countries and dates of nearby photo locations (no coordinates); Rescan with AI the stamps already read from that page.
+- Sent only to the AI you pick, with your key or subscription: page images, scaled down to at most 2048 px on the long side (the original stays here; [ADR 0049](docs/adr/0049-downscale-pages-sent-to-the-model.md)). Validate with AI also sends that stamp's fields and the countries and dates of nearby photo locations (no coordinates); Rescan with AI the stamps already read from that page.
 - Photo locations CSV from your Mac: copy the command from Collect > iPhone photo locations (download, check SHA-256, run; [`tools/photos-export`](tools/photos-export)). Plain sh + macOS sqlite3, reads Photos library locally, uploads nothing.
 
 ## Dev

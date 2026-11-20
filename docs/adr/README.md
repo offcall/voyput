@@ -33,7 +33,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Superseded by 0033 |
 | [0028](0028-phone-shell-and-sheet.md) | Phone Shell and Bottom Sheet | Accepted |
 | [0029](0029-realistic-demo-passport.md) | Realistic Demo Passport | Accepted; Review part superseded by 0030 |
-| [0030](0030-day-aware-photo-location-check.md) | Day-Aware Photo Location Check | Accepted; which side of the stamp warns amended by 0044 |
+| [0030](0030-day-aware-photo-location-check.md) | Day-Aware Photo Location Check | Accepted; which side of the stamp warns amended by 0045 and 0046 |
 | [0031](0031-stays-flag-changed-evidence.md) | Stays Flag Changed Evidence | Accepted |
 | [0032](0032-codex-on-by-default.md) | Codex On by Default | Accepted |
 | [0033](0033-photo-export-in-plain-sh.md) | Photo Export in Plain sh | Accepted; run command amended by 0035, outline source by 0037, library access by 0041 |
@@ -52,3 +52,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0046](0046-photo-check-suggests-a-misread-year.md) | Photo Check Suggests a Misread Year | Accepted (amends 0030, 0045) |
 | [0047](0047-stamp-boxes.md) | Stamp Boxes | Accepted |
 | [0048](0048-backup-file-format.md) | Backup File Format | Accepted |
+| [0049](0049-downscale-pages-sent-to-the-model.md) | Downscale Pages Sent to the Model | Proposed |
