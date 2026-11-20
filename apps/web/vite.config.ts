@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin, transformWithOxc } from "vite";
 
@@ -95,10 +97,56 @@ export function scriptHashes(): Plugin {
 	};
 }
 
+const LICENSES_FILE = "third-party-licenses.txt";
+const LIBHEIF = new URL(
+	".",
+	pathToFileURL(
+		createRequire(import.meta.url).resolve("libheif-js/package.json"),
+	),
+);
+
+/**
+ * The libheif-js section of the licence file. Vite collects licences of the
+ * main bundle only, and libheif-js runs in the HEIC worker (ADR 0052).
+ */
+export function libheifLicenses(): string {
+	const read = (path: string) =>
+		readFileSync(new URL(path, LIBHEIF), "utf8").trim();
+	const { version, license } = JSON.parse(read("package.json")) as {
+		version: string;
+		license: string;
+	};
+	return [
+		`\n## libheif-js - ${version} (${license})\n`,
+		"Runs in the HEIC photo worker (`assets/heic.worker-*.js`, with the package's unmodified `libheif.wasm` as `assets/libheif-*.wasm`). Source: https://github.com/catdad-experiments/libheif-js, built from libheif: https://github.com/strukturag/libheif\n",
+		`${read("LICENSE")}\n`,
+		`libheif's own notice, from \`libheif-wasm/LICENSE\`:\n\n${read("libheif-wasm/LICENSE")}\n`,
+	].join("\n");
+}
+
+/** Adds the HEIC worker's libheif-js licence to the file Vite writes. */
+function workerLicenses(): Plugin {
+	return {
+		name: "worker-licenses",
+		apply: "build",
+		writeBundle({ dir }) {
+			const file = join(dir ?? "dist", LICENSES_FILE);
+			if (!existsSync(file)) this.error(`${LICENSES_FILE} was not written`);
+			appendFileSync(file, libheifLicenses());
+		},
+	};
+}
+
 export default defineConfig({
-	plugins: [react(), localEngineScript(), photoExportScript(), scriptHashes()],
+	plugins: [
+		react(),
+		localEngineScript(),
+		photoExportScript(),
+		scriptHashes(),
+		workerLicenses(),
+	],
 	// The parse worker loads the outlines chunk the main-thread fallback uses (ADR 0040).
 	worker: { format: "es" },
 	// Licence texts of the npm packages in the client bundle (THIRD_PARTY.md).
-	build: { license: { fileName: "third-party-licenses.txt" } },
+	build: { license: { fileName: LICENSES_FILE } },
 });

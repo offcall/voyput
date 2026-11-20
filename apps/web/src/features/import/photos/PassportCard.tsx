@@ -1,9 +1,10 @@
-import { type Passport, SUPPORTED_PHOTO_TYPES } from "@voyput/core";
+import type { Passport } from "@voyput/core";
 import { Button, Card, Dialog, Dropzone, Menu, Notice } from "@voyput/ui";
 import { useCallback, useState } from "react";
 import { useLiveQuery } from "../../../data/useLiveQuery";
 import { useDb } from "../../../db/DbContext";
 import type { PhotoRecord } from "../../../db/db";
+import { isAppleMobile, photoAccept } from "./heic";
 import { PassportForm } from "./PassportForm";
 import { PhotoThumb } from "./PhotoThumb";
 import {
@@ -30,7 +31,9 @@ export function PassportCard({ passport }: { passport: Passport }) {
 	const [added, setAdded] = useState<AddPhotosResult>({
 		rejected: [],
 		duplicates: [],
+		failed: [],
 	});
+	const [converting, setConverting] = useState(0);
 	const [editing, setEditing] = useState(false);
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [photoToDelete, setPhotoToDelete] = useState<PhotoRecord | null>(null);
@@ -72,12 +75,23 @@ export function PassportCard({ passport }: { passport: Passport }) {
 			}
 		>
 			<div className="import-messages">
+				{converting > 0 ? (
+					<Notice role="status">
+						Converting {converting} HEIC {converting === 1 ? "photo" : "photos"}
+						…
+					</Notice>
+				) : null}
 				{added.rejected.length > 0 ? (
 					<Notice tone="bad" role="alert">
-						Not added, only JPEG and PNG are supported:{" "}
+						Not added, only JPEG, PNG and HEIC are supported:{" "}
 						{added.rejected.join(", ")}
 					</Notice>
 				) : null}
+				{added.failed.map(({ name, reason }) => (
+					<Notice key={name} tone="bad" role="alert">
+						Could not convert {name} to JPEG: {reason}
+					</Notice>
+				))}
 				{added.duplicates.length > 0 ? (
 					<Notice tone="warn" role="status">
 						Already added: {added.duplicates.join(", ")}
@@ -110,13 +124,17 @@ export function PassportCard({ passport }: { passport: Passport }) {
 				))}
 				<li>
 					<Dropzone
-						accept={SUPPORTED_PHOTO_TYPES.join(",")}
+						accept={photoAccept(isAppleMobile(navigator))}
 						multiple
 						label={`Add page photos to ${passport.name}`}
-						hint="JPEG or PNG · drop or click"
+						hint="JPEG, PNG or HEIC · drop or click"
 						onFiles={(files) =>
 							run("add the photos", async () =>
-								setAdded(await addPhotos(db, passport.id, files)),
+								setAdded(
+									await addPhotos(db, passport.id, files, {
+										onConverting: setConverting,
+									}),
+								),
 							)
 						}
 					/>

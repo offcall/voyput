@@ -25,7 +25,7 @@ Photo locations need no AI.
 
 ## How it works
 
-1. Add photos of passport stamp pages, iPhone photo locations CSV, or both.
+1. Add photos of passport stamp pages (JPEG, PNG or iPhone HEIC, turned into JPEG in your browser: [ADR 0052](docs/adr/0052-heic-photos-to-jpeg-in-the-browser.md)), iPhone photo locations CSV, or both.
 2. AI reads stamps: country, date, direction. You check each against the page and your photo locations.
 3. Get one-country stays. Edit, split, approve.
 4. See Journey replay, map, calendar, stats.

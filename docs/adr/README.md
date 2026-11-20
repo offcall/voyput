@@ -6,7 +6,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | --- | --- | --- |
 | [0001](0001-use-architecture-decision-records.md) | Use Architecture Decision Records | Accepted |
 | [0002](0002-toolchain.md) | Toolchain | Accepted; module resolution superseded by 0004; dev runtime minimum amended by 0043 |
-| [0003](0003-client-only-web-app.md) | Client-Only Web App | Accepted |
+| [0003](0003-client-only-web-app.md) | Client-Only Web App | Accepted; no HEIC conversion superseded by 0052 |
 | [0004](0004-workspace-layout.md) | Workspace Layout | Accepted |
 | [0005](0005-ui-kit.md) | UI Kit | Accepted |
 | [0006](0006-routing-and-state.md) | Routing and State | Accepted; hash history superseded by 0013; section state amended by 0038 |
@@ -55,3 +55,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0049](0049-downscale-pages-sent-to-the-model.md) | Downscale Pages Sent to the Model | Accepted |
 | [0050](0050-several-location-files.md) | Several Location Files | Accepted |
 | [0051](0051-optional-assumed-home.md) | Optional Assumed Home | Accepted (partly supersedes 0022) |
+| [0052](0052-heic-photos-to-jpeg-in-the-browser.md) | HEIC Photos to JPEG in the Browser | Accepted (partly supersedes 0003) |

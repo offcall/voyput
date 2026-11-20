@@ -1,4 +1,5 @@
 import {
+	isHeifPhoto,
 	type Passport,
 	type PassportPhoto,
 	photoMimeType,
@@ -7,6 +8,7 @@ import {
 import { staysAfterEvidenceChange } from "../../../data/evidenceChange";
 import { keepStorageOnce } from "../../../data/storageKeeper";
 import type { PhotoRecord, VoyputDb } from "../../../db/db";
+import { createHeicConverter, type HeicConverter } from "./heic";
 
 export interface PassportInput {
 	name: string;
@@ -112,19 +114,36 @@ export async function listPhotos(
 }
 
 export interface AddPhotosResult {
-	/** Names of files that are not JPEG or PNG. */
+	/** Names of files that are not JPEG, PNG or HEIC/HEIF. */
 	rejected: string[];
 	/** Names of files this passport already has (same name and size). */
 	duplicates: string[];
+	/** HEIC/HEIF files that could not be turned into JPEG, with the reason. */
+	failed: { name: string; reason: string }[];
 }
 
-/** Stores the new JPEG/PNG files and reports the ones it skipped. */
+export interface AddPhotosOptions {
+	/** Called with the number of HEIC/HEIF photos before converting them, and with 0 when done. */
+	onConverting?: (count: number) => void;
+	/** Replaces the browser's HEIC converter in tests. */
+	createConverter?: () => HeicConverter;
+}
+
+/**
+ * Stores the new JPEG/PNG files and reports the ones it skipped. HEIC/HEIF
+ * files are turned into JPEG first, one at a time (ADR 0052); they keep their
+ * name and file size, so adding the same file again is still a duplicate.
+ */
 export async function addPhotos(
 	db: VoyputDb,
 	passportId: string,
 	files: File[],
+	{
+		onConverting,
+		createConverter = createHeicConverter,
+	}: AddPhotosOptions = {},
 ): Promise<AddPhotosResult> {
-	const result: AddPhotosResult = { rejected: [], duplicates: [] };
+	const result: AddPhotosResult = { rejected: [], duplicates: [], failed: [] };
 	const records: PhotoRecord[] = [];
 	const addedAt = new Date().toISOString();
 	const fileKey = (name: string, size: number | undefined) => `${size}:${name}`;
@@ -133,8 +152,10 @@ export async function addPhotos(
 			(photo) => fileKey(photo.name, photo.size),
 		),
 	);
+	const heif: File[] = [];
 	for (const file of files) {
-		const mimeType = photoMimeType(file);
+		const isHeif = isHeifPhoto(file);
+		const mimeType = isHeif ? "image/jpeg" : photoMimeType(file);
 		if (!mimeType) {
 			result.rejected.push(file.name);
 			continue;
@@ -145,21 +166,57 @@ export async function addPhotos(
 			continue;
 		}
 		known.add(key);
-		const photo: PassportPhoto = {
-			id: crypto.randomUUID(),
-			passportId,
-			name: file.name,
-			mimeType,
-			rotation: 0,
-			size: file.size,
-			addedAt,
-		};
-		records.push({ ...photo, blob: file });
+		if (isHeif) {
+			heif.push(file);
+			continue;
+		}
+		records.push({
+			...newPhoto(passportId, file, mimeType, addedAt),
+			blob: file,
+		});
+	}
+	if (heif.length > 0) {
+		onConverting?.(heif.length);
+		const converter = createConverter();
+		try {
+			for (const file of heif) {
+				try {
+					const blob = await converter.toJpeg(file);
+					records.push({
+						...newPhoto(passportId, file, "image/jpeg", addedAt),
+						blob,
+					});
+				} catch (error) {
+					result.failed.push({
+						name: file.name,
+						reason: error instanceof Error ? error.message : String(error),
+					});
+				}
+			}
+		} finally {
+			converter.close();
+			onConverting?.(0);
+		}
 	}
 	await db.photos.bulkAdd(records);
 	if (records.length > 0) void keepStorageOnce();
 	return result;
 }
+
+const newPhoto = (
+	passportId: string,
+	file: File,
+	mimeType: PassportPhoto["mimeType"],
+	addedAt: string,
+): PassportPhoto => ({
+	id: crypto.randomUUID(),
+	passportId,
+	name: file.name,
+	mimeType,
+	rotation: 0,
+	size: file.size,
+	addedAt,
+});
 
 /** Turns the photo 90° clockwise from its stored rotation, so quick repeated clicks add up. */
 export async function rotatePhoto(db: VoyputDb, id: string): Promise<void> {

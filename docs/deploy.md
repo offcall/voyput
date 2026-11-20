@@ -7,12 +7,12 @@ voyput is static files: `npm run build` writes `apps/web/dist`. Serve it over HT
 | Directive | Value | Why |
 | --- | --- | --- |
 | `default-src` | `'self'` | Everything ships with the app. |
-| `script-src` | `'self'` + one hash | The bundle, and the inline theme script in `index.html` (sets the theme before the first paint). |
+| `script-src` | `'self'` + one hash + `'wasm-unsafe-eval'` | The bundle, and the inline theme script in `index.html` (sets the theme before the first paint). `'wasm-unsafe-eval'` lets the HEIC worker compile libheif's WebAssembly (ADR 0052); it allows no JavaScript `eval`, and `'unsafe-eval'` stays off. |
 | `style-src` | `'self'` | Only CSS files. The early page colour is `/boot.css`, not an inline `<style>`; React's `style` props go through the CSSOM, which CSP does not block. |
 | `img-src` | `'self' blob: data:` | Page photos are shown from `blob:` URLs; the CSS has small `data:` images. |
 | `font-src` | `'self' data:` | Inter files, and Silkscreen inlined into the CSS as `data:`. |
 | `connect-src` | `'self' https://openrouter.ai http://127.0.0.1:*` | Demo data from this site, OpenRouter (model list and stamp reads), voyput-local on 127.0.0.1 at any port (ADR 0026). The app never calls `localhost`. |
-| `worker-src` | `'self'` | The CSV import's parse worker, a module file from this site (ADR 0040). |
+| `worker-src` | `'self'` | The CSV import's parse worker and the HEIC photo worker, module files from this site (ADR 0040, 0052). |
 | `manifest-src` | `'self'` | `manifest.webmanifest`. |
 | `object-src`, `base-uri` | `'none'` | Not used. |
 | `form-action` | `'self'` | Forms never post anywhere. |
@@ -48,7 +48,7 @@ server {
     root /usr/share/nginx/html;
     index index.html;
 
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-4IaRe3Xf1Uk897iyvH41uezItoDmwosJ3dt6cbdAmys='; style-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' https://openrouter.ai http://127.0.0.1:*; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'sha256-4IaRe3Xf1Uk897iyvH41uezItoDmwosJ3dt6cbdAmys=' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' https://openrouter.ai http://127.0.0.1:*; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'" always;
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer" always;
@@ -115,7 +115,7 @@ The same rules for hosts that read a `_headers` file from the publish directory.
 
 ```text
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-4IaRe3Xf1Uk897iyvH41uezItoDmwosJ3dt6cbdAmys='; style-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' https://openrouter.ai http://127.0.0.1:*; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-4IaRe3Xf1Uk897iyvH41uezItoDmwosJ3dt6cbdAmys=' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob: data:; font-src 'self' data:; connect-src 'self' https://openrouter.ai http://127.0.0.1:*; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
   Strict-Transport-Security: max-age=63072000; includeSubDomains
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isIsoDate, photoMimeType, rotateBy } from "../src/passports/photos";
+import {
+	isHeifPhoto,
+	isIsoDate,
+	photoMimeType,
+	rotateBy,
+} from "../src/passports/photos";
 
 describe("passport photos", () => {
 	it("accepts only JPEG and PNG, falling back to the extension when the type is empty", () => {
@@ -12,6 +17,19 @@ describe("passport photos", () => {
 			photoMimeType({ name: "d.jpg", type: "application/pdf" }),
 		).toBeNull();
 		expect(photoMimeType({ name: "e.webp", type: "" })).toBeNull();
+	});
+
+	it("knows HEIC/HEIF by MIME type, or by extension when the type is empty", () => {
+		expect(isHeifPhoto({ name: "a.HEIC", type: "image/heic" })).toBe(true);
+		expect(isHeifPhoto({ name: "b", type: "image/heif" })).toBe(true);
+		expect(isHeifPhoto({ name: "c.heic", type: "" })).toBe(true);
+		expect(isHeifPhoto({ name: "d.HEIF", type: "" })).toBe(true);
+		expect(
+			isHeifPhoto({ name: "e.heic", type: "application/octet-stream" }),
+		).toBe(true);
+		expect(isHeifPhoto({ name: "f.heic", type: "image/jpeg" })).toBe(false);
+		expect(isHeifPhoto({ name: "g.jpg", type: "" })).toBe(false);
+		expect(isHeifPhoto({ name: "heic", type: "" })).toBe(false);
 	});
 
 	it("wraps rotation in both directions", () => {

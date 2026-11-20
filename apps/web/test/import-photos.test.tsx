@@ -42,7 +42,7 @@ describe("import passport photos", () => {
 		}
 	});
 
-	it("adds JPEG/PNG photos, rejects HEIC and keeps the rotation", async () => {
+	it("adds JPEG/PNG photos, rejects other files and keeps the rotation", async () => {
 		const user = userEvent.setup({ applyAccept: false });
 		const first = renderApp("/collect/passports");
 
@@ -55,7 +55,7 @@ describe("import passport photos", () => {
 		await user.upload(picker, [
 			file("page-1.jpg", "image/jpeg"),
 			file("page-2.png", "image/png"),
-			file("page-3.heic", "image/heic"),
+			file("page-3.webp", "image/webp"),
 		]);
 
 		const grid = await screen.findByRole("list", {
@@ -64,7 +64,7 @@ describe("import passport photos", () => {
 		await waitFor(() =>
 			expect(within(grid).getAllByRole("img")).toHaveLength(2),
 		);
-		expect(screen.getByRole("alert").textContent).toContain("page-3.heic");
+		expect(screen.getByRole("alert").textContent).toContain("page-3.webp");
 		expect(await first.db.photos.count()).toBe(2);
 
 		await user.upload(picker, [file("page-1.jpg", "image/jpeg")]);

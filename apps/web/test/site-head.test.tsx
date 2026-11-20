@@ -11,7 +11,7 @@ import {
 } from "../../../scripts/brand/art";
 import { cspHash, inlineScripts } from "../../../scripts/csp-hash";
 import { BrandMark } from "../src/app/icons";
-import viteConfig from "../vite.config";
+import viteConfig, { libheifLicenses } from "../vite.config";
 
 /** apps/web; jsdom's `URL` does not resolve file URLs, so paths are joined. */
 const WEB = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -35,6 +35,14 @@ describe("third-party licences", () => {
 			"apps/web/dist/third-party-licenses.txt",
 		);
 	});
+
+	it("add libheif-js, which only the HEIC worker bundles, with its source (ADR 0052)", () => {
+		const text = libheifLicenses();
+		expect(text).toMatch(/^\n## libheif-js - \d+\.\d+\.\d+ \(LGPL-3\.0\)\n/);
+		expect(text).toContain("https://github.com/catdad-experiments/libheif-js");
+		expect(text).toContain("GNU LESSER GENERAL PUBLIC LICENSE");
+		expect(text).toContain("libheif-wasm/LICENSE");
+	});
 });
 
 describe("Content-Security-Policy in docs/deploy.md", () => {
@@ -49,7 +57,9 @@ describe("Content-Security-Policy in docs/deploy.md", () => {
 		const hash = cspHash(scripts[0] ?? "");
 		for (const policy of policies)
 			expect(policy).toMatch(
-				new RegExp(`script-src 'self' ${hash.replace(/[+/]/g, "\\$&")};`),
+				new RegExp(
+					`script-src 'self' ${hash.replace(/[+/]/g, "\\$&")} 'wasm-unsafe-eval';`,
+				),
 			);
 	});
 
@@ -67,6 +77,15 @@ describe("Content-Security-Policy in docs/deploy.md", () => {
 			expect(policy).toContain(
 				"connect-src 'self' https://openrouter.ai http://127.0.0.1:*;",
 			);
+	});
+
+	it("lets the HEIC worker compile WebAssembly, but allows no eval (ADR 0052)", () => {
+		for (const policy of policies) {
+			expect(policy).toContain("'wasm-unsafe-eval'");
+			expect(policy.replaceAll("'wasm-unsafe-eval'", "")).not.toContain(
+				"unsafe-eval",
+			);
+		}
 	});
 
 	it("allows the CSV parse worker from this site only (ADR 0040)", () => {

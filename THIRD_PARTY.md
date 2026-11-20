@@ -28,6 +28,12 @@ The full licence text ships in each package's `LICENSE` file.
 
 The built site bundles npm packages under permissive licences, among them React, React DOM, Base UI and TanStack Router (MIT) and Dexie (Apache-2.0). `npm run build` writes their licence texts to `apps/web/dist/third-party-licenses.txt`, served as `/third-party-licenses.txt`; each is also in the package's folder under `node_modules` after `npm install`.
 
+## HEIC decoder
+
+| What | Where | Source | Licence |
+| --- | --- | --- | --- |
+| libheif-js (libheif built to WebAssembly), decodes HEIC photos browsers cannot | `assets/heic.worker-*.js` and the unmodified `assets/libheif-*.wasm` in the built site, loaded only for the first such photo ([ADR 0052](docs/adr/0052-heic-photos-to-jpeg-in-the-browser.md)) | [catdad-experiments/libheif-js](https://github.com/catdad-experiments/libheif-js), built from [strukturag/libheif](https://github.com/strukturag/libheif) | [LGPL-3.0](https://www.gnu.org/licenses/lgpl-3.0.html). The build appends its licence texts to `third-party-licenses.txt`. |
+
 ## Pixel art
 
 The sprites, icons and share image are drawn in code (`packages/ui/src/pixel/sprites.ts`, `scripts/brand`) and are voyput's own.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. "No HEIC conversion" superseded by ADR 0052: HEIC/HEIF photos are turned into JPEG on import.
 
 ## Context
 

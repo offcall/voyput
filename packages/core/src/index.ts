@@ -24,7 +24,12 @@ export {
 	summarizeLocations,
 } from "./locations/parseLocationCsv";
 export type { LocationRow } from "./locations/types";
-export { isIsoDate, photoMimeType, rotateBy } from "./passports/photos";
+export {
+	isHeifPhoto,
+	isIsoDate,
+	photoMimeType,
+	rotateBy,
+} from "./passports/photos";
 export type {
 	Passport,
 	PassportPhoto,

@@ -18,6 +18,26 @@ export function photoMimeType(file: {
 	return EXTENSION_TYPES[extension] ?? null;
 }
 
+const HEIF_TYPES = new Set([
+	"image/heic",
+	"image/heif",
+	"image/heic-sequence",
+	"image/heif-sequence",
+]);
+
+/**
+ * True for a HEIC/HEIF photo (an iPhone's default), by MIME type or, since
+ * some browsers report none for it, by the .heic/.heif extension. The import
+ * turns these into JPEG before storing them.
+ */
+export function isHeifPhoto(file: { name: string; type: string }): boolean {
+	if (HEIF_TYPES.has(file.type.toLowerCase())) return true;
+	return (
+		(file.type === "" || file.type === "application/octet-stream") &&
+		/\.(heic|heif)$/i.test(file.name)
+	);
+}
+
 /** Rotates by `delta` degrees (a multiple of 90, may be negative), wrapping into 0–270. */
 export function rotateBy(rotation: Rotation, delta: number): Rotation {
 	const next = (((rotation + delta) % 360) + 360) % 360;
