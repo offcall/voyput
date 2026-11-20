@@ -9,6 +9,7 @@ import {
 	mergeBandRuns,
 	nearbyPhotos,
 	type PhotoIndex,
+	photosInRun,
 	runsBetween,
 	type Severity,
 	type Stamp,
@@ -86,6 +87,24 @@ function useWidth<T extends HTMLElement>() {
 	}, []);
 	return [ref, width] as const;
 }
+
+/**
+ * Tooltip of a band run: its country, where it comes from and its days, as
+ * "Russia · from 14 photos · 3 Nov – 5 Nov 2026" or
+ * "Germany · between entry 20 Jul and exit 2 Aug 2024 stamps".
+ */
+export const bandRunTitle = (run: BandRun, photos: number): string => {
+	const name = countryNameOf(run.countryCode);
+	if (run.source === "stamps") {
+		const [entry, exit] = formatDayRange(run.entry, run.exit).split(" – ");
+		return `${name} · between entry ${entry} and exit ${exit} stamps`;
+	}
+	const days =
+		run.start === run.end
+			? formatDay(run.start)
+			: formatDayRange(run.start, run.end);
+	return `${name} · from ${plural(photos, "photo")} · ${days}`;
+};
 
 const stampLabel = (s: Stamp) =>
 	`${s.date ?? "no date"} ${s.direction} ${s.country ?? s.countryCode ?? "unknown country"}`;
@@ -231,6 +250,7 @@ export function TimelineView({
 						bandRuns={bandRuns}
 						stamps={dated}
 						levels={levels}
+						index={index}
 						onMove={(day) => onFrom(dayIso(day))}
 						onWindowDays={onWindowDays}
 						onOpen={onOpen}
@@ -434,6 +454,7 @@ function OverviewBand({
 	bandRuns,
 	stamps,
 	levels,
+	index,
 	onMove,
 	onWindowDays,
 	onOpen,
@@ -443,6 +464,7 @@ function OverviewBand({
 	bandRuns: readonly BandRun[];
 	stamps: readonly DatedStamp[];
 	levels: ReadonlyMap<string, Severity>;
+	index: PhotoIndex;
 	onMove: (start: number) => void;
 	onWindowDays: (days: number) => void;
 	onOpen: (stamp: Stamp) => void;
@@ -529,7 +551,10 @@ function OverviewBand({
 								key={`${run.start}-${run.countryCode}`}
 								className="review-band-run"
 								data-source={run.source}
-								title={`${countryNameOf(run.countryCode)} · ${run.start === run.end ? formatDay(run.start) : formatDayRange(run.start, run.end)}`}
+								title={bandRunTitle(
+									run,
+									run.source === "photos" ? photosInRun(index, run) : 0,
+								)}
 								style={{
 									...hueStyle(run.countryCode),
 									left: pct(at(run.start)),
@@ -552,11 +577,29 @@ function OverviewBand({
 					))}
 				</div>
 			</div>
-			<p className="review-muted">
-				Solid: country of the photos. Light stripes: between a paired entry and
-				exit stamp, no photos. Hatched: no data. Markers: stamps; click one to
-				open its photo.
-			</p>
+			<ul className="review-band-legend" aria-label="Legend">
+				<li>
+					<span className="review-band-swatch" data-source="photos" />
+					Photos
+				</li>
+				<li>
+					<span className="review-band-swatch" data-source="stamps" />
+					Stamps: between entry and exit
+				</li>
+				<li>
+					<span className="review-band-swatch" data-source="none" />
+					No data
+				</li>
+				<li>
+					<span className="review-band-marker" aria-hidden="true">
+						{directionIcon("entry")}
+					</span>
+					<span className="review-band-marker" aria-hidden="true">
+						{directionIcon("exit")}
+					</span>
+					Stamps: entry, exit; click one to open its photo
+				</li>
+			</ul>
 		</section>
 	);
 }

@@ -1,7 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
-import { buildPhotoIndex, type Stamp } from "@voyput/core";
+import { buildPhotoIndex, type LocationRow, type Stamp } from "@voyput/core";
 import { describe, expect, it } from "vitest";
-import { runLabel, TimelineView } from "../src/features/review/TimelineView";
+import {
+	bandRunTitle,
+	runLabel,
+	TimelineView,
+} from "../src/features/review/TimelineView";
 
 const stamp = (
 	id: string,
@@ -68,14 +72,26 @@ describe("review timeline view", () => {
 		expect(gaps).toEqual(["27 days later"]);
 	});
 
-	it("names the country and the days of a band run in its tooltip", () => {
+	it("names the country, the photo count and the days of a band run in its tooltip", () => {
+		const photo = (day: string): LocationRow => ({
+			date: `${day}T12:00:00+02:00`,
+			lat: 0,
+			lon: 0,
+			countryCode: "DE",
+			country: "Germany",
+			city: "",
+			source: "apple",
+			isVideo: false,
+			filename: `IMG_${day}.jpg`,
+			uuid: day,
+		});
 		const { container } = render(
 			<TimelineView
 				dayRuns={[
 					{ start: "2024-07-20", end: "2024-07-23", countryCode: "DE" },
 				]}
 				travelDays={new Map()}
-				index={buildPhotoIndex([])}
+				index={buildPhotoIndex([photo("2024-07-20"), photo("2024-07-23")])}
 				stamps={[stamp("in", "2024-07-20", "DE", "entry")]}
 				photoNames={new Map()}
 				windowDays={90}
@@ -85,7 +101,9 @@ describe("review timeline view", () => {
 			/>,
 		);
 		const run = container.querySelector(".review-band-run");
-		expect(run?.getAttribute("title")).toBe("Germany · 20 Jul – 23 Jul 2024");
+		expect(run?.getAttribute("title")).toBe(
+			"Germany · from 2 photos · 20 Jul – 23 Jul 2024",
+		);
 	});
 
 	it("fills a paired stay's days without photos from its stamps", () => {
@@ -111,6 +129,50 @@ describe("review timeline view", () => {
 			(run) => run.getAttribute("data-source"),
 		);
 		expect(runs).toEqual(["stamps", "photos", "stamps"]);
+	});
+
+	it("explains the band's looks in a legend", () => {
+		view([stamp("in", "2024-07-20", "DE", "entry")]);
+		const legend = screen.getByRole("list", { name: "Legend" });
+		expect(
+			within(legend)
+				.getAllByRole("listitem")
+				.map((item) => item.textContent),
+		).toEqual([
+			"Photos",
+			"Stamps: between entry and exit",
+			"No data",
+			"→←Stamps: entry, exit; click one to open its photo",
+		]);
+	});
+});
+
+describe("band run title", () => {
+	it("says where a run comes from", () => {
+		expect(
+			bandRunTitle(
+				{
+					start: "2026-11-03",
+					end: "2026-11-05",
+					countryCode: "RU",
+					source: "photos",
+				},
+				14,
+			),
+		).toBe("Russia · from 14 photos · 3 Nov – 5 Nov 2026");
+		expect(
+			bandRunTitle(
+				{
+					start: "2024-07-21",
+					end: "2024-07-25",
+					countryCode: "DE",
+					source: "stamps",
+					entry: "2024-07-20",
+					exit: "2024-08-02",
+				},
+				0,
+			),
+		).toBe("Germany · between entry 20 Jul and exit 2 Aug 2024 stamps");
 	});
 });
 
