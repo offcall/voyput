@@ -9,7 +9,12 @@ import {
 import Dexie from "dexie";
 import { describe, expect, it } from "vitest";
 import { LEGACY_TRIPS_KEY, VoyputDb } from "../src/db/db";
-import { updateStamp } from "../src/features/review/reviewStore";
+import {
+	deleteStamp,
+	restoreStamp,
+	setDismissed,
+	updateStamp,
+} from "../src/features/review/reviewStore";
 import { buildTimeline, chronological } from "../src/features/review/stays";
 
 const passport: Passport = {
@@ -362,6 +367,60 @@ describe("database", () => {
 		const fixed = await db.stamps.get("old");
 		expect(fixed?.date).toBe("2019-09-30");
 		expect(fixed?.problem).toBeNull();
+		db.close();
+	});
+
+	it("keeps a stored implausible date through dismissals, edits and delete with Undo", async () => {
+		const stored: Stamp = {
+			id: "old",
+			passportId: "p1",
+			photoId: "ph1",
+			direction: "entry",
+			borderCrossing: "plane",
+			dateText: "",
+			date: "0027-10-02",
+			country: "Georgia",
+			countryCode: "GE",
+			location: null,
+			confidence: 90,
+			notes: "",
+			problem: null,
+			source: "ai",
+			reviewed: false,
+			dismissed: { problem: true },
+		};
+		const db = new VoyputDb("db-implausible-writes");
+		await db.stamps.put(stored);
+		const raw = async () =>
+			(await db.stamps.where("id").equals("old").raw().toArray())[0];
+
+		await setDismissed(db, "old", "suggestion", true);
+		expect(await raw()).toEqual({
+			...stored,
+			dismissed: { problem: true, suggestion: true },
+		});
+		await setDismissed(db, "old", "suggestion", false);
+		expect(await raw()).toEqual(stored);
+
+		await updateStamp(db, "old", { direction: "exit" });
+		expect(await raw()).toEqual({ ...stored, direction: "exit" });
+		await updateStamp(db, "old", { direction: "entry" });
+
+		const shown = await db.stamps.get("old");
+		const undo = shown && (await deleteStamp(db, shown));
+		expect(await db.stamps.count()).toBe(0);
+		expect(undo).toBeTruthy();
+		if (undo) await restoreStamp(db, undo);
+		expect(await raw()).toEqual(stored);
+
+		// Setting a date on the card still fixes it, and keeps the stored date for the reset.
+		await updateStamp(db, "old", { date: "2019-09-30" });
+		expect((await db.stamps.get("old"))?.problem).toBeNull();
+		expect(await raw()).toMatchObject({
+			date: "2019-09-30",
+			readDate: "0027-10-02",
+			problem: null,
+		});
 		db.close();
 	});
 });

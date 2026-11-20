@@ -8,7 +8,6 @@ import {
 } from "@voyput/core";
 import { Button, Tabs } from "@voyput/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { StaysUndo } from "../../data/evidenceChange";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
 import { errorMessage, formatDay } from "./format";
@@ -27,6 +26,7 @@ import {
 	loadUiState,
 	type ReviewUiState,
 	restoreStamp,
+	type StampUndo,
 	saveUiState,
 } from "./reviewStore";
 import type { Validation } from "./StampCard";
@@ -92,10 +92,10 @@ export function ReviewPage() {
 	const { settings } = useSettings();
 	const [ui, setUi] = useState<ReviewUiState | null>(null);
 	const [uiError, setUiError] = useState<string | null>(null);
-	/** The last deleted stamp and the stays its delete changed, for Undo. */
+	/** The last deleted stamp as shown, and what Undo needs. */
 	const [deleted, setDeleted] = useState<{
 		stamp: Stamp;
-		stays: StaysUndo;
+		undo: StampUndo;
 	} | null>(null);
 	/**
 	 * Open tab, photo and timeline band start live in the URL
@@ -313,7 +313,7 @@ export function ReviewPage() {
 										rescans={rescans}
 										setRescans={setRescans}
 										onSelect={setCurrentId}
-										onDeleted={(stamp, stays) => setDeleted({ stamp, stays })}
+										onDeleted={(stamp, undo) => setDeleted({ stamp, undo })}
 										expanded={expanded}
 										setExpanded={setExpanded}
 										validations={validations}
@@ -362,9 +362,7 @@ export function ReviewPage() {
 					</span>
 					<Button
 						onClick={() =>
-							void restoreStamp(db, deleted.stamp, deleted.stays).then(() =>
-								setDeleted(null),
-							)
+							void restoreStamp(db, deleted.undo).then(() => setDeleted(null))
 						}
 					>
 						Undo

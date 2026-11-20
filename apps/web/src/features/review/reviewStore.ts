@@ -6,7 +6,6 @@ import {
 	type Stamp,
 } from "@voyput/core";
 import {
-	NO_STAYS_UNDO,
 	restoreStays,
 	STAY_FIELDS,
 	type StaysUndo,
@@ -52,6 +51,13 @@ const FIXED_BY: { part: RegExp; fixes: (edit: StampEdit) => boolean }[] = [
 	},
 ];
 
+/**
+ * The stamp as stored, past the reading hook that shows an implausible date as
+ * none (ADR 0044). Writes start from it, so they never store the read view.
+ */
+const storedStamp = (db: VoyputDb, id: string): Promise<Stamp | undefined> =>
+	db.stamps.where("id").equals(id).raw().first();
+
 /** Splits a stored `problem` into its warnings. */
 export const problemParts = (problem: string | null): string[] =>
 	(problem ?? "")
@@ -76,8 +82,8 @@ export function problemAfterEdit(
 
 /**
  * Saves only the edited fields, so two quick saves never undo each other. The
- * first date change also keeps the old date as `readDate`. Stays built on the
- * stamp are marked when its date, country, direction, crossing or review
+ * first date change also keeps the stored date as `readDate`. Stays built on
+ * the stamp are marked when its date, country, direction, crossing or review
  * changes, or when the stamp's problem opens or closes.
  */
 export async function updateStamp(
@@ -87,29 +93,34 @@ export async function updateStamp(
 ): Promise<void> {
 	await db.transaction("rw", db.stamps, db.stays, async () => {
 		const stamp = await db.stamps.get(id);
-		if (!stamp) return;
-		const problem = problemAfterEdit(stamp.problem, edit);
+		const stored = await storedStamp(db, id);
+		if (!stamp || !stored) return;
+		const problem = problemAfterEdit(stored.problem, edit);
 		// The first date change keeps the date as read, for the strip's reset.
 		const keepRead =
-			"date" in edit && edit.date !== stamp.date && stamp.readDate === undefined
-				? { readDate: stamp.date }
+			"date" in edit &&
+			edit.date !== stored.date &&
+			stored.readDate === undefined
+				? { readDate: stored.date }
 				: {};
 		await db.stamps.update(id, {
 			...edit,
 			...keepRead,
-			...(problem === stamp.problem ? {} : { problem }),
+			...(problem === stored.problem ? {} : { problem }),
 		});
+		const after = await db.stamps.get(id);
 		if (
 			STAY_FIELDS.some((f) => f in edit && edit[f] !== stamp[f]) ||
-			hasOpenProblem(stamp) !== hasOpenProblem({ ...stamp, problem })
+			(after && hasOpenProblem(stamp) !== hasOpenProblem(after))
 		)
 			await staysAfterEvidenceChange(db, { changedStamps: new Set([id]) });
 	});
 }
 
 /**
- * Hides or shows one warning, on the stored record. Stays built on the stamp
- * are marked when that makes its problem count or stop counting.
+ * Hides or shows one warning, on the stored record: only `dismissed` is
+ * written. Stays built on the stamp are marked when that makes its problem
+ * count or stop counting.
  */
 export async function setDismissed(
 	db: VoyputDb,
@@ -119,40 +130,48 @@ export async function setDismissed(
 ): Promise<void> {
 	await db.transaction("rw", db.stamps, db.stays, async () => {
 		const stamp = await db.stamps.get(id);
-		if (!stamp) return;
-		const { [kind]: _, ...rest } = stamp.dismissed ?? {};
-		const next = {
-			...stamp,
+		const stored = await storedStamp(db, id);
+		if (!stamp || !stored) return;
+		const { [kind]: _, ...rest } = stored.dismissed ?? {};
+		await db.stamps.update(id, {
 			dismissed: dismissed ? { ...rest, [kind]: true } : rest,
-		};
-		await db.stamps.put(next);
-		if (hasOpenProblem(stamp) !== hasOpenProblem(next))
+		});
+		const after = await db.stamps.get(id);
+		if (after && hasOpenProblem(stamp) !== hasOpenProblem(after))
 			await staysAfterEvidenceChange(db, { changedStamps: new Set([id]) });
 	});
+}
+
+/** What Undo needs to take a delete back: the stamp as stored, and the stays the delete changed. */
+export interface StampUndo {
+	stamp: Stamp;
+	stays: StaysUndo;
 }
 
 /** Deletes the stamp and marks the stays built on it; returns what Undo needs to take that back. */
 export async function deleteStamp(
 	db: VoyputDb,
 	stamp: Stamp,
-): Promise<StaysUndo> {
+): Promise<StampUndo | null> {
 	return db.transaction("rw", db.stamps, db.stays, async () => {
+		const stored = await storedStamp(db, stamp.id);
+		if (!stored) return null;
 		await db.stamps.delete(stamp.id);
-		return staysAfterEvidenceChange(db, {
+		const stays = await staysAfterEvidenceChange(db, {
 			removedStamps: new Set([stamp.id]),
 		});
+		return { stamp: stored, stays };
 	});
 }
 
-/** Puts a deleted stamp back as it was, with the stays its delete changed. */
+/** Puts a deleted stamp back as it was stored, with the stays its delete changed. */
 export async function restoreStamp(
 	db: VoyputDb,
-	stamp: Stamp,
-	undo: StaysUndo = NO_STAYS_UNDO,
+	{ stamp, stays }: StampUndo,
 ): Promise<void> {
 	await db.transaction("rw", db.stamps, db.stays, async () => {
 		await db.stamps.put(stamp);
-		await restoreStays(db, undo);
+		await restoreStays(db, stays);
 	});
 }
 

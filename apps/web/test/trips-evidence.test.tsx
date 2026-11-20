@@ -16,6 +16,7 @@ import {
 import {
 	deleteStamp,
 	restoreStamp,
+	type StampUndo,
 	setDismissed,
 	updateStamp,
 } from "../src/features/review/reviewStore";
@@ -108,9 +109,9 @@ describe("stays after evidence changes", () => {
 		});
 		expect(await allStampIds(db)).not.toContain("s3");
 		expect(await db.stays.count()).toBe(3);
-		expect(changed.stays.map((s) => s.id)).toEqual([before.id]);
+		expect(changed?.stays.stays.map((s) => s.id)).toEqual([before.id]);
 
-		await restoreStamp(db, STAMPS[2] as Stamp, changed);
+		await restoreStamp(db, changed as StampUndo);
 		expect(await db.stamps.get("s3")).toBeTruthy();
 		expect(await romania(db)).toEqual(before);
 	});
@@ -123,7 +124,7 @@ describe("stays after evidence changes", () => {
 		await updateStamp(db, "s2", { date: "2024-03-02" });
 		await db.stays.update(id, { place: "Bucharest" });
 
-		await restoreStamp(db, STAMPS[2] as Stamp, undo);
+		await restoreStamp(db, undo as StampUndo);
 		expect(await romania(db)).toMatchObject({
 			place: "Bucharest",
 			stampIds: ["s2", "s3"],
@@ -136,7 +137,7 @@ describe("stays after evidence changes", () => {
 		const plain = await seed();
 		const undoPlain = await deleteStamp(plain, STAMPS[2] as Stamp);
 		await plain.stays.update(id, { place: "Bucharest" });
-		await restoreStamp(plain, STAMPS[2] as Stamp, undoPlain);
+		await restoreStamp(plain, undoPlain as StampUndo);
 		const back = await romania(plain);
 		expect(back).toMatchObject({ place: "Bucharest", stampIds: ["s2", "s3"] });
 		expect(back.evidenceChanged).toBeUndefined();
@@ -452,7 +453,7 @@ describe("stays after evidence changes", () => {
 		});
 		const undo = await deleteStamp(db, STAMPS[1] as Stamp);
 		await updateStamp(db, "s4", { date: "2024-03-06" });
-		await restoreStamp(db, STAMPS[1] as Stamp, undo);
+		await restoreStamp(db, undo as StampUndo);
 		expect(await romania(db)).toMatchObject({
 			stampIds: ["s2", "s3"],
 			arrival: { source: "stamp", stampId: "s2" },

@@ -18,5 +18,5 @@ A stamp date field that saved after every typed digit, and model output, stored 
 ## Consequences
 
 - Every reader, including new ones, gets the same view with one hook; no feature checks years on its own.
-- A write of a whole read record (hiding a warning, undoing a delete) stores the read view: `null` date and the problem line, which is what the parser stores for new output.
+- Writes never store the read view: an edit or a hidden warning writes only its changed fields, from the stored record (`readDate` keeps the stored date), and a delete keeps the stored record for Undo. Backups export stored rows (ADR 0048).
 - `Collection.raw()` reads skip the hook and see the stored date.

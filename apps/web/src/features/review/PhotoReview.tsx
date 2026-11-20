@@ -18,7 +18,6 @@ import {
 } from "react";
 import { useAi } from "../../ai/AiContext";
 import { aiSetupNeeded } from "../../ai/client";
-import type { StaysUndo } from "../../data/evidenceChange";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
 import { describeFailure } from "../extract/failure";
@@ -33,6 +32,7 @@ import {
 	addFoundStamp,
 	addManualStamp,
 	deleteStamp,
+	type StampUndo,
 	setDismissed,
 	updateStamp,
 } from "./reviewStore";
@@ -79,8 +79,8 @@ export function PhotoReview({
 	/** Grows each time a stamp is opened, so the same stamp scrolls into view again. */
 	focusSeq: number;
 	onSelect: (photoId: string) => void;
-	/** With the stays the delete changed, for Undo. */
-	onDeleted: (stamp: Stamp, stays: StaysUndo) => void;
+	/** The stamp as shown, and what Undo needs. */
+	onDeleted: (stamp: Stamp, undo: StampUndo) => void;
 	/** Open or closed per stamp id; kept by the page so a tab switch keeps it. */
 	expanded: Record<string, boolean>;
 	setExpanded: Dispatch<SetStateAction<Record<string, boolean>>>;
@@ -309,8 +309,8 @@ export function PhotoReview({
 								void updateStamp(db, item.stamp.id, edit);
 							}}
 							onDelete={() =>
-								void deleteStamp(db, item.stamp).then((stays) =>
-									onDeleted(item.stamp, stays),
+								void deleteStamp(db, item.stamp).then(
+									(undo) => undo && onDeleted(item.stamp, undo),
 								)
 							}
 							onDismiss={(kind, value) =>
