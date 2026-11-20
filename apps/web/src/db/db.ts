@@ -1,12 +1,14 @@
-import type {
-	LocationRow,
-	Passport,
-	PassportPhoto,
-	PhotoExtraction,
-	Stamp,
-	TravelStay,
+import {
+	type LocationRow,
+	type Passport,
+	type PassportPhoto,
+	type PhotoExtraction,
+	type Stamp,
+	type TravelStay,
+	withPlausibleDate,
 } from "@voyput/core";
 import Dexie, { type Table } from "dexie";
+import { localToday } from "../data/today";
 import { migrateTrips } from "./migrations/v3";
 import { dropHomeStays } from "./migrations/v5";
 
@@ -54,5 +56,13 @@ export class VoyputDb extends Dexie {
 		this.version(4).stores({ trips: null });
 		// No home any more (ADR 0022): generated home stays and the home pick go.
 		this.version(5).upgrade(dropHomeStays);
+		// A stored year no traveller could have (0027) reads as no date with a
+		// problem, everywhere stamps are read; the stored record stays (ADR 0044).
+		// `bulkGet` passes undefined for a missing id.
+		this.stamps.hook(
+			"reading",
+			(stamp: Stamp | undefined) =>
+				stamp && withPlausibleDate(stamp, localToday()),
+		);
 	}
 }

@@ -32,12 +32,12 @@ export type StampEdit = Partial<
 
 /**
  * Which edit fixes which part of a stamp's `problem`. The parser joins its
- * warnings with "; ": date checks start with "date ", unreadable fields with
- * "unreadable <field>". Only a real value fixes one: clearing a field does not.
+ * warnings with "; ": date checks start with "date " or "implausible date",
+ * unreadable fields with "unreadable <field>". Only a real value fixes one: clearing a field does not.
  */
 const FIXED_BY: { part: RegExp; fixes: (edit: StampEdit) => boolean }[] = [
 	{
-		part: /^(date |unreadable date\b)/,
+		part: /^(date |unreadable date\b|implausible date\b)/,
 		fixes: (edit) => typeof edit.date === "string" && isValidDate(edit.date),
 	},
 	{

@@ -1,4 +1,10 @@
-import { type DateRange, dateProblem, isValidDate } from "./dates";
+import {
+	type DateRange,
+	dateProblem,
+	implausibleDateProblem,
+	isPlausibleDay,
+	isValidDate,
+} from "./dates";
 import type { BorderCrossing, Direction, Stamp } from "./types";
 
 /** The fields of a stamp that come from the model, plus our date check. */
@@ -55,7 +61,11 @@ export const stampProblems = (raw: Record<string, unknown>): string[] =>
 		DIRECTIONS.includes(raw.direction as string)
 			? ""
 			: `unreadable direction ${quoted(raw.direction)}`,
-		isValidDate(raw.date ?? null) ? "" : `unreadable date ${quoted(raw.date)}`,
+		!isValidDate(raw.date ?? null)
+			? `unreadable date ${quoted(raw.date)}`
+			: typeof raw.date === "string" && !isPlausibleDay(raw.date)
+				? implausibleDateProblem(raw.date)
+				: "",
 		raw.countryCode == null || countryCodeOf(raw.countryCode)
 			? ""
 			: `unreadable country code ${quoted(raw.countryCode)}`,
@@ -70,9 +80,8 @@ const readStamp = (
 	raw: Record<string, unknown>,
 	range: DateRange,
 ): ReadStamp => {
-	const date = isValidDate(raw.date ?? null)
-		? ((raw.date ?? null) as string | null)
-		: null;
+	const date =
+		typeof raw.date === "string" && isPlausibleDay(raw.date) ? raw.date : null;
 	const dateText = typeof raw.dateText === "string" ? raw.dateText : "";
 	const problems = [
 		...stampProblems(raw),

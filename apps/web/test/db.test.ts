@@ -1,7 +1,16 @@
-import type { LegacyTrip, LocationRow, Passport } from "@voyput/core";
+import {
+	hasOpenProblem,
+	type LegacyTrip,
+	type LocationRow,
+	type Passport,
+	type Stamp,
+	usableStamps,
+} from "@voyput/core";
 import Dexie from "dexie";
 import { describe, expect, it } from "vitest";
 import { LEGACY_TRIPS_KEY, VoyputDb } from "../src/db/db";
+import { updateStamp } from "../src/features/review/reviewStore";
+import { buildTimeline, chronological } from "../src/features/review/stays";
 
 const passport: Passport = {
 	id: "p1",
@@ -22,6 +31,8 @@ const row: LocationRow = {
 	filename: "IMG_1.jpg",
 	uuid: "u1",
 };
+
+const NO_CHECK = { icloudCheck: "", suggestion: "" };
 
 /** The database as version 2 left it, with its `trips` table. */
 function oldDb(name: string): Dexie {
@@ -305,6 +316,52 @@ describe("database", () => {
 			"stay-2024-08-01-ua",
 		]);
 		expect(await db.kv.get("trips:home")).toBeUndefined();
+		db.close();
+	});
+
+	it("reads a stored implausible year as no date with an open problem, and keeps the record", async () => {
+		const stamp = (id: string, date: string): Stamp => ({
+			id,
+			passportId: "p1",
+			photoId: "ph1",
+			direction: "entry",
+			borderCrossing: "plane",
+			dateText: "",
+			date,
+			country: "Georgia",
+			countryCode: "GE",
+			location: null,
+			confidence: 90,
+			notes: "",
+			problem: null,
+			source: "ai",
+			reviewed: true,
+		});
+		const db = new VoyputDb("db-implausible-year");
+		await db.stamps.bulkPut([
+			stamp("old", "0027-10-02"),
+			stamp("ok", "2019-10-02"),
+		]);
+
+		const read = await db.stamps.toArray();
+		const old = read.find((s) => s.id === "old");
+		expect(old?.date).toBeNull();
+		expect(old?.problem).toBe("implausible date 0027-10-02");
+		expect(old && hasOpenProblem({ stamp: old, check: NO_CHECK })).toBe(true);
+		// Travel uses only the plausible stamp; the timeline has no year 0027.
+		expect(usableStamps(read).map((s) => s.id)).toEqual(["ok"]);
+		expect(chronological(read).map((s) => s.id)).toEqual(["ok"]);
+		expect(buildTimeline(read).map((item) => item.kind)).toEqual(["single"]);
+		// The stored record is not rewritten.
+		const [raw] = await db.stamps.where("id").equals("old").raw().toArray();
+		expect(raw?.date).toBe("0027-10-02");
+		expect(raw?.problem).toBeNull();
+
+		// A date set on the card fixes it.
+		await updateStamp(db, "old", { date: "2019-09-30" });
+		const fixed = await db.stamps.get("old");
+		expect(fixed?.date).toBe("2019-09-30");
+		expect(fixed?.problem).toBeNull();
 		db.close();
 	});
 });

@@ -1,3 +1,5 @@
+import type { Stamp } from "./types";
+
 /** Passport validity window used to catch misread years. Bounds are YYYY-MM-DD. */
 export interface DateRange {
 	from: string | null;
@@ -20,13 +22,39 @@ const FIRST_YEAR = 1900;
 
 /**
  * True for a whole date a person could have travelled on: a real day from
- * 1900 to the end of next year. A native date input reports years like 0002
- * while a year is typed digit by digit, and "" while a part is cleared.
+ * 1900 to the end of next year (that bound only when `today` is known). A
+ * native date input reports years like 0002 while a year is typed digit by
+ * digit, and "" while a part is cleared.
  */
-export function isPlausibleDay(value: string, today: string): boolean {
+export function isPlausibleDay(value: string, today?: string): boolean {
 	if (!isValidDate(value)) return false;
 	const year = Number(value.slice(0, 4));
-	return year >= FIRST_YEAR && year <= Number(today.slice(0, 4)) + 1;
+	return (
+		year >= FIRST_YEAR &&
+		(today === undefined || year <= Number(today.slice(0, 4)) + 1)
+	);
+}
+
+/** The warning for a stamp date no traveller could have, e.g. year 0027. */
+export const implausibleDateProblem = (date: string): string =>
+	`implausible date ${date}`;
+
+/**
+ * A stored stamp as travel uses it: a date no traveller could have (year 0027
+ * from a half-typed field or the model) counts as no date, with an open
+ * problem naming it, so Review lists it to fix. Other stamps come back as they are.
+ */
+export function withPlausibleDate(stamp: Stamp, today?: string): Stamp {
+	if (stamp.date === null || isPlausibleDay(stamp.date, today)) return stamp;
+	const { problem: _, ...dismissed } = stamp.dismissed ?? {};
+	return {
+		...stamp,
+		date: null,
+		problem: [implausibleDateProblem(stamp.date), stamp.problem]
+			.filter(Boolean)
+			.join("; "),
+		...(stamp.dismissed ? { dismissed } : {}),
+	};
 }
 
 /**

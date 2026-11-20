@@ -7,6 +7,7 @@ import {
 	pairVisits,
 	parsePhotoResponse,
 	type Stamp,
+	withPlausibleDate,
 } from "../src/index";
 
 const stamp = (overrides: Partial<Stamp> & Pick<Stamp, "id">): Stamp => ({
@@ -545,5 +546,68 @@ describe("isPlausibleDay", () => {
 		expect(isPlausibleDay("0002-05-12", "2026-11-20")).toBe(false);
 		expect(isPlausibleDay("", "2026-11-20")).toBe(false);
 		expect(isPlausibleDay("2026-02-30", "2026-11-20")).toBe(false);
+	});
+});
+
+describe("implausible stamp dates", () => {
+	it("keeps 1900-01-01 and rejects 1899-12-31 and year 0027 without knowing today", () => {
+		expect(isPlausibleDay("1900-01-01")).toBe(true);
+		expect(isPlausibleDay("1899-12-31")).toBe(false);
+		expect(isPlausibleDay("0027-10-02")).toBe(false);
+		expect(isPlausibleDay("2999-01-01")).toBe(true);
+	});
+
+	it("reads a stored implausible date as no date with an open problem", () => {
+		const kept = stamp({ id: "a", date: "1900-01-01" });
+		expect(withPlausibleDate(kept)).toBe(kept);
+		expect(withPlausibleDate(stamp({ id: "b", date: null }))).toEqual(
+			stamp({ id: "b", date: null }),
+		);
+		expect(
+			withPlausibleDate(
+				stamp({
+					id: "c",
+					date: "0027-10-02",
+					problem: "unreadable direction null",
+					dismissed: { problem: true, icloudCheck: true },
+				}),
+			),
+		).toEqual(
+			stamp({
+				id: "c",
+				date: null,
+				problem: "implausible date 0027-10-02; unreadable direction null",
+				dismissed: { icloudCheck: true },
+			}),
+		);
+		expect(
+			withPlausibleDate(stamp({ id: "d", date: "1899-12-31" })).problem,
+		).toBe("implausible date 1899-12-31");
+		expect(
+			withPlausibleDate(stamp({ id: "e", date: "2028-01-01" }), "2026-11-20")
+				.date,
+		).toBeNull();
+		expect(
+			withPlausibleDate(stamp({ id: "f", date: "2027-12-31" }), "2026-11-20")
+				.date,
+		).toBe("2027-12-31");
+	});
+
+	it("reads an implausible year from the model as no date with a problem", () => {
+		const { stamps } = parsePhotoResponse(
+			JSON.stringify({
+				stamps: ["0027-10-02", "1899-12-31", "1900-01-01"].map((date) => ({
+					direction: "entry",
+					countryCode: "GE",
+					date,
+					dateText: "",
+				})),
+			}),
+			{ from: null, to: null },
+		);
+		expect(stamps.map((s) => s.date)).toEqual([null, null, "1900-01-01"]);
+		expect(stamps[0]?.problem).toBe("implausible date 0027-10-02");
+		expect(stamps[1]?.problem).toBe("implausible date 1899-12-31");
+		expect(stamps[2]?.problem).toContain("does not match printed");
 	});
 });

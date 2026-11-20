@@ -47,3 +47,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0041](0041-read-only-photos-library-access.md) | Read-Only Photos Library Access | Accepted (amends 0033) |
 | [0042](0042-voyput-local-site-flag.md) | voyput-local Site Flag | Accepted (amends 0026) |
 | [0043](0043-node-22-22-for-development.md) | Node 22.22 for Development | Accepted (amends 0002) |
+| [0044](0044-implausible-stamp-dates-read-as-undated.md) | Implausible Stamp Dates Read as Undated | Accepted |

@@ -67,9 +67,11 @@ export {
 	type DateRange,
 	dateMatchesText,
 	dateProblem,
+	implausibleDateProblem,
 	isInRange,
 	isPlausibleDay,
 	isValidDate,
+	withPlausibleDate,
 } from "./stamps/dates";
 export {
 	parsePhotoResponse,
