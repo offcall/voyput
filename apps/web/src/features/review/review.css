@@ -1556,6 +1556,12 @@
 		padding-right: 26px;
 		text-overflow: ellipsis;
 	}
+	/* The passport select sits right after the page filter and gives way first. */
+	.review-queue-view[data-kind="passport"] {
+		flex: 1 1 7rem;
+		max-width: 10rem;
+		margin-left: 0;
+	}
 	.review-queue .vp-button {
 		flex: none;
 		min-height: 44px;
@@ -1563,6 +1569,28 @@
 	@media (max-width: 560px) {
 		.review-queue-text .review-muted {
 			display: none;
+		}
+		/* With the passport select: count and Next on top, the two selects below. */
+		.review-page:has(.review-queue [data-kind="passport"]) {
+			--review-pane-top: calc(var(--review-top) + 120px);
+		}
+		.review-queue:has([data-kind="passport"]) {
+			flex-wrap: wrap;
+			row-gap: 0;
+		}
+		.review-queue:has([data-kind="passport"])::after {
+			content: "";
+			order: 1;
+			flex-basis: 100%;
+		}
+		.review-queue:has([data-kind="passport"]) .review-queue-view {
+			order: 2;
+			flex: 1 1 0;
+			max-width: none;
+			margin: 8px 0 0;
+		}
+		.review-queue:has([data-kind="passport"]) .vp-button {
+			margin-left: auto;
 		}
 	}
 	/* "1 / 12" beside "Needs attention"; the words stay for screen readers. */

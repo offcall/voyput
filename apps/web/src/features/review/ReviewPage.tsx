@@ -2,6 +2,7 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import {
 	type CheckedStamp,
 	checkStamp,
+	type Passport,
 	type PhotoIndex,
 	type Stamp,
 } from "@voyput/core";
@@ -116,6 +117,8 @@ export function ReviewPage() {
 	const [validations, setValidations] = useState<Record<string, Validation>>(
 		{},
 	);
+	/** The one passport whose pages Review shows; null for all of them. */
+	const [passportId, setPassportId] = useState<string | null>(null);
 
 	useEffect(() => {
 		loadUiState(db)
@@ -140,6 +143,10 @@ export function ReviewPage() {
 	};
 	/** `replace` swaps the URL in place, for a link that already added a history entry. */
 	const openStamp = (stamp: Stamp, replace = false) => {
+		// A stamp of another passport (from the timeline or a link) shows all passports again.
+		const page = records.data?.photos.find((p) => p.id === stamp.photoId);
+		if (page && passportId && page.passportId !== passportId)
+			setPassportId(null);
 		// The card scrolls itself into view; the router must not jump back to the top.
 		void navigate({
 			search: { tab: "photos", photo: stamp.photoId },
@@ -194,7 +201,24 @@ export function ReviewPage() {
 		settings.locationWindowDays,
 	);
 	const stampsOf = (photoId: string) => byPhoto.get(photoId) ?? [];
-	const photos = records.data?.photos ?? [];
+	const passports = records.data?.passports ?? [];
+	/** A passport deleted meanwhile counts as all. */
+	const passport = passports.some((p) => p.id === passportId)
+		? passportId
+		: null;
+	const shown = useMemo(
+		() =>
+			records.data && passport
+				? {
+						...records.data,
+						photos: records.data.photos.filter(
+							(photo) => photo.passportId === passport,
+						),
+					}
+				: records.data,
+		[records.data, passport],
+	);
+	const photos = shown?.photos ?? [];
 	const photoIds = photos.map((photo) => photo.id);
 	const currentPhoto =
 		photos.find((photo) => photo.id === currentId) ?? photos[0];
@@ -225,7 +249,7 @@ export function ReviewPage() {
 
 	return (
 		<div className="review-page">
-			{records.data && history.data && ui && currentPhoto ? (
+			{shown && history.data && ui && currentPhoto ? (
 				<QueueBar
 					queue={queue}
 					current={focusOnPage}
@@ -235,6 +259,9 @@ export function ReviewPage() {
 						photoIds.filter((id) => pageInView(stampsOf(id), key)).length
 					}
 					onView={(filter) => updateUi({ filter })}
+					passports={passports}
+					passport={passport}
+					onPassport={setPassportId}
 					onNext={() => goNext(focusOnPage, focus?.stampId ?? null)}
 				/>
 			) : null}
@@ -243,7 +270,7 @@ export function ReviewPage() {
 					Could not read the stored data: {error}
 				</p>
 			) : null}
-			{!records.data || !history.data || !ui ? (
+			{!shown || !history.data || !ui ? (
 				error ? null : (
 					<div className="review-loading" aria-busy="true">
 						<span className="review-skeleton" />
@@ -274,7 +301,7 @@ export function ReviewPage() {
 										</Button>
 									) : null}
 									<PhotoReview
-										records={records.data}
+										records={shown}
 										index={history.data.index}
 										dayRuns={history.data.dayRuns}
 										travelDays={history.data.travelDays}
@@ -304,7 +331,7 @@ export function ReviewPage() {
 									dayRuns={history.data.dayRuns}
 									travelDays={history.data.travelDays}
 									index={history.data.index}
-									stamps={records.data.stamps}
+									stamps={shown.stamps}
 									photoNames={photoNames}
 									windowDays={ui.timelineWindowDays}
 									onWindowDays={(timelineWindowDays) =>
@@ -347,10 +374,15 @@ export function ReviewPage() {
 	);
 }
 
+/** A passport as the passport select names it: its name, else its place in the list. */
+const passportLabel = (passport: Passport, index: number): string =>
+	passport.name.trim() || `#${index + 1}`;
+
 /**
  * The queue on top of Review: where the user is among the stamps needing attention,
- * which pages the strip shows, and Next to the next stamp needing attention across
- * pages. With none left: "All checked" and the way on to Stays.
+ * which pages the strip shows (by view and, with 2+ passports, by passport), and
+ * Next to the next stamp needing attention across pages. With none left: "All
+ * checked" and the way on to Stays.
  */
 function QueueBar({
 	queue,
@@ -359,6 +391,9 @@ function QueueBar({
 	view,
 	viewCount,
 	onView,
+	passports,
+	passport,
+	onPassport,
 	onNext,
 }: {
 	queue: readonly CheckedStamp[];
@@ -368,6 +403,10 @@ function QueueBar({
 	view: ReviewView;
 	viewCount: (view: ReviewView) => number;
 	onView: (view: ReviewView) => void;
+	passports: readonly Passport[];
+	/** The passport shown; null for all. */
+	passport: string | null;
+	onPassport: (passportId: string | null) => void;
 	onNext: () => void;
 }) {
 	const position = queue.findIndex((item) => item.stamp.id === current);
@@ -407,6 +446,23 @@ function QueueBar({
 					))}
 				</select>
 			</label>
+			{passports.length >= 2 ? (
+				<label className="review-queue-view" data-kind="passport">
+					<span className="review-sr">Passport</span>
+					<select
+						className="vp-input"
+						value={passport ?? ""}
+						onChange={(event) => onPassport(event.target.value || null)}
+					>
+						<option value="">Passport: All</option>
+						{passports.map((p, i) => (
+							<option key={p.id} value={p.id}>
+								Passport: {passportLabel(p, i)}
+							</option>
+						))}
+					</select>
+				</label>
+			) : null}
 			{queue.length === 0 ? (
 				<Link
 					to="/collect/$step"
