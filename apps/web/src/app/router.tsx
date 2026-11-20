@@ -5,6 +5,7 @@ import {
 	type RouterHistory,
 	redirect,
 } from "@tanstack/react-router";
+import { dayIso, dayNumber } from "@voyput/core";
 import { CollectPage } from "../features/collect/CollectPage";
 import { findStep } from "../features/collect/steps";
 import { HomePage } from "../features/home/HomePage";
@@ -35,16 +36,26 @@ const page = <TPath extends string>(
 export type ReviewTab = "photos" | "timeline";
 
 /**
- * Review search params: the open tab, the photo in focus, and a stamp to open once
- * (links from Extract). Bad values are dropped.
+ * Review search params: the open tab, the photo in focus, a stamp to open once
+ * (links from Extract), and the first day of the timeline band. Bad values are dropped.
  */
 export interface ReviewSearch {
 	tab?: ReviewTab;
 	photo?: string;
 	stamp?: string;
+	/** First day (YYYY-MM-DD) of the timeline band; none: the first stamp's day. */
+	from?: string | undefined;
 }
 
-const validateReviewSearch = (
+/** A real calendar day as YYYY-MM-DD (2024-02-31 is not one). */
+const isIsoDay = (value: unknown): value is string => {
+	if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
+		return false;
+	const day = dayNumber(value);
+	return day !== null && dayIso(day) === value;
+};
+
+export const validateReviewSearch = (
 	search: Record<string, unknown>,
 ): ReviewSearch => ({
 	...(search.tab === "photos" || search.tab === "timeline"
@@ -56,6 +67,8 @@ const validateReviewSearch = (
 	...(typeof search.stamp === "string" && search.stamp
 		? { stamp: search.stamp }
 		: {}),
+	// Set even when bad: the router keeps raw params a validator leaves out.
+	from: isIsoDay(search.from) ? search.from : undefined,
 });
 
 /**

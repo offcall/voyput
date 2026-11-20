@@ -12,13 +12,7 @@ import {
 	severity,
 } from "@voyput/core";
 import { Button, EmptyState, PixelArt } from "@voyput/ui";
-import {
-	type CSSProperties,
-	Fragment,
-	type ReactNode,
-	useMemo,
-	useState,
-} from "react";
+import { type CSSProperties, Fragment, type ReactNode, useMemo } from "react";
 import { CountryTag, useColourOf } from "./CountryTag";
 import { DayStrip } from "./DayStrip";
 import {
@@ -77,6 +71,8 @@ export function TimelineView({
 	photoNames,
 	windowDays,
 	onWindowDays,
+	from: fromIso,
+	onFrom,
 	stripDays = 10,
 	onOpen,
 }: {
@@ -88,6 +84,10 @@ export function TimelineView({
 	photoNames: ReadonlyMap<string, string>;
 	windowDays: number;
 	onWindowDays: (days: number) => void;
+	/** First day (YYYY-MM-DD) of the band; none: the first stamp's day. */
+	from?: string | undefined;
+	/** Moves the band to start on this day. */
+	onFrom: (iso: string) => void;
 	/** Days before and after each stamp in its row's strip and location check. */
 	stripDays?: number;
 	/** Opens the stamp's photo and card on the Photos tab. */
@@ -107,8 +107,8 @@ export function TimelineView({
 	const dated = useMemo(() => chronological(stamps), [stamps]);
 	const undated = stamps.filter((s) => s.date === null);
 	const first = dated[0]?.date ?? dayRuns[0]?.start ?? null;
-	const [start, setStart] = useState<number | null>(null);
-	const from = start ?? (first ? dayNumber(first) : null);
+	const from =
+		(fromIso ? dayNumber(fromIso) : null) ?? (first ? dayNumber(first) : null);
 	if (from === null && undated.length === 0)
 		return (
 			<EmptyState
@@ -181,7 +181,7 @@ export function TimelineView({
 						dayRuns={dayRuns}
 						stamps={dated}
 						levels={levels}
-						onMove={setStart}
+						onMove={(day) => onFrom(dayIso(day))}
 						onWindowDays={onWindowDays}
 						onOpen={onOpen}
 					/>

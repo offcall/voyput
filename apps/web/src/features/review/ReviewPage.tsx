@@ -6,7 +6,7 @@ import {
 	type Stamp,
 } from "@voyput/core";
 import { Button, Tabs } from "@voyput/ui";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { StaysUndo } from "../../data/evidenceChange";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
@@ -89,13 +89,21 @@ export function ReviewPage() {
 		stamp: Stamp;
 		stays: StaysUndo;
 	} | null>(null);
-	/** Open tab and photo live in the URL (`?tab=timeline&photo=<id>`); an unknown photo falls back to the first. */
+	/**
+	 * Open tab, photo and timeline band start live in the URL
+	 * (`?tab=timeline&photo=<id>&from=<day>`); an unknown photo falls back to the first.
+	 */
 	const search = useSearch({ from: "/collect/$step" });
 	const navigate = useNavigate({ from: "/collect/$step" });
 	const currentId = search.photo ?? null;
 	const setCurrentId = (photo: string) =>
 		void navigate({ search: (s) => ({ ...s, photo }) });
+	const tab = search.tab ?? "photos";
 	const [focus, setFocus] = useState<Focus | null>(null);
+	/** The timeline's page scroll when a stamp was opened from it, to come back to. */
+	const timelineScroll = useRef<number | null>(null);
+	/** A stamp was opened from the timeline: Photos offers the way back. */
+	const [fromTimeline, setFromTimeline] = useState(false);
 	const [rescans, setRescans] = useState<Record<string, RescanEntry>>({});
 	const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 	const [validations, setValidations] = useState<Record<string, Validation>>(
@@ -134,6 +142,36 @@ export function ReviewPage() {
 		setExpanded((e) => ({ ...e, [stamp.id]: true }));
 		setFocus((f) => ({ stampId: stamp.id, seq: (f?.seq ?? 0) + 1 }));
 	};
+	/** Opens a stamp from the timeline; the band position stays in the URL for Back. */
+	const openFromTimeline = (stamp: Stamp) => {
+		timelineScroll.current = window.scrollY;
+		setFromTimeline(true);
+		void navigate({
+			search: {
+				tab: "photos",
+				photo: stamp.photoId,
+				...(search.from ? { from: search.from } : {}),
+			},
+			resetScroll: false,
+		});
+		setExpanded((e) => ({ ...e, [stamp.id]: true }));
+		setFocus((f) => ({ stampId: stamp.id, seq: (f?.seq ?? 0) + 1 }));
+	};
+	const backToTimeline = () =>
+		void navigate({
+			search: (s) => ({ ...s, tab: "timeline" }),
+			resetScroll: false,
+		});
+	// Back on the timeline (the button, browser Back or the tab): its scroll returns,
+	// after the router has reset the scroll for the navigation.
+	useEffect(() => {
+		const y = timelineScroll.current;
+		if (tab !== "timeline" || y === null) return;
+		timelineScroll.current = null;
+		setFromTimeline(false);
+		const frame = requestAnimationFrame(() => window.scrollTo(0, y));
+		return () => cancelAnimationFrame(frame);
+	}, [tab]);
 	// A link from Extract names one stamp: open it once, then drop it from the URL.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: runs when the link or the data arrives.
 	useEffect(() => {
@@ -208,7 +246,7 @@ export function ReviewPage() {
 				)
 			) : (
 				<Tabs
-					value={search.tab ?? "photos"}
+					value={tab}
 					onValueChange={(tab) =>
 						void navigate({
 							search: (s) => ({
@@ -222,26 +260,33 @@ export function ReviewPage() {
 							value: "photos",
 							label: "Photos",
 							content: (
-								<PhotoReview
-									records={records.data}
-									index={history.data.index}
-									dayRuns={history.data.dayRuns}
-									travelDays={history.data.travelDays}
-									stampsOf={stampsOf}
-									view={ui.filter}
-									currentId={currentId}
-									focusStampId={focus?.stampId ?? null}
-									focusSeq={focus?.seq ?? 0}
-									rescans={rescans}
-									setRescans={setRescans}
-									onSelect={setCurrentId}
-									onDeleted={(stamp, stays) => setDeleted({ stamp, stays })}
-									expanded={expanded}
-									setExpanded={setExpanded}
-									validations={validations}
-									setValidations={setValidations}
-									onNext={queue.length > 0 ? goNext : undefined}
-								/>
+								<>
+									{fromTimeline ? (
+										<Button className="review-back" onClick={backToTimeline}>
+											← Back to timeline
+										</Button>
+									) : null}
+									<PhotoReview
+										records={records.data}
+										index={history.data.index}
+										dayRuns={history.data.dayRuns}
+										travelDays={history.data.travelDays}
+										stampsOf={stampsOf}
+										view={ui.filter}
+										currentId={currentId}
+										focusStampId={focus?.stampId ?? null}
+										focusSeq={focus?.seq ?? 0}
+										rescans={rescans}
+										setRescans={setRescans}
+										onSelect={setCurrentId}
+										onDeleted={(stamp, stays) => setDeleted({ stamp, stays })}
+										expanded={expanded}
+										setExpanded={setExpanded}
+										validations={validations}
+										setValidations={setValidations}
+										onNext={queue.length > 0 ? goNext : undefined}
+									/>
+								</>
 							),
 						},
 						{
@@ -258,8 +303,16 @@ export function ReviewPage() {
 									onWindowDays={(timelineWindowDays) =>
 										updateUi({ timelineWindowDays })
 									}
+									from={search.from}
+									onFrom={(from) =>
+										void navigate({
+											search: (s) => ({ ...s, from }),
+											replace: true,
+											resetScroll: false,
+										})
+									}
 									stripDays={settings.locationWindowDays}
-									onOpen={(stamp) => openStamp(stamp)}
+									onOpen={openFromTimeline}
 								/>
 							),
 						},

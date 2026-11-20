@@ -36,6 +36,7 @@ const view = (stamps: Stamp[]) =>
 			photoNames={new Map()}
 			windowDays={90}
 			onWindowDays={() => {}}
+			onFrom={() => {}}
 			onOpen={() => {}}
 		/>,
 	);

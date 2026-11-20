@@ -1006,6 +1006,11 @@
 	color: var(--vp-accent-ink);
 }
 
+/* Above the Photos tab after a stamp was opened from the timeline. */
+.review-back {
+	margin-bottom: 12px;
+}
+
 .review-band-card {
 	display: flex;
 	flex-direction: column;
