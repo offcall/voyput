@@ -106,6 +106,30 @@ describe("review timeline view", () => {
 		);
 	});
 
+	it("joins one country's photo days when no other country's photos lie between", () => {
+		const { container } = render(
+			<TimelineView
+				dayRuns={[
+					{ start: "2024-07-01", end: "2024-07-01", countryCode: "DE" },
+					{ start: "2024-07-25", end: "2024-07-25", countryCode: "DE" },
+					{ start: "2024-07-27", end: "2024-07-27", countryCode: "AT" },
+				]}
+				travelDays={new Map()}
+				index={buildPhotoIndex([])}
+				stamps={[stamp("in", "2024-07-01", "DE", "entry")]}
+				photoNames={new Map()}
+				windowDays={90}
+				onWindowDays={() => {}}
+				onFrom={() => {}}
+				onOpen={() => {}}
+			/>,
+		);
+		const runs = [...container.querySelectorAll(".review-band-run")].map(
+			(run) => run.getAttribute("title")?.split(" · ").at(-1),
+		);
+		expect(runs).toEqual(["1 Jul – 25 Jul 2024", "27 Jul 2024"]);
+	});
+
 	it("fills a paired stay's days without photos from its stamps", () => {
 		const { container } = render(
 			<TimelineView
@@ -139,7 +163,7 @@ describe("review timeline view", () => {
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
 		).toEqual([
-			"Photos",
+			"Photos, and days between photos in one country",
 			"Stamps: between entry and exit",
 			"No data",
 			"→←Stamps: entry, exit; click one to open its photo",

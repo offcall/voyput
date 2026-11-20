@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	bridgeSameCountry,
 	buildPhotoIndex,
 	type DayRun,
 	type LocationRow,
@@ -11,6 +12,33 @@ const run = (start: string, end: string, countryCode: string): DayRun => ({
 	start,
 	end,
 	countryCode,
+});
+
+describe("bridgeSameCountry", () => {
+	it("joins one country's photo days across a silence, however long", () => {
+		expect(
+			bridgeSameCountry([
+				run("2024-07-01", "2024-07-01", "DE"),
+				run("2024-07-25", "2024-07-25", "DE"),
+				run("2024-09-30", "2024-10-02", "DE"),
+			]),
+		).toEqual([run("2024-07-01", "2024-10-02", "DE")]);
+	});
+
+	it("ends at the last photo day and starts again with another country", () => {
+		const runs = [
+			run("2024-07-01", "2024-07-01", "DE"),
+			run("2024-07-05", "2024-07-05", "DE"),
+			run("2024-07-07", "2024-07-08", "AT"),
+			run("2024-07-10", "2024-07-10", "DE"),
+		];
+		expect(bridgeSameCountry(runs)).toEqual([
+			run("2024-07-01", "2024-07-05", "DE"),
+			run("2024-07-07", "2024-07-08", "AT"),
+			run("2024-07-10", "2024-07-10", "DE"),
+		]);
+		expect(runs[0]).toEqual(run("2024-07-01", "2024-07-01", "DE"));
+	});
 });
 
 describe("mergeBandRuns", () => {

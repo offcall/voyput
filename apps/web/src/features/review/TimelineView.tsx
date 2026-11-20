@@ -1,5 +1,6 @@
 import {
 	type BandRun,
+	bridgeSameCountry,
 	checkStamp,
 	countryNameOf,
 	type DayRun,
@@ -157,7 +158,7 @@ export function TimelineView({
 	const bandRuns = useMemo(
 		() =>
 			mergeBandRuns(
-				dayRuns,
+				bridgeSameCountry(dayRuns),
 				items.flatMap((item) =>
 					item.kind === "stay"
 						? [
@@ -580,7 +581,7 @@ function OverviewBand({
 			<ul className="review-band-legend" aria-label="Legend">
 				<li>
 					<span className="review-band-swatch" data-source="photos" />
-					Photos
+					Photos, and days between photos in one country
 				</li>
 				<li>
 					<span className="review-band-swatch" data-source="stamps" />

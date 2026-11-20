@@ -34,6 +34,7 @@ export type {
 export { SUPPORTED_PHOTO_TYPES } from "./passports/types";
 export {
 	type BandRun,
+	bridgeSameCountry,
 	mergeBandRuns,
 	photosInRun,
 	type StampStay,

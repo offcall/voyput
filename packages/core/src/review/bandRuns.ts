@@ -32,6 +32,23 @@ interface Span {
 }
 
 /**
+ * Joins photo runs of one country that only days without photos separate:
+ * photos in X on day 1 and next on day N, none elsewhere between, make one
+ * run in X from day 1 to N, however long the silence. The day after the last
+ * photo is unknown again; photos in another country start a new run.
+ * `runs` are sorted by start and do not overlap.
+ */
+export const bridgeSameCountry = (runs: readonly DayRun[]): DayRun[] => {
+	const out: DayRun[] = [];
+	for (const run of runs) {
+		const last = out[out.length - 1];
+		if (last && last.countryCode === run.countryCode) last.end = run.end;
+		else out.push({ ...run });
+	}
+	return out;
+};
+
+/**
  * Photo runs as they are, plus the days of each stamp stay that no photo run
  * covers, sorted by start. Photos win: a side trip seen in photos keeps its
  * country. A filled day takes the entry's country, or in a Schengen stay the
