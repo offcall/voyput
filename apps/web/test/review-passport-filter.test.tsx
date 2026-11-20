@@ -58,7 +58,8 @@ async function seed(two: boolean): Promise<VoyputDb> {
 			addedAt: "2024-01-01T00:00:00Z",
 			blob: new Blob(["x"], { type: "image/png" }),
 		});
-		await db.stamps.put(stamp(`s-${name}`, passportId, name, "2020-01-01"));
+		const date = passportId === "new" ? "2021-05-05" : "2020-01-01";
+		await db.stamps.put(stamp(`s-${name}`, passportId, name, date));
 	}
 	return db;
 }
@@ -109,6 +110,35 @@ describe("review passport filter", () => {
 		await user.click(queue.getByRole("button", { name: "Next →" }));
 		expect(
 			await screen.findByRole("heading", { name: /b-1\.png/ }),
+		).toBeTruthy();
+	});
+
+	it("shows a stamp of another passport opened from the timeline", async () => {
+		const user = userEvent.setup();
+		renderApp("/collect/review", { db: await seed(true) });
+		const queue = within(
+			await screen.findByRole("region", { name: "Review queue" }),
+		);
+		const passport = await queue.findByRole("combobox", { name: "Passport" });
+		await user.selectOptions(passport, "Passport: Old");
+		await queue.findByText("2 to check");
+
+		await user.click(screen.getByRole("tab", { name: "Timeline" }));
+		const chronology = await screen.findByRole("list", {
+			name: "Stamps by date",
+		});
+		await user.click(
+			within(chronology).getByRole("button", {
+				name: "Open stamp: 2021-05-05 entry Romania",
+			}),
+		);
+		expect(
+			await screen.findByRole("heading", { name: /b-1\.png/ }),
+		).toBeTruthy();
+		expect((passport as HTMLSelectElement).value).toBe("");
+		const pages = queue.getByRole("combobox", { name: "Pages" });
+		expect(
+			within(pages).getByRole("option", { name: "Needs attention (3)" }),
 		).toBeTruthy();
 	});
 });

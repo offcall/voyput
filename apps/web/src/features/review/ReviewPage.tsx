@@ -141,12 +141,15 @@ export function ReviewPage() {
 		setUi(next);
 		void saveUiState(db, next);
 	};
-	/** `replace` swaps the URL in place, for a link that already added a history entry. */
-	const openStamp = (stamp: Stamp, replace = false) => {
-		// A stamp of another passport (from the timeline or a link) shows all passports again.
+	/** A stamp of another passport (from the timeline or a link) shows all passports again. */
+	const showPassportOf = (stamp: Stamp) => {
 		const page = records.data?.photos.find((p) => p.id === stamp.photoId);
 		if (page && passportId && page.passportId !== passportId)
 			setPassportId(null);
+	};
+	/** `replace` swaps the URL in place, for a link that already added a history entry. */
+	const openStamp = (stamp: Stamp, replace = false) => {
+		showPassportOf(stamp);
 		// The card scrolls itself into view; the router must not jump back to the top.
 		void navigate({
 			search: { tab: "photos", photo: stamp.photoId },
@@ -158,6 +161,7 @@ export function ReviewPage() {
 	};
 	/** Opens a stamp from the timeline; the band position stays in the URL for Back. */
 	const openFromTimeline = (stamp: Stamp) => {
+		showPassportOf(stamp);
 		timelineScroll.current = window.scrollY;
 		setFromTimeline(true);
 		void navigate({
