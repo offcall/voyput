@@ -14,6 +14,34 @@ const file = (name: string, type: string) =>
 	new File([new Uint8Array([1, 2, 3])], name, { type });
 
 describe("import passport photos", () => {
+	it("says to connect an AI in Settings until one is set up", async () => {
+		const first = renderApp("/collect/passports");
+		const callout = (
+			await screen.findByText(
+				"Next: connect an AI to read the stamps. Your photos are saved.",
+			)
+		).closest(".vp-notice") as HTMLElement;
+		expect(callout.dataset.tone).toBe("warn");
+		expect(
+			within(callout)
+				.getByRole("link", { name: "Add it in Settings" })
+				.getAttribute("href"),
+		).toBe("/settings");
+		first.unmount();
+
+		localStorage.setItem(
+			"voyput:settings",
+			JSON.stringify({ openRouterKey: "sk-or-test" }),
+		);
+		try {
+			renderApp("/collect/passports");
+			await screen.findByLabelText("Passport name");
+			expect(screen.queryByText(/Next: connect an AI/)).toBeNull();
+		} finally {
+			localStorage.removeItem("voyput:settings");
+		}
+	});
+
 	it("adds JPEG/PNG photos, rejects HEIC and keeps the rotation", async () => {
 		const user = userEvent.setup({ applyAccept: false });
 		const first = renderApp("/collect/passports");

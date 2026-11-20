@@ -7,6 +7,16 @@
 	container-type: inline-size;
 }
 
+/* No AI yet: the callout text and its Settings button wrap on phones. */
+.import-ai-setup > .vp-notice {
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+}
+.import-ai-setup .vp-button {
+	text-decoration: none;
+}
+
 /* Locations step: what is stored on the left, the drop zone and the how-to
    on the right; one column in narrow containers. */
 .import-locations {
