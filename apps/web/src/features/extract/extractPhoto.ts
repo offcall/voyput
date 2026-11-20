@@ -20,7 +20,8 @@ const errorMessage = (error: unknown): string =>
  * A success replaces the photo's earlier unreviewed AI stamps; reviewed stamps and
  * stamps added by hand stay; stored stays built on a replaced stamp are
  * marked (`staysAfterEvidenceChange`). Nothing is stored once the photo is gone (deleted
- * while the model was answering).
+ * while the model was answering) or `current` says the run was cancelled (e.g. by
+ * a backup import).
  */
 export async function extractPhoto(
 	db: VoyputDb,
@@ -28,6 +29,7 @@ export async function extractPhoto(
 	settings: AiSettings,
 	passport: Passport,
 	photo: PhotoRecord,
+	current: () => boolean = () => true,
 ): Promise<void> {
 	const range = { from: passport.validFrom, to: passport.validTo };
 	const started = performance.now();
@@ -63,7 +65,7 @@ export async function extractPhoto(
 			"rw",
 			[db.photos, db.stamps, db.extractions, db.stays],
 			async () => {
-				if (!(await db.photos.get(photo.id))) return;
+				if (!current() || !(await db.photos.get(photo.id))) return;
 				const replaced = await db.stamps
 					.where("photoId")
 					.equals(photo.id)
@@ -81,7 +83,7 @@ export async function extractPhoto(
 	} catch (error) {
 		try {
 			await db.transaction("rw", db.photos, db.extractions, async () => {
-				if (await db.photos.get(photo.id))
+				if (current() && (await db.photos.get(photo.id)))
 					await db.extractions.put(finish("failed", errorMessage(error)));
 			});
 		} catch {

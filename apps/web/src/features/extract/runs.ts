@@ -32,10 +32,14 @@ export class ExtractionRuns {
 		for (const listener of this.listeners) listener();
 	}
 
-	/** Runs `work` for every photo that is not already active, a few at a time. */
+	/**
+	 * Runs `work` for every photo that is not already active, a few at a time.
+	 * `work` gets `current`, false once the run is cancelled: it checks it in the
+	 * transaction that stores its result, so a late answer stores nothing.
+	 */
 	async start<P extends { id: string }>(
 		photos: readonly P[],
-		work: (photo: P) => Promise<void>,
+		work: (photo: P, current: () => boolean) => Promise<void>,
 	): Promise<void> {
 		const generation = this.generation;
 		const fresh = photos.filter((photo) => !this.state.active.has(photo.id));
@@ -47,10 +51,11 @@ export class ExtractionRuns {
 				? { ...running, total: running.total + fresh.length }
 				: { done: 0, total: fresh.length },
 		});
+		const current = () => generation === this.generation;
 		await mapConcurrent(fresh, CONCURRENCY, async (photo) => {
-			if (generation !== this.generation) return;
+			if (!current()) return;
 			try {
-				await work(photo);
+				await work(photo, current);
 			} catch {
 				// `work` records its own failures; a throw here must not stop the queue.
 			} finally {
@@ -70,8 +75,8 @@ export class ExtractionRuns {
 
 	/**
 	 * Drops every queued photo and forgets the running ones: no new request starts.
-	 * A request already sent still answers; `extractPhoto` then stores nothing for a
-	 * photo that is gone.
+	 * A request already sent still answers; `extractPhoto` then stores nothing, so
+	 * a backup imported meanwhile stays as imported.
 	 */
 	cancel(): void {
 		this.generation += 1;

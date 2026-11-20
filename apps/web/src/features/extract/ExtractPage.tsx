@@ -122,8 +122,8 @@ export function ExtractPage() {
 
 	const run = (photos: PhotoRecord[]) => {
 		if (!passport || !loaded) return;
-		void runs.start(photos, (photo) =>
-			extractPhoto(db, ai, settings, passport, photo),
+		void runs.start(photos, (photo, current) =>
+			extractPhoto(db, ai, settings, passport, photo, current),
 		);
 	};
 
