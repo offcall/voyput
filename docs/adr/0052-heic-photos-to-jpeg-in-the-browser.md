@@ -26,6 +26,8 @@ iPhones save photos as HEIC. ADR 0003 accepted only JPEG and PNG, so a tester wh
 
 ## Consequences
 
+- The worker decodes at most 16384 px a side and 100 MP (a 48 MP iPhone photo fits) and gets 60 s per photo, the decoder's first load included; a larger or stuck file fails alone, its worker is ended, and the rest of the batch is stored.
+
 - HEIC works in Chrome, Firefox and Safari with no extra step. Measured in headless Chromium on a synthetic 4032 × 3024 test pattern: about 0.6 s per photo end to end with the first wasm load, 0.4 s after it. Real photos have more detail and decode slower.
 - A deployment that keeps the old CSP still imports JPEG and PNG; HEIC files then fail with the browser's CSP message.
 - The site carries an LGPL component; its licence ships with the build.

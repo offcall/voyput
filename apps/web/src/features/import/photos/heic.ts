@@ -4,6 +4,25 @@ import { canvasCodec, type ImageCodec } from "../../../ai/image";
 /** JPEG quality of a converted HEIC photo (ADR 0052). */
 export const HEIC_JPEG_QUALITY = 0.92;
 
+/** Largest side and pixel count of a HEIC photo the worker decodes (a 48 MP iPhone photo fits). */
+export const HEIC_MAX_SIDE = 16_384;
+export const HEIC_MAX_PIXELS = 100_000_000;
+
+/** How long one photo may take in the worker, the decoder's first load included. */
+export const HEIC_TIMEOUT_MS = 60_000;
+
+/** Why a HEIC photo of this size is not decoded, or null when it may be. */
+export function heicSizeProblem(width: number, height: number): string | null {
+	if (!(width > 0 && height > 0)) return "the HEIC image has no size";
+	if (
+		width > HEIC_MAX_SIDE ||
+		height > HEIC_MAX_SIDE ||
+		width * height > HEIC_MAX_PIXELS
+	)
+		return `the HEIC image is too large (${width}×${height})`;
+	return null;
+}
+
 /** The HEIC worker's answer: the JPEG, or why it could not convert. */
 export type HeicReply = { ok: true; jpeg: Blob } | { ok: false; error: string };
 
@@ -35,6 +54,7 @@ const defaultWorker = (): HeicWorker =>
 export function createHeicConverter(
 	codec: ImageCodec = canvasCodec,
 	createWorker: () => HeicWorker = defaultWorker,
+	timeoutMs = HEIC_TIMEOUT_MS,
 ): HeicConverter {
 	let worker: HeicWorker | null = null;
 
@@ -63,8 +83,14 @@ export function createHeicConverter(
 		worker ??= createWorker();
 		const running = worker;
 		const reply = await new Promise<HeicReply>((resolve) => {
+			// A decoder that hangs fails this photo; the others in the batch go on.
+			const timer = setTimeout(
+				() => failed("the HEIC decoder took too long"),
+				timeoutMs,
+			);
 			const failed = (error: string) => {
-				// A crashed worker is not reused; the next photo starts a new one.
+				clearTimeout(timer);
+				// A crashed or stuck worker is not reused; the next photo starts a new one.
 				running.terminate();
 				if (worker === running) worker = null;
 				resolve({ ok: false, error });
@@ -76,9 +102,10 @@ export function createHeicConverter(
 					data !== null &&
 					"ok" in data &&
 					(data.ok === false || ("jpeg" in data && data.jpeg instanceof Blob))
-				)
+				) {
+					clearTimeout(timer);
 					resolve(data as HeicReply);
-				else failed("unexpected answer from the HEIC decoder");
+				} else failed("unexpected answer from the HEIC decoder");
 			};
 			running.onerror = (event) =>
 				failed(event.message || "the HEIC decoder could not start");

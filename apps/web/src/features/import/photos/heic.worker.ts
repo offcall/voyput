@@ -5,7 +5,7 @@
  */
 import createLibheif from "libheif-js/libheif-wasm/libheif.js";
 import wasmUrl from "libheif-js/libheif-wasm/libheif.wasm?url";
-import { HEIC_JPEG_QUALITY, type HeicReply } from "./heic";
+import { HEIC_JPEG_QUALITY, type HeicReply, heicSizeProblem } from "./heic";
 
 /** The part of libheif-js's JavaScript API this worker uses (not in its .d.ts). */
 interface HeifImage {
@@ -60,6 +60,8 @@ async function toJpeg(bytes: ArrayBuffer): Promise<Blob> {
 	try {
 		const width = image.get_width();
 		const height = image.get_height();
+		const tooLarge = heicSizeProblem(width, height);
+		if (tooLarge) throw new Error(tooLarge);
 		const pixels = new Uint8ClampedArray(width * height * 4);
 		const decoded = await new Promise<unknown>((resolve) =>
 			image.display({ data: pixels, width, height }, resolve),

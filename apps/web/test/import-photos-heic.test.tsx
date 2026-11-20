@@ -8,6 +8,7 @@ import {
 	type createHeicConverter,
 	type HeicConverter,
 	type HeicWorker,
+	heicSizeProblem,
 	isAppleMobile,
 	photoAccept,
 } from "../src/features/import/photos/heic";
@@ -155,6 +156,36 @@ describe("HEIC converter", () => {
 			Blob,
 		);
 		expect(createWorker).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe("HEIC limits", () => {
+	it("fails a photo whose decoder hangs and starts a new worker for the next one", async () => {
+		const { codec } = stubCodec(false);
+		const hanging = fakeWorker(() => "hang");
+		hanging.worker.postMessage = () => {};
+		const working = fakeWorker(() => ({ ok: true, jpeg: jpeg() }));
+		const createWorker = vi
+			.fn<() => HeicWorker>()
+			.mockReturnValueOnce(hanging.worker)
+			.mockReturnValueOnce(working.worker);
+		const converter = realConverter(codec, createWorker, 20);
+
+		await expect(converter.toJpeg(heic("stuck.heic"))).rejects.toThrow(
+			"the HEIC decoder took too long",
+		);
+		expect(hanging.worker.terminated).toBe(true);
+		await expect(converter.toJpeg(heic("b.heic"))).resolves.toBeInstanceOf(
+			Blob,
+		);
+	});
+
+	it("decodes up to 16384 px a side and 100 MP, a 48 MP iPhone photo included", () => {
+		expect(heicSizeProblem(8064, 6048)).toBeNull();
+		expect(heicSizeProblem(16_384, 6000)).toBeNull();
+		expect(heicSizeProblem(16_385, 100)).toMatch(/too large/);
+		expect(heicSizeProblem(12_000, 12_000)).toMatch(/too large/);
+		expect(heicSizeProblem(0, 100)).toMatch(/no size/);
 	});
 });
 
