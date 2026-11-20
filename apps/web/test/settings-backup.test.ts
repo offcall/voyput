@@ -58,6 +58,7 @@ const stamp = (i: number): Stamp => ({
 	source: "ai",
 	reviewed: i % 2 === 0,
 	...(i === 0 ? { dismissed: { problem: true }, readDate: null } : {}),
+	...(i === 1 ? { box: { x: 0.1, y: 0.2, width: 0.3, height: 0.25 } } : {}),
 });
 
 const stay: TravelStay = {

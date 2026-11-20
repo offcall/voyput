@@ -4,6 +4,7 @@ import {
 	type PassportPhoto,
 	type PhotoExtraction,
 	type Stamp,
+	type StampBox,
 	type StayEdge,
 	SUPPORTED_PHOTO_TYPES,
 	TRAVEL_METHODS,
@@ -268,6 +269,9 @@ const isExtraction = shape<PhotoExtraction>({
 	finishedAt: str,
 });
 
+/** A number from 0 to 1, as stamp boxes are stored. */
+const unit: Check = (v) => typeof v === "number" && v >= 0 && v <= 1;
+
 const isTrue: Check = (v) => v === true;
 const isStamp = shape<Stamp>({
 	id: str,
@@ -295,6 +299,9 @@ const isStamp = shape<Stamp>({
 			),
 	),
 	readDate: optional(orNull(str)),
+	box: optional(
+		shape<StampBox>({ x: unit, y: unit, width: unit, height: unit }),
+	),
 });
 
 const isLocation = shape<LocationRow>({
