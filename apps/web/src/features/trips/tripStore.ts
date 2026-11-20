@@ -12,7 +12,15 @@ import {
 	suggestHistory,
 	type TravelStay,
 } from "@voyput/core";
-import { BIRTH_COUNTRY_KEY, BIRTH_KEY, birthOf } from "../../data/profile";
+import {
+	ASSUMED_HOME_KEY,
+	BIRTH_COUNTRY_KEY,
+	BIRTH_KEY,
+	birthOf,
+	COUNT_ASSUMED_KEY,
+	type HomeFill,
+	homeFillOf,
+} from "../../data/profile";
 import { LEGACY_TRIPS_KEY, type VoyputDb } from "../../db/db";
 
 /** `db.kv` key of the list order on the Trips step. */
@@ -25,7 +33,7 @@ export const DISMISSED_KEY = "trips:dismissed";
 
 export { suggestHistory };
 
-export interface TripsData extends HistorySource {
+export interface TripsData extends HistorySource, HomeFill {
 	stamps: Stamp[];
 	locations: readonly LocationRow[];
 	passports: Passport[];
@@ -54,6 +62,8 @@ export async function loadTripsData(
 		order,
 		dismissed,
 		legacy,
+		assumedHome,
+		countAssumed,
 	] = await Promise.all([
 		db.stamps.toArray(),
 		db.passports.toArray(),
@@ -63,6 +73,8 @@ export async function loadTripsData(
 		db.kv.get(ORDER_KEY),
 		db.kv.get(DISMISSED_KEY),
 		db.kv.get(LEGACY_TRIPS_KEY),
+		db.kv.get(ASSUMED_HOME_KEY),
+		db.kv.get(COUNT_ASSUMED_KEY),
 	]);
 	return {
 		stamps,
@@ -71,6 +83,7 @@ export async function loadTripsData(
 		dismissed: periodsOf(dismissed?.value),
 		stored: sortStays(stored),
 		...birthOf(birthCountry?.value, birth?.value),
+		...homeFillOf(assumedHome?.value, countAssumed?.value),
 		order: order?.value === "oldest" ? "oldest" : "newest",
 		legacy: Array.isArray(legacy?.value)
 			? legacy.value.filter(isLegacyTrip)

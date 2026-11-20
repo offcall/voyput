@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes the home and derived-trip parts of ADR 0019.
+Accepted. Supersedes the home and derived-trip parts of ADR 0019. No-home part (days without evidence are only gaps) superseded by ADR 0051, which adds an optional assumed home.
 
 ## Context
 

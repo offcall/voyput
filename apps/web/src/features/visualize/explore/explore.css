@@ -225,6 +225,10 @@
 		rgb(0 0 0 / 0.22) 4px 6px
 	);
 }
+/* Unknown days assumed at home (ADR 0051): hatched and lighter. */
+.vp-explore-period[data-assumed] {
+	opacity: 0.5;
+}
 .vp-explore-period[data-one-day] {
 	top: 9px;
 	width: 12px;

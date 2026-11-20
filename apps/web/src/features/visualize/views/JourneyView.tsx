@@ -8,19 +8,21 @@ import "../route/route.css";
 /**
  * Journey: the stays played back as a flight across the world map. With a
  * filter it plays the filtered stays, cut to its dates, and their photos.
+ * Days assumed at home are no journey: they are left out (ADR 0051).
  */
 export function JourneyView({ ctx }: { ctx: InsightsContext }) {
 	const { isFiltered, filtered, stays, photos, world } = ctx;
 	const shown = useMemo(
 		(): Stay[] =>
-			isFiltered
+			(isFiltered
 				? filtered.map((s) => ({
 						...s,
 						start: s.clipStart,
 						end: s.clipEnd,
 						days: s.clippedDays,
 					}))
-				: stays.stays,
+				: stays.stays
+			).filter((s) => !s.assumed),
 		[isFiltered, filtered, stays],
 	);
 	if (shown.length === 0) return <NoMatch onReset={ctx.onReset} />;

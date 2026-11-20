@@ -109,6 +109,7 @@ export {
 	type Visit,
 	zoneOf,
 } from "./stamps/visits";
+export { type AssumedHome, assumedHomeGaps } from "./trips/assumedHome";
 export {
 	applyDismissed,
 	type EvidenceChange,

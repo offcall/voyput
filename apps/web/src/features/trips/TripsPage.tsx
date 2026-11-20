@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import {
 	addDays,
 	addStay,
+	assumedHomeGaps,
 	canSplitAt,
 	clearStayIds,
 	dayOf,
@@ -67,22 +68,35 @@ import {
 } from "./tripStore";
 import { type ToastMessage, UndoToast } from "./UndoToast";
 
-/** Days no stay covers between two stays: just a gap, with a button to fill it. */
+/**
+ * Days no stay covers between two stays: just a gap, with a button to fill it.
+ * With a home country (`home`) the days are assumed there, never a stay (ADR 0051).
+ */
 function GapRow({
 	gap,
+	home,
 	onAdd,
 	below,
 }: {
 	gap: StayGap;
+	home?: string | undefined;
 	onAdd: () => void;
 	below?: ReactNode;
 }) {
 	return (
 		<div className="vp-stay-block">
-			<div className="vp-stay-gap">
-				<span className="vp-stay-gap-label">
-					gap · {plural(gap.days, "day")}
-				</span>
+			<div className="vp-stay-gap" data-assumed={home ? true : undefined}>
+				{home ? (
+					<span className="vp-stay-gap-label">
+						<span aria-hidden="true">{flagOf(home)}</span> {countryName(home)} ·{" "}
+						{plural(gap.days, "day")}{" "}
+						<span className="vp-stay-assumed">assumed home</span>
+					</span>
+				) : (
+					<span className="vp-stay-gap-label">
+						gap · {plural(gap.days, "day")}
+					</span>
+				)}
 				<span className="vp-trips-muted">
 					{stayRange(addDays(gap.from, 1), addDays(gap.to, -1))}
 				</span>
@@ -394,6 +408,10 @@ export function TripsPage() {
 		[stays, usable, data, birth],
 	);
 	const counts = stayCounts(stays, hints);
+	const assumed = useMemo(
+		() => assumedHomeGaps(stays, data?.assumedHome ?? null, usable, today),
+		[stays, data, usable, today],
+	);
 	const evidenceDays = useMemo(
 		() => ({
 			stamps: new Map(usable.map((s) => [s.id, s.date])),
@@ -526,15 +544,16 @@ export function TripsPage() {
 
 	const index = stays.findIndex((s) => s.id === selectedId);
 	const selected = stays[index];
-	const groups = yearGroups(stays, order, birth, today);
+	const groups = yearGroups(stays, order, birth, today, assumed);
 	const openByDefault = defaultOpenYears(groups);
 	const listItem = (item: Item) => {
-		if (item.kind === "gap") {
+		if (item.kind !== "stay") {
 			const at = `gap-${stays[item.after]?.id}`;
 			return (
 				<GapRow
 					key={at}
 					gap={item.gap}
+					home={item.kind === "assumed" ? item.gap.countryCode : undefined}
 					onAdd={() => openAdd(at, item.gap.from, item.gap.to)}
 					below={addForm(at)}
 				/>

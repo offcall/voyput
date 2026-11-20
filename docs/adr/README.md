@@ -25,7 +25,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0019](0019-stays-as-source-of-truth.md) | Stays as Source of Truth | Accepted; home and derived trips superseded by 0022 |
 | [0020](0020-gemini-flash-default-model.md) | Gemini 3.8 Flash as Default Model | Accepted |
 | [0021](0021-commons-sample-pages-in-demo.md) | Commons Sample Pages in the Demo | Accepted |
-| [0022](0022-stays-without-home.md) | Stays Without Home | Accepted |
+| [0022](0022-stays-without-home.md) | Stays Without Home | Accepted; no home partly superseded by 0046 |
 | [0023](0023-navigation-and-insights.md) | Navigation and Insights | Accepted |
 | [0024](0024-collect-sources.md) | Collect Sources | Accepted; `/` part superseded by 0025 |
 | [0025](0025-home-page.md) | Home Page | Accepted |
@@ -54,3 +54,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0048](0048-backup-file-format.md) | Backup File Format | Accepted |
 | [0049](0049-downscale-pages-sent-to-the-model.md) | Downscale Pages Sent to the Model | Proposed |
 | [0050](0050-several-location-files.md) | Several Location Files | Accepted |
+| [0051](0051-optional-assumed-home.md) | Optional Assumed Home | Accepted (partly supersedes 0022) |

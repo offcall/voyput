@@ -1,4 +1,5 @@
 import {
+	type AssumedHome,
 	addDays,
 	gapBetween,
 	type StayGap,
@@ -8,10 +9,14 @@ import {
 
 import type { StayOrder } from "./tripStore";
 
-/** One line of the list: a stay, or the days no stay covers between two stays. */
+/**
+ * One line of the list: a stay, the days no stay covers between two stays, or
+ * such days (also after the last stay) assumed in the home country (ADR 0051).
+ */
 export type Item =
 	| { kind: "stay"; index: number }
-	| { kind: "gap"; after: number; gap: StayGap };
+	| { kind: "gap"; after: number; gap: StayGap }
+	| { kind: "assumed"; after: number; gap: AssumedHome };
 
 /** Items of one year, by the day each stay or gap begins. */
 export interface YearGroup {
@@ -23,15 +28,24 @@ export interface YearGroup {
 /** Years open until the user folds them: the newest ones. */
 export const OPEN_YEARS = 2;
 
-/** The list in chronological order: stays, and gaps between them. */
-export function itemsOf(stays: readonly TravelStay[]): Item[] {
+/** The list in chronological order: stays, and gaps between them, assumed at home when `assumed` fills them. */
+export function itemsOf(
+	stays: readonly TravelStay[],
+	assumed: readonly AssumedHome[] = [],
+): Item[] {
+	const filled = new Map(assumed.map((a) => [a.after, a]));
 	const items: Item[] = [];
 	stays.forEach((stay, index) => {
 		const prev = stays[index - 1];
+		const home = filled.get(index - 1);
 		const gap = prev ? gapBetween(prev, stay) : null;
-		if (gap) items.push({ kind: "gap", after: index - 1, gap });
+		if (home && gap)
+			items.push({ kind: "assumed", after: index - 1, gap: home });
+		else if (gap) items.push({ kind: "gap", after: index - 1, gap });
 		items.push({ kind: "stay", index });
 	});
+	const last = filled.get(stays.length - 1);
+	if (last) items.push({ kind: "assumed", after: stays.length - 1, gap: last });
 	return items;
 }
 
@@ -45,14 +59,15 @@ export function yearGroups(
 	order: StayOrder,
 	birth: string | null,
 	today: string,
+	assumed: readonly AssumedHome[] = [],
 ): YearGroup[] {
 	const yearOf = (item: Item): string => {
-		if (item.kind === "gap") return addDays(item.gap.from, 1).slice(0, 4);
+		if (item.kind !== "stay") return addDays(item.gap.from, 1).slice(0, 4);
 		const stay = stays[item.index] as TravelStay;
 		const { start, end } = staySpan(stay, birth, today);
 		return (start ?? end ?? today).slice(0, 4);
 	};
-	const items = itemsOf(stays);
+	const items = itemsOf(stays, assumed);
 	if (order === "newest") items.reverse();
 	const groups: YearGroup[] = [];
 	for (const item of items) {

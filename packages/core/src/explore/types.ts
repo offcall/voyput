@@ -33,6 +33,8 @@ export interface Stay {
 	stopDays: number;
 	/** At least one edge is `estimated` or `photos`. */
 	estimated: boolean;
+	/** Unknown days assumed in the home country (ADR 0051), not a stay of the history. */
+	assumed?: true;
 }
 
 /** A stay that passed the filters, cut to the selected date range. */

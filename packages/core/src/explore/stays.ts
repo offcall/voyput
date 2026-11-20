@@ -1,10 +1,11 @@
 import { addDays, spanDays } from "../days";
 import type { LocationRow } from "../locations/types";
+import type { AssumedHome } from "../trips/assumedHome";
 import { countryNameOf } from "../trips/countries";
 import { locationDay } from "../trips/evidence";
 import type { StayEdge, TravelStay } from "../trips/types";
 import { regionOf } from "./regions";
-import type { Stay } from "./types";
+import type { ExploreEdge, Stay } from "./types";
 
 export interface StaysOptions {
 	/** Days in other countries count as abroad; null counts every stay. */
@@ -15,10 +16,42 @@ export interface StaysOptions {
 	today: string;
 	/** Photo locations, to count the days each stay was seen on. */
 	locations?: readonly LocationRow[];
+	/** Unknown days assumed at home (`assumedHomeGaps`), added as `assumed` stays. */
+	assumed?: readonly AssumedHome[];
 }
 
 const isEstimated = (...edges: StayEdge[]) =>
 	edges.some((e) => e.source === "estimated" || e.source === "photos");
+
+const estimatedEdge = (date: string): ExploreEdge => ({
+	date,
+	source: "estimated",
+	method: "unknown",
+});
+
+/** Unknown days assumed at home: in the home country, so never abroad. */
+function assumedStay(a: AssumedHome): Omit<Stay, "order"> {
+	const start = addDays(a.from, 1);
+	const end = addDays(a.to, -1);
+	return {
+		id: `assumed-${start}`,
+		countryCode: a.countryCode,
+		country: countryNameOf(a.countryCode),
+		region: regionOf(a.countryCode),
+		start,
+		end,
+		days: spanDays(start, end),
+		kind: "stay",
+		abroad: false,
+		place: "",
+		entry: estimatedEdge(start),
+		exit: estimatedEdge(end),
+		stamps: 0,
+		stopDays: 0,
+		estimated: true,
+		assumed: true,
+	};
+}
 
 /**
  * Explore's stays: the history's stays with known days, in order. A border
@@ -39,7 +72,10 @@ export function buildStays(
 		...new Set(s.photoIds.flatMap((id) => photoDay.get(id) ?? [])),
 	];
 	const out: Omit<Stay, "order">[] = [];
-	stays.forEach((s, i) => {
+	const assumedAfter = new Map<number, AssumedHome[]>();
+	for (const a of options.assumed ?? [])
+		assumedAfter.set(a.after, [...(assumedAfter.get(a.after) ?? []), a]);
+	const add = (s: TravelStay, i: number) => {
 		let start = s.arrival.date ?? birth;
 		let end = s.departure.date ?? today;
 		if (start === null || start > end) return;
@@ -66,6 +102,10 @@ export function buildStays(
 			stopDays: seenDays(s).length,
 			estimated: isEstimated(s.arrival, s.departure),
 		});
+	};
+	stays.forEach((s, i) => {
+		add(s, i);
+		for (const a of assumedAfter.get(i) ?? []) out.push(assumedStay(a));
 	});
 	return out.map((d, order) => ({ ...d, order }));
 }

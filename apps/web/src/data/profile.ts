@@ -101,3 +101,45 @@ export async function restoreBirth(
 		return { ...before, stays: stored };
 	});
 }
+
+/** `db.kv` key of the country unknown days are assumed in (ADR 0051); absent: none. */
+export const ASSUMED_HOME_KEY = "trips:assumedHome";
+/** `db.kv` key of whether Insights count the assumed days; absent: they do. */
+export const COUNT_ASSUMED_KEY = "trips:countAssumed";
+
+/** Unknown days filled with a home country, and whether Insights count them. */
+export interface HomeFill {
+	assumedHome: string | null;
+	countAssumed: boolean;
+}
+
+/** Stored fill values; an invalid country reads as none, anything but `false` counts. */
+export const homeFillOf = (
+	assumedHome: unknown,
+	countAssumed: unknown,
+): HomeFill => ({
+	assumedHome: isCountryCode(assumedHome) ? assumedHome : null,
+	countAssumed: countAssumed !== false,
+});
+
+export async function loadHomeFill(db: VoyputDb): Promise<HomeFill> {
+	const [home, count] = await Promise.all([
+		db.kv.get(ASSUMED_HOME_KEY),
+		db.kv.get(COUNT_ASSUMED_KEY),
+	]);
+	return homeFillOf(home?.value, count?.value);
+}
+
+/** Saves the fill; the defaults (no country, counted) are stored as absent keys. */
+export async function saveHomeFill(
+	db: VoyputDb,
+	fill: HomeFill,
+): Promise<void> {
+	await db.transaction("rw", db.kv, async () => {
+		if (fill.assumedHome)
+			await db.kv.put({ key: ASSUMED_HOME_KEY, value: fill.assumedHome });
+		else await db.kv.delete(ASSUMED_HOME_KEY);
+		if (fill.countAssumed) await db.kv.delete(COUNT_ASSUMED_KEY);
+		else await db.kv.put({ key: COUNT_ASSUMED_KEY, value: false });
+	});
+}

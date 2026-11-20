@@ -17,6 +17,21 @@
 	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 	gap: var(--vp-space-3);
 }
+.settings-profile + .settings-profile {
+	margin-top: var(--vp-space-3);
+}
+.settings-profile > .vp-field-description {
+	grid-column: 1 / -1;
+	margin: 0;
+}
+/* The "Count assumed days" box, level with the country picker's field. */
+.settings-check {
+	display: flex;
+	align-items: center;
+	gap: var(--vp-space-2);
+	align-self: end;
+	min-height: 44px;
+}
 
 /* The link to the public source, under the cards. */
 .settings-source {

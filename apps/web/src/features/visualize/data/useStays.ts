@@ -1,10 +1,12 @@
 import {
+	assumedHomeGaps,
 	buildStays,
 	type LocationRow,
 	type Stay,
 	type StaysSummary,
 	summarizeStays,
 	type TravelStay,
+	usableStamps,
 } from "@voyput/core";
 import { useEffect, useRef, useState } from "react";
 import { useLocations } from "../../../data/locations";
@@ -13,7 +15,7 @@ import { useDb } from "../../../db/DbContext";
 import { historyOf, loadTripsData } from "../../trips/tripStore";
 
 export interface StaysData {
-	/** Stays in date order: the Trips step's history, stored or suggested. */
+	/** Stays in date order: the Trips step's history, stored or suggested, and the counted days assumed at home. */
 	stays: Stay[];
 	/** Every photo location, for the "exact by photos" route. */
 	locations: readonly LocationRow[];
@@ -51,11 +53,20 @@ export function useStays(): StaysSource {
 			.then((data) => {
 				if (!alive) return;
 				const history = historyOf(data);
+				const today = localToday();
+				// Assumed days at home count only when the user asks (ADR 0051).
+				const home = data.countAssumed ? data.assumedHome : null;
 				const stays = buildStays(history, {
 					birthCountry: data.birthCountry,
 					birth: data.birth,
-					today: localToday(),
+					today,
 					locations: data.locations,
+					assumed: assumedHomeGaps(
+						history,
+						home,
+						usableStamps(data.stamps),
+						today,
+					),
 				});
 				setSource({
 					status: "ready",

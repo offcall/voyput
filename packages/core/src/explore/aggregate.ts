@@ -25,7 +25,7 @@ export function exploreKpis(rows: readonly FilteredStay[]): ExploreKpis {
 	const sum = (list: readonly FilteredStay[]) =>
 		list.reduce((n, r) => n + r.clippedDays, 0);
 	return {
-		stays: rows.length,
+		stays: rows.filter((r) => !r.assumed).length,
 		countries: new Set(rows.map((r) => r.countryCode)).size,
 		days: sum(rows),
 		daysAbroad: sum(rows.filter((r) => r.abroad)),

@@ -49,9 +49,10 @@ export function StayTimeline({
 								className="vp-explore-period"
 								data-one-day={bar.oneDay || undefined}
 								data-estimated={bar.stay.estimated || undefined}
+								data-assumed={bar.stay.assumed}
 								aria-pressed={selectedId === bar.stay.id}
-								title={`${bar.stay.country} · ${bar.stay.start} – ${bar.stay.end}`}
-								aria-label={`${bar.stay.country}, ${bar.stay.start} to ${bar.stay.end}`}
+								title={`${bar.stay.country}${bar.stay.assumed ? " (assumed home)" : ""} · ${bar.stay.start} – ${bar.stay.end}`}
+								aria-label={`${bar.stay.country}${bar.stay.assumed ? ", assumed home" : ""}, ${bar.stay.start} to ${bar.stay.end}`}
 								style={{
 									left: pct(bar.left),
 									width: bar.oneDay ? undefined : pct(bar.width),

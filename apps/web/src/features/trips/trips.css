@@ -622,6 +622,21 @@
 	font-family: var(--vp-font-pixel);
 	text-transform: uppercase;
 }
+/* Unknown days assumed at home (ADR 0051): hatched, never a stay. */
+.vp-stay-gap[data-assumed] {
+	background-image: repeating-linear-gradient(
+		135deg,
+		transparent 0 6px,
+		var(--vp-border) 6px 8px
+	);
+}
+.vp-stay-assumed {
+	padding: 0 4px;
+	border: 1px solid var(--vp-border);
+	border-radius: 3px;
+	background: var(--vp-surface);
+	white-space: nowrap;
+}
 /* A stay whose stamps or photos changed: Re-suggest or Keep under its row. */
 .vp-stay-evidence {
 	display: flex;
