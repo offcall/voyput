@@ -34,6 +34,10 @@ Run on 2026-11-20: `google/gemini-3.8-flash`, reasoning effort medium, one call 
 
 Result: 2048 stays. It is the only tested size that is not worse than the original on these pages, because here it is the original. 1600 is worse by one stamp. The sample is small (4 pages, one call per page and size), so the result rules out 1600 for now; it does not prove 2048 is the lowest safe size.
 
+What the trial does not show: every trial page was under 2048 px, so the downscale this ADR adds never ran in it. No page was scaled to 2048, and there is no reading result at the operating point the decision is for (a 4032 × 3024 phone page sent at 2048 × 1536, JPEG 0.9). The one scaled data point (1600) lost a stamp.
+
+Pending evidence: a later trial on pages whose long side is above 2048 px (full-size phone photos of stamp pages with ground truth), comparing the original with 2048. Until it is run and recorded here, 2048 rests on the reasoning above, not on a measurement.
+
 ## Consequences
 
 - A 12 MP phone photo goes out at about 2048 × 1536 instead of 4032 × 3024: roughly a quarter of the pixels and a much smaller request.
