@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { buildPhotoIndex, type Stamp } from "@voyput/core";
 import { describe, expect, it } from "vitest";
-import { TimelineView } from "../src/features/review/TimelineView";
+import { runLabel, TimelineView } from "../src/features/review/TimelineView";
 
 const stamp = (
 	id: string,
@@ -66,5 +66,36 @@ describe("review timeline view", () => {
 			(li) => li.textContent,
 		);
 		expect(gaps).toEqual(["27 days later"]);
+	});
+
+	it("names the country and the days of a band run in its tooltip", () => {
+		const { container } = render(
+			<TimelineView
+				dayRuns={[
+					{ start: "2024-07-20", end: "2024-07-23", countryCode: "DE" },
+				]}
+				travelDays={new Map()}
+				index={buildPhotoIndex([])}
+				stamps={[stamp("in", "2024-07-20", "DE", "entry")]}
+				photoNames={new Map()}
+				windowDays={90}
+				onWindowDays={() => {}}
+				onFrom={() => {}}
+				onOpen={() => {}}
+			/>,
+		);
+		const run = container.querySelector(".review-band-run");
+		expect(run?.getAttribute("title")).toBe("Germany · 20 Jul – 23 Jul 2024");
+	});
+});
+
+describe("band run label", () => {
+	it("shows flag and code, the code, or nothing by pixel width", () => {
+		expect(runLabel(120)).toBe("flag");
+		expect(runLabel(44)).toBe("flag");
+		expect(runLabel(43.9)).toBe("code");
+		expect(runLabel(20)).toBe("code");
+		expect(runLabel(19.9)).toBe("none");
+		expect(runLabel(0)).toBe("none");
 	});
 });

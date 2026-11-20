@@ -1,5 +1,6 @@
 import {
 	checkStamp,
+	countryNameOf,
 	type DayRun,
 	dayIso,
 	dayNumber,
@@ -12,7 +13,15 @@ import {
 	severity,
 } from "@voyput/core";
 import { Button, EmptyState, PixelArt } from "@voyput/ui";
-import { type CSSProperties, Fragment, type ReactNode, useMemo } from "react";
+import {
+	type CSSProperties,
+	Fragment,
+	type ReactNode,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { CountryTag, useColourOf } from "./CountryTag";
 import { DayStrip } from "./DayStrip";
 import {
@@ -55,6 +64,26 @@ const MONTHS = [
 	"Nov",
 	"Dec",
 ];
+
+/** What a coloured run on the band shows at its width in pixels: flag and code, the code, or nothing. */
+export const runLabel = (px: number): "flag" | "code" | "none" =>
+	px >= 44 ? "flag" : px >= 20 ? "code" : "none";
+
+/** Width in pixels of an element, kept up to date; 0 until measured. */
+function useWidth<T extends HTMLElement>() {
+	const ref = useRef<T>(null);
+	const [width, setWidth] = useState(0);
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+		setWidth(element.clientWidth);
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(() => setWidth(element.clientWidth));
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, []);
+	return [ref, width] as const;
+}
 
 const stampLabel = (s: Stamp) =>
 	`${s.date ?? "no date"} ${s.direction} ${s.country ?? s.countryCode ?? "unknown country"}`;
@@ -398,6 +427,7 @@ function OverviewBand({
 	onOpen: (stamp: Stamp) => void;
 }) {
 	const hueStyle = useHueStyle();
+	const [daysRef, bandWidth] = useWidth<HTMLDivElement>();
 	const fromIso = dayIso(from);
 	const toIso = dayIso(from + windowDays - 1);
 	const runs = runsBetween(dayRuns, fromIso, toIso);
@@ -469,26 +499,25 @@ function OverviewBand({
 						);
 					})}
 				</div>
-				<div className="review-band-days">
+				<div className="review-band-days" ref={daysRef}>
 					{runs.map((run) => {
 						const days = at(run.end) - at(run.start) + 1;
+						const label = runLabel((days / windowDays) * bandWidth);
 						return (
 							<span
 								key={`${run.start}-${run.countryCode}`}
 								className="review-band-run"
-								title={`${run.countryCode} · ${formatDayRange(run.start, run.end)}`}
+								title={`${countryNameOf(run.countryCode)} · ${run.start === run.end ? formatDay(run.start) : formatDayRange(run.start, run.end)}`}
 								style={{
 									...hueStyle(run.countryCode),
 									left: pct(at(run.start)),
 									width: pct(days),
 								}}
 							>
-								{days / windowDays > 0.04 ? (
-									<>
-										<span aria-hidden="true">{flagOf(run.countryCode)}</span>{" "}
-										{run.countryCode}
-									</>
+								{label === "flag" ? (
+									<span aria-hidden="true">{flagOf(run.countryCode)} </span>
 								) : null}
+								{label === "none" ? null : run.countryCode}
 							</span>
 						);
 					})}
