@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	canvasCodec,
 	type DecodedImage,
 	fitLongSide,
 	type ImageCodec,
@@ -75,5 +76,96 @@ describe("pageForModel", () => {
 			pageForModel(new Blob(["x"], { type: "image/jpeg" }), 0, codec),
 		).rejects.toThrow("no canvas");
 		expect(image.close).toHaveBeenCalledOnce();
+	});
+});
+
+/**
+ * The canvas codec with jsdom's missing canvas parts stubbed: it records the
+ * canvas size and the drawing calls, not pixels (no real canvas in tests).
+ */
+describe("canvasCodec", () => {
+	class FakeBitmap {
+		constructor(
+			readonly width: number,
+			readonly height: number,
+		) {}
+		close() {}
+	}
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	function fakeCanvas() {
+		const calls: unknown[][] = [];
+		const context = {
+			imageSmoothingQuality: "low",
+			translate: (...args: unknown[]) => calls.push(["translate", ...args]),
+			rotate: (...args: unknown[]) => calls.push(["rotate", ...args]),
+			drawImage: (_image: unknown, ...args: unknown[]) =>
+				calls.push(["drawImage", ...args]),
+		};
+		const canvas = {
+			width: 0,
+			height: 0,
+			getContext: () => context,
+			toBlob: (done: (blob: Blob) => void, type: string, quality: number) => {
+				calls.push(["toBlob", type, quality]);
+				done(new Blob(["jpeg"], { type }));
+			},
+		};
+		const create = document.createElement.bind(document);
+		vi.spyOn(document, "createElement").mockImplementation(((tag: string) =>
+			tag === "canvas"
+				? (canvas as unknown as HTMLCanvasElement)
+				: create(tag)) as typeof document.createElement);
+		return { canvas, context, calls };
+	}
+
+	it("decodes with the file's EXIF orientation applied", async () => {
+		const decode = vi.fn(async () => new FakeBitmap(10, 20));
+		vi.stubGlobal("createImageBitmap", decode);
+		const blob = new Blob(["x"], { type: "image/jpeg" });
+		await canvasCodec.decode(blob);
+		expect(decode).toHaveBeenCalledWith(blob, {
+			imageOrientation: "from-image",
+		});
+	});
+
+	it.each([90, 270] as const)(
+		"draws an oversized page turned %i° on a sideways canvas, scaled down",
+		async (rotation) => {
+			vi.stubGlobal("ImageBitmap", FakeBitmap);
+			vi.stubGlobal(
+				"createImageBitmap",
+				async () => new FakeBitmap(4032, 3024),
+			);
+			const { canvas, context, calls } = fakeCanvas();
+
+			const out = await pageForModel(
+				new Blob(["x"], { type: "image/jpeg" }),
+				rotation,
+			);
+
+			expect(out.type).toBe("image/jpeg");
+			// 4032 × 3024 fits into 2048 × 1536; turned sideways the canvas is 1536 × 2048.
+			expect([canvas.width, canvas.height]).toEqual([1536, 2048]);
+			expect(context.imageSmoothingQuality).toBe("high");
+			expect(calls).toEqual([
+				["translate", 768, 1024],
+				["rotate", (rotation * Math.PI) / 180],
+				["drawImage", -1024, -768, 2048, 1536],
+				["toBlob", "image/jpeg", 0.9],
+			]);
+		},
+	);
+
+	it("refuses an image it did not decode", () => {
+		vi.stubGlobal("ImageBitmap", FakeBitmap);
+		const image: DecodedImage = { width: 1, height: 1, close: () => {} };
+		expect(() =>
+			canvasCodec.encode(image, { width: 1, height: 1 }, 0, "image/png", 0.92),
+		).toThrow(/its own images/);
 	});
 });

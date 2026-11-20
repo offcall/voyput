@@ -84,6 +84,22 @@ describe("several location files", () => {
 			"Added 1 new photo location, 1 was already there. Total 3 from 2 files.",
 		);
 		expect(await db.locations.count()).toBe(3);
+
+		// The matched row is stored under mac.csv's uuid, which no-uuids.csv lists
+		// too: removing mac.csv keeps it and drops only u2 (ADR 0050).
+		const list = await screen.findByRole("list", { name: "Imported files" });
+		await user.click(
+			await within(list).findByRole("button", { name: "Remove mac.csv" }),
+		);
+		await user.click(
+			await screen.findByRole("button", { name: "Remove file" }),
+		);
+		await waitFor(async () =>
+			expect(await uuids(db.locations.toArray())).toEqual([
+				"2020-03-03T10:00:00Z|10|20|",
+				"u1",
+			]),
+		);
 	});
 
 	it("replace keeps only the new file's rows and lists just it", async () => {
