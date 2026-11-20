@@ -152,6 +152,8 @@ describe("checkStamp on border days", () => {
 		TH: "Thailand",
 		PL: "Poland",
 		TR: "Turkey",
+		RU: "Russia",
+		AT: "Austria",
 	};
 	// `at` is local time; the uuid puts each row in the order the app reads them back.
 	let seq = 0;
@@ -291,6 +293,38 @@ describe("checkStamp on border days", () => {
 		).toContain("taken in Ukraine, not Spain");
 		expect(checkStamp(index, { ...stamp, direction: "exit" })).toEqual(ok);
 		expect(checkStamp(index, { ...stamp, direction: "unknown" })).toEqual(ok);
+	});
+
+	it("counts other-country photos only on the side the direction contradicts", () => {
+		// Last Russian photos 5 days before the exit; Austria 3 days after it.
+		const after = buildPhotoIndex([
+			photo("2024-10-05 12:00", "RU"),
+			photo("2024-10-13 12:00", "AT"),
+		]);
+		const exit = {
+			date: "2024-10-10",
+			countryCode: "RU",
+			direction: "exit" as const,
+		};
+		expect(checkStamp(after, exit)).toEqual(ok);
+		// Austria 3 days before the exit contradicts it.
+		const before = buildPhotoIndex([
+			photo("2024-10-07 12:00", "AT"),
+			photo("2024-10-15 12:00", "RU"),
+		]);
+		expect(checkStamp(before, exit).icloudCheck).toContain(
+			"(3 day(s) away) is in Austria",
+		);
+		// The mirror for an entry: Austria before it is expected, after it is not.
+		const entry = { ...exit, direction: "entry" as const };
+		expect(checkStamp(before, entry)).toEqual(ok);
+		expect(checkStamp(after, entry).icloudCheck).toContain(
+			"(3 day(s) away) is in Austria",
+		);
+		// Unknown direction keeps both sides.
+		expect(
+			checkStamp(after, { ...exit, direction: "unknown" }).icloudCheck,
+		).toContain("(3 day(s) away) is in Austria");
 	});
 
 	it("stays quiet when there are no photos around the stamp", () => {

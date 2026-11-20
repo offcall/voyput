@@ -64,16 +64,19 @@ interface FoundPhoto {
 	countryCode: string;
 }
 
-/** The photo closest to `target` within `window` days that `match` accepts; the earlier one on a tie. */
+/**
+ * The photo closest to `target` on the days `target + from` to `target + to`
+ * that `match` accepts; the earlier one on a tie.
+ */
 const nearestWhere = (
 	index: PhotoIndex,
 	target: number,
-	window: number,
+	[from, to]: [number, number],
 	match: (code: string) => boolean,
 ): FoundPhoto | null => {
-	const end = lowerBound(index.days, target + window + 1);
+	const end = lowerBound(index.days, target + to + 1);
 	let best: FoundPhoto | null = null;
-	for (let i = lowerBound(index.days, target - window); i < end; i++) {
+	for (let i = lowerBound(index.days, target + from); i < end; i++) {
 		const code = index.countryCodes[i] ?? "";
 		if (!match(code)) continue;
 		const day = index.days[i] ?? 0;
@@ -101,6 +104,22 @@ const confirmingDays = (
 ): [number, number] =>
 	direction === "entry" ? [0, 1] : direction === "exit" ? [-1, 0] : [-1, 1];
 
+/**
+ * Days around the stamp date (as offsets) on which a photo in another country
+ * contradicts it. After an exit the traveller is expected elsewhere, and so
+ * before an entry: an exit is contradicted only by photos on or before its
+ * date, an entry only by photos on or after it; an unknown direction by both.
+ */
+const contradictingDays = (
+	direction: Direction | null | undefined,
+	window: number,
+): [number, number] =>
+	direction === "entry"
+		? [0, window]
+		: direction === "exit"
+			? [-window, 0]
+			: [-window, window];
+
 const hasPhotoIn = (
 	index: PhotoIndex,
 	code: string,
@@ -117,7 +136,9 @@ const hasPhotoIn = (
  * Checks a stamp against the photo locations around its date. It agrees when
  * the stamp's country has a photo on its confirming days (`confirmingDays`).
  * Otherwise the nearest photo in another country within `window` days (10 by
- * default) is a warning; with none, nothing contradicts the stamp. The
+ * default) on the side that contradicts the stamp (`contradictingDays`: on or
+ * before an exit, on or after an entry, either side when the direction is
+ * unknown) is a warning; with none, nothing contradicts the stamp. The
  * suggestion points to the nearest photo in the stamp's own country within
  * 30 days, which hints at a misread date.
  */
@@ -135,7 +156,12 @@ export const checkStamp = (
 	if (!code || target === null) return NO_CHECK;
 	const [from, to] = confirmingDays(stamp.direction);
 	if (hasPhotoIn(index, code, target + from, target + to)) return NO_CHECK;
-	const nearest = nearestWhere(index, target, window, (c) => c !== code);
+	const nearest = nearestWhere(
+		index,
+		target,
+		contradictingDays(stamp.direction, window),
+		(c) => c !== code,
+	);
 	if (!nearest) return NO_CHECK;
 	const country = countryLabel(index, nearest.countryCode);
 	const photo = `photo${nearest.filename ? ` "${nearest.filename}"` : ""}`;
@@ -143,7 +169,7 @@ export const checkStamp = (
 	const confirm = nearestWhere(
 		index,
 		target,
-		SUGGEST_WINDOW,
+		[-SUGGEST_WINDOW, SUGGEST_WINDOW],
 		(c) => c === code,
 	);
 

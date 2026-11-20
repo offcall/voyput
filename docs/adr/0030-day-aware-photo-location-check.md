@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Supersedes how `checkStamp` picks the photo to compare with (ADR 0017's context) and the Review part of ADR 0029 (pre-dismissed warnings, the planted "correct stamp the photos put a day off"). The window setting of ADR 0017 is unchanged.
+Accepted (which side of the stamp a photo in another country warns from amended by ADR 0045). Supersedes how `checkStamp` picks the photo to compare with (ADR 0017's context) and the Review part of ADR 0029 (pre-dismissed warnings, the planted "correct stamp the photos put a day off"). The window setting of ADR 0017 is unchanged.
 
 ## Context
 

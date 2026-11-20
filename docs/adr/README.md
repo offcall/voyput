@@ -33,7 +33,7 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0027](0027-photo-export-script-in-tools.md) | Photo Export Script in tools/ | Superseded by 0033 |
 | [0028](0028-phone-shell-and-sheet.md) | Phone Shell and Bottom Sheet | Accepted |
 | [0029](0029-realistic-demo-passport.md) | Realistic Demo Passport | Accepted; Review part superseded by 0030 |
-| [0030](0030-day-aware-photo-location-check.md) | Day-Aware Photo Location Check | Accepted |
+| [0030](0030-day-aware-photo-location-check.md) | Day-Aware Photo Location Check | Accepted; which side of the stamp warns amended by 0044 |
 | [0031](0031-stays-flag-changed-evidence.md) | Stays Flag Changed Evidence | Accepted |
 | [0032](0032-codex-on-by-default.md) | Codex On by Default | Accepted |
 | [0033](0033-photo-export-in-plain-sh.md) | Photo Export in Plain sh | Accepted; run command amended by 0035, outline source by 0037, library access by 0041 |
@@ -48,3 +48,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0042](0042-voyput-local-site-flag.md) | voyput-local Site Flag | Accepted (amends 0026) |
 | [0043](0043-node-22-22-for-development.md) | Node 22.22 for Development | Accepted (amends 0002) |
 | [0044](0044-implausible-stamp-dates-read-as-undated.md) | Implausible Stamp Dates Read as Undated | Accepted |
+| [0045](0045-photo-check-looks-one-side-of-a-crossing.md) | Photo Check Looks One Side of a Crossing | Accepted (amends 0030) |

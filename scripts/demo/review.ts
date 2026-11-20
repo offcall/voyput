@@ -4,7 +4,8 @@
  * `checkStamp` in packages/core/src/review/checks.ts: a photo in the stamp's
  * country on its confirming days (entry: that day or the next, exit: that day
  * or the one before, unknown: ±1 day) agrees; otherwise any photo in another
- * country within the window warns.
+ * country within the window warns, counting for an exit only the days on or
+ * before it, for an entry only the days on or after it.
  * `apps/web/test/demo.test.tsx` checks the result against the real check.
  */
 
@@ -38,7 +39,9 @@ export function photoCheck(
 			direction === "entry" ? [0, 1] : direction === "exit" ? [-1, 0] : [-1, 1];
 		for (let day = target + from; day <= target + to; day++)
 			if (has(day, (code) => code === countryCode)) return false;
-		for (let day = target - WINDOW; day <= target + WINDOW; day++)
+		const before = direction === "entry" ? 0 : WINDOW;
+		const after = direction === "exit" ? 0 : WINDOW;
+		for (let day = target - before; day <= target + after; day++)
 			if (has(day, (code) => code !== countryCode)) return true;
 		return false;
 	};
