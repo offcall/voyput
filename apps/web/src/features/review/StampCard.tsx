@@ -5,7 +5,6 @@ import {
 	type Direction,
 	isCountryCode,
 	isPlausibleDay,
-	isValidDate,
 	type NearbyPhoto,
 	type NoteKind,
 	severity,
