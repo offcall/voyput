@@ -51,3 +51,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0045](0045-photo-check-looks-one-side-of-a-crossing.md) | Photo Check Looks One Side of a Crossing | Accepted (amends 0030) |
 | [0046](0046-photo-check-suggests-a-misread-year.md) | Photo Check Suggests a Misread Year | Accepted (amends 0030, 0045) |
 | [0047](0047-stamp-boxes.md) | Stamp Boxes | Accepted |
+| [0048](0048-backup-file-format.md) | Backup File Format | Accepted |

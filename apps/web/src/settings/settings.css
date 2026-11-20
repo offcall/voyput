@@ -24,3 +24,55 @@
 	font-size: var(--vp-text-sm);
 	color: var(--vp-muted);
 }
+
+/* Your data: export and import of everything (ADR 0048). */
+.settings-anchor {
+	scroll-margin-top: var(--vp-space-6);
+}
+.settings-data {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vp-space-4);
+}
+.settings-data p {
+	margin: 0;
+}
+.settings-data-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--vp-space-3);
+	padding-top: var(--vp-space-4);
+	border-top: 1px solid var(--vp-border);
+}
+.settings-data-text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vp-space-2);
+	flex: 1 1 260px;
+	min-width: 0;
+}
+.settings-data-heading {
+	margin: 0;
+	font-size: var(--vp-text-md);
+}
+.settings-check {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--vp-space-2);
+	cursor: pointer;
+}
+.settings-check input {
+	width: 1.1rem;
+	height: 1.1rem;
+	accent-color: var(--vp-accent);
+}
+.settings-data-error {
+	color: var(--vp-bad);
+}
+@media (max-width: 560px) {
+	.settings-data-row .vp-button {
+		flex: 1 1 100%;
+	}
+}

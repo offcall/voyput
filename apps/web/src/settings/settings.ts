@@ -66,12 +66,15 @@ const isEffort = (value: unknown): value is ReasoningEffort =>
 
 /** Reads settings from storage; anything missing or malformed falls back to the default. */
 export function loadSettings(storage: Storage): Settings {
-	let raw: unknown;
 	try {
-		raw = JSON.parse(storage.getItem(STORAGE_KEY) ?? "{}");
+		return parseSettings(JSON.parse(storage.getItem(STORAGE_KEY) ?? "{}"));
 	} catch {
 		return { ...DEFAULT_SETTINGS };
 	}
+}
+
+/** Settings from parsed JSON; anything missing or malformed falls back to the default. */
+export function parseSettings(raw: unknown): Settings {
 	if (typeof raw !== "object" || raw === null) return { ...DEFAULT_SETTINGS };
 	const value = raw as Record<string, unknown>;
 	return {

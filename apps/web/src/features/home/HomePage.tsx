@@ -309,6 +309,14 @@ function Privacy() {
 					IndexedDB; settings, your key and the theme in its localStorage.
 				</li>
 				<li>
+					<strong>Your copy.</strong> Nothing is backed up for you: export
+					everything to one file, or restore it on another computer, in{" "}
+					<Link to="/settings" hash="your-data">
+						Settings › Your data
+					</Link>
+					.
+				</li>
+				<li>
 					<strong>No backend.</strong> voyput is static files: no account, no
 					voyput server, nothing uploaded to voyput.
 				</li>

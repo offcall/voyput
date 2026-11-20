@@ -2,6 +2,7 @@ import { Card, Notice, PageHeader, PixelArt, Stack } from "@voyput/ui";
 import { useState } from "react";
 import { SOURCE_URL } from "../app/links";
 import { AiCard } from "./AiCard";
+import { DataCard } from "./DataCard";
 import { ProfileCard } from "./ProfileCard";
 import { useSettings } from "./SettingsContext";
 import {
@@ -18,6 +19,8 @@ export function SettingsPage() {
 		String(settings.locationWindowDays),
 	);
 	const windowValid = parseLocationWindow(Number(windowDraft)) !== null;
+	// Bumped by an import, so cards that read the database once read it again.
+	const [imports, setImports] = useState(0);
 
 	return (
 		<Stack>
@@ -33,8 +36,8 @@ export function SettingsPage() {
 				</Notice>
 			)}
 			<div className="settings-column">
-				<ProfileCard />
-				<AiCard />
+				<ProfileCard key={imports} />
+				<AiCard key={imports} />
 				<Card
 					title="Review"
 					art={<PixelArt name="stamp" scale={3} />}
@@ -75,6 +78,14 @@ export function SettingsPage() {
 						</span>
 					</div>
 				</Card>
+				<div id="your-data" className="settings-anchor">
+					<DataCard
+						onImported={(imported) => {
+							setImports((n) => n + 1);
+							setWindowDraft(String(imported.locationWindowDays));
+						}}
+					/>
+				</div>
 			</div>
 			<p className="settings-source">
 				voyput is open source:{" "}

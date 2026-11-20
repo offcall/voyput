@@ -45,6 +45,7 @@ No data at hand: demo passport inside the app.
 ## Private
 
 - Everything in this browser (IndexedDB). No account, no voyput server, no analytics.
+- Backup: Settings > Your data exports everything to one JSON file (passport photos optional, no key or pairing token) and imports it on another browser, replacing what is there ([ADR 0048](docs/adr/0048-backup-file-format.md)).
 - Sent only to the AI you pick, with your key or subscription: page images. Validate with AI also sends that stamp's fields and the countries and dates of nearby photo locations (no coordinates); Rescan with AI the stamps already read from that page.
 - Photo locations CSV from your Mac: copy the command from Collect > iPhone photo locations (download, check SHA-256, run; [`tools/photos-export`](tools/photos-export)). Plain sh + macOS sqlite3, reads Photos library locally, uploads nothing.
 
