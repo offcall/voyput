@@ -277,15 +277,18 @@ export function StampCard({
 					) : null}
 				</span>
 			</div>
-			{lead ? (
+			{lead || item.overlap ? (
 				<div className="review-notes">
-					<Note
-						kind={lead.kind}
-						lines={lead.lines}
-						fix={fix && fix !== stamp.date ? fix : null}
-						onFix={(date) => onEdit({ date })}
-						onDismiss={() => onDismiss(lead.kind, true)}
-					/>
+					{item.overlap ? <OverlapNote text={item.overlap} /> : null}
+					{lead ? (
+						<Note
+							kind={lead.kind}
+							lines={lead.lines}
+							fix={fix && fix !== stamp.date ? fix : null}
+							onFix={(date) => onEdit({ date })}
+							onDismiss={() => onDismiss(lead.kind, true)}
+						/>
+					) : null}
 				</div>
 			) : null}
 			{expanded ? (
@@ -486,6 +489,21 @@ export function StampCard({
 				</div>
 			) : null}
 		</article>
+	);
+}
+
+/**
+ * Another stay at the same time: red like a problem, with no "Looks right",
+ * since it goes away only when a date or direction is fixed.
+ */
+function OverlapNote({ text }: { text: string }) {
+	return (
+		<div className="review-note" data-kind="problem">
+			<span className="review-note-body">
+				<span className="review-note-tag">Overlap</span>
+				<span className="review-note-line">{text}</span>
+			</span>
+		</div>
 	);
 }
 

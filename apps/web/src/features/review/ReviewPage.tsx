@@ -11,6 +11,7 @@ import type { StaysUndo } from "../../data/evidenceChange";
 import { useDb } from "../../db/DbContext";
 import { useSettings } from "../../settings/SettingsContext";
 import { errorMessage, formatDay } from "./format";
+import { overlapNotes } from "./overlaps";
 import { PhotoReview } from "./PhotoReview";
 import {
 	buildQueue,
@@ -52,7 +53,7 @@ const byDate = (a: CheckedStamp, b: CheckedStamp) =>
 	(a.stamp.date ?? "9999").localeCompare(b.stamp.date ?? "9999") ||
 	a.stamp.id.localeCompare(b.stamp.id);
 
-/** Each page's stamps with what the photo locations say, sorted by date. */
+/** Each page's stamps with what the photo locations say and any overlapping stay, sorted by date. */
 function useCheckedStamps(
 	records: ReviewRecords | undefined,
 	index: PhotoIndex | undefined,
@@ -61,9 +62,15 @@ function useCheckedStamps(
 	return useMemo(() => {
 		const map = new Map<string, CheckedStamp[]>();
 		if (!records || !index) return map;
+		const overlaps = overlapNotes(records.stamps);
 		for (const stamp of records.stamps) {
 			const list = map.get(stamp.photoId) ?? [];
-			list.push({ stamp, check: checkStamp(index, stamp, windowDays) });
+			const overlap = overlaps.get(stamp.id);
+			list.push({
+				stamp,
+				check: checkStamp(index, stamp, windowDays),
+				...(overlap ? { overlap } : {}),
+			});
 			map.set(stamp.photoId, list);
 		}
 		for (const list of map.values()) list.sort(byDate);

@@ -7,6 +7,7 @@ import {
 	nearbyPhotos,
 	needsAttention,
 	parseValidateResponse,
+	photoMatches,
 	type Stamp,
 	usableStamps,
 } from "../src/index";
@@ -141,6 +142,12 @@ describe("needsAttention", () => {
 		expect(needsAttention(item({ reviewed: true }, "no photos in FR"))).toBe(
 			true,
 		);
+	});
+	it("counts a stamp with an overlapping stay under the problem filter", () => {
+		const overlap = { ...item({}), overlap: "you are also in Turkey" };
+		expect(photoMatches([item({})], "problem")).toBe(false);
+		expect(photoMatches([item({}), overlap], "problem")).toBe(true);
+		expect(photoMatches([{ ...overlap, overlap: "" }], "problem")).toBe(false);
 	});
 });
 

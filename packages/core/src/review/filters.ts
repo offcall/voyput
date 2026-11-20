@@ -15,6 +15,12 @@ export type Severity = "critical" | "warning" | "ok";
 export interface CheckedStamp {
 	stamp: Stamp;
 	check: StampCheck;
+	/**
+	 * Another stay at the same time as this stamp's stay (core `findConflicts`),
+	 * as text for the user; missing or empty when there is none. It counts under
+	 * the "problem" filter and goes away once a date or direction is fixed.
+	 */
+	overlap?: string;
 }
 
 export const hasOpenProblem = ({ stamp }: CheckedStamp): boolean =>
@@ -56,7 +62,9 @@ export const photoMatches = (
 		case "empty":
 			return items.length === 0;
 		case "problem":
-			return items.some(hasOpenProblem);
+			return items.some(
+				(item) => hasOpenProblem(item) || Boolean(item.overlap),
+			);
 		case "icloud":
 			return items.some(hasOpenIcloudCheck);
 		case "unreviewed":
