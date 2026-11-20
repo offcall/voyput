@@ -48,7 +48,9 @@ const stamp = (i: number): Stamp => ({
 	direction: i % 2 ? "exit" : "entry",
 	borderCrossing: "plane",
 	dateText: `${i}.01.21`,
-	date: `2021-01-${String((i % 28) + 1).padStart(2, "0")}`,
+	// Stamp 0 has a stored year no traveller could have, which reads as no date (ADR 0044).
+	date:
+		i === 0 ? "0027-10-02" : `2021-01-${String((i % 28) + 1).padStart(2, "0")}`,
 	country: "Testland",
 	countryCode: "ZZ",
 	location: null,
@@ -130,11 +132,11 @@ async function filledDb(): Promise<VoyputDb> {
 	return db;
 }
 
-/** Every table as plain rows, photos with their bytes, for comparison. */
+/** Every table as stored (no reading hook), photos with their bytes, for comparison. */
 async function snapshot(db: VoyputDb) {
 	const out: Record<string, unknown[]> = {};
 	for (const table of db.tables) {
-		const rows = await table.toArray();
+		const rows = await table.toCollection().raw().toArray();
 		out[table.name] =
 			table.name === "photos"
 				? await Promise.all(
@@ -172,6 +174,12 @@ describe("backup file", () => {
 		const backup = parseBackup(text, db.verno);
 		await restoreBackup(db, backup);
 		expect(await snapshot(db)).toEqual(before);
+		const [restored] = await db.stamps.where("id").equals("s0").raw().toArray();
+		expect(restored).toMatchObject({
+			date: "0027-10-02",
+			problem: null,
+			dismissed: { problem: true },
+		});
 		expect(backup.exportedAt).toBe(NOW.toISOString());
 		expect(backup.settings.model).toBe("test/model");
 		expect(backup.settings.locationWindowDays).toBe(14);

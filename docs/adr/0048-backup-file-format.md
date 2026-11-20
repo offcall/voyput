@@ -26,7 +26,7 @@ Everything a user brings and edits lives only in this browser (IndexedDB, ADR 00
   }
   ```
 
-- `tables` holds every row of every Dexie table as stored. A photo row is its `PassportPhoto` fields plus `data`, the image bytes in base64; the `Blob` itself is not JSON. JSON with base64 needs no dependency and stays readable; base64 makes photos a third larger, which is acceptable next to a zip writer and reader of our own.
+- `tables` holds every row of every Dexie table as stored: rows are read with `Collection.raw()`, past reading hooks, so a stamp with an implausible stored date (ADR 0044) keeps that date and its dismissed warnings. A photo row is its `PassportPhoto` fields plus `data`, the image bytes in base64; the `Blob` itself is not JSON. JSON with base64 needs no dependency and stays readable; base64 makes photos a third larger, which is acceptable next to a zip writer and reader of our own.
 - Export asks every time whether to include passport photos (on by default). Without them `includesPhotos` is false and `tables.photos` is empty: stamps keep their `photoId`, stays and Insights come back whole, but Review, which lists stamps by page, cannot show those stamps until the pages are added again. The import dialog says so.
 - `settings` is an allow-list of the non-secret settings. The OpenRouter key and the voyput-local pairing token are never written; on import the current ones are kept. The theme and other per-device UI choices in localStorage are not part of the file.
 - The file is built as a `Blob` from one string part per row group and per photo, so export never holds the whole file in one string, and photos are encoded one at a time with a yield in between.

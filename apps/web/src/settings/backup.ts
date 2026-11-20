@@ -152,8 +152,9 @@ function fromBase64(text: string): Uint8Array<ArrayBuffer> {
 const ROWS_PER_PART = 2000;
 
 /**
- * The backup file. Rows are read in one transaction (a consistent snapshot);
- * photos are encoded after it, one at a time.
+ * The backup file. Rows are read as stored, past reading hooks such as the
+ * stamps' plausible-date view (ADR 0044), in one transaction (a consistent
+ * snapshot); photos are encoded after it, one at a time.
  */
 export async function exportBackup(
 	db: VoyputDb,
@@ -165,7 +166,7 @@ export async function exportBackup(
 			read[name] =
 				name === "photos" && !options.includePhotos
 					? []
-					: await db.table(name).toArray();
+					: await db.table(name).toCollection().raw().toArray();
 		return read;
 	});
 	const header = {
