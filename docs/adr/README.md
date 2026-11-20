@@ -52,6 +52,6 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0046](0046-photo-check-suggests-a-misread-year.md) | Photo Check Suggests a Misread Year | Accepted (amends 0030, 0045) |
 | [0047](0047-stamp-boxes.md) | Stamp Boxes | Accepted |
 | [0048](0048-backup-file-format.md) | Backup File Format | Accepted |
-| [0049](0049-downscale-pages-sent-to-the-model.md) | Downscale Pages Sent to the Model | Proposed |
+| [0049](0049-downscale-pages-sent-to-the-model.md) | Downscale Pages Sent to the Model | Accepted |
 | [0050](0050-several-location-files.md) | Several Location Files | Accepted |
 | [0051](0051-optional-assumed-home.md) | Optional Assumed Home | Accepted (partly supersedes 0022) |

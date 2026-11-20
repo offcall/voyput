@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed. The constant is provisional until the size trial below has run.
+Accepted.
 
 ## Context
 
@@ -15,23 +15,27 @@ Extract, Validate and Rescan send the page photo to OpenRouter or voyput-local a
 - Decoding goes through `createImageBitmap(blob, { imageOrientation: "from-image" })`, drawing through a canvas. No dependency.
 - The stored original in IndexedDB is untouched: Review and backups keep the full photo.
 
-## Measurement (pending)
+## Measurement
 
-The demo sample pages are only 1400 px high, under both 2048 and 1600, so all three sizes would send the same bytes. The trial therefore uses the same 8 pages rebuilt at full resolution from their Wikimedia Commons originals (`apps/web/public/demo/CREDITS.md`). Each page is a full-height crop of its spread, at the offset where it matches the demo sample, with the sample's covers copied over. That gives long sides of 1674–1877 px, 0.5–0.8 MB as JPEG. Samples 09–10 (737 px originals) are left out because every size sends them unchanged.
+The demo sample pages are only 1400 px high, under both 2048 and 1600, so all three sizes would send the same bytes. The trial therefore uses the same pages rebuilt at full resolution from their Wikimedia Commons originals (`apps/web/public/demo/CREDITS.md`). Each page is a full-height crop of its spread, at the offset where it matches the demo sample, with the sample's covers copied over. That gives long sides of 1674–1877 px. None is over 2048, so "2048" sends the original. The 1600 versions were scaled from these crops (JPEG, high quality). The 1400 row uses the demo samples themselves.
 
-Planned runs, all with `google/gemini-3.8-flash`, reasoning effort medium, one call per page, through `scripts/model-trial` with `--dir`:
+Run on 2026-11-20: `google/gemini-3.8-flash`, reasoning effort medium, one call per page, through `scripts/model-trial` with `--dir`. The parallel runs shared one budget guard, which stopped them at $0.37 of spend. Every size answered pages 01–04 (passport pages 7, 9, 19 and 21: 18 scored stamps, 17 dates, 15 directions). The table covers those 4 pages:
 
-| Size | Long side | Image bytes (8 pages) | Found | Country | Date | Direction | Cost | Avg s/page |
+| Size | Long side | Request image bytes (base64, 4 pages) | Found | Country | Date | Direction | Cost | Avg s/page |
 |---|---|---|---|---|---|---|---|---|
-| Original (= 2048: none is larger) | 1674–1877 | 5.52 MB | – | – | – | – | – | – |
-| Original, second run (noise) | 1674–1877 | 5.52 MB | – | – | – | – | – | – |
-| 1600 | 1600 | 3.43 MB | – | – | – | – | – | – |
-| 1400 (demo samples) | 1400 | 2.76 MB | – | – | – | – | – | – |
+| Original (= 2048) | 1692–1877 | 3.85 MB | 18/18 | 18/18 | 17/17 | 13/15 | $0.130 | 59 |
+| Original, second run | 1692–1877 | 3.85 MB | 18/18 | 18/18 | 17/17 | 12/15 | $0.132 | 65 |
+| 1600 | 1600 | 2.23 MB | 17/18 | 17/18 | 16/17 | 12/15 | $0.164 | 78 |
+| 1400 (demo samples) | 1400 | 1.78 MB | 18/18 | 18/18 | 17/17 | 14/15 | $0.134 | 60 |
 
-Not run: the OpenRouter key available on 2026-11-20 had expired, so no calls were made and nothing was spent. Until the trial runs, 2048 is kept. It is the starting value, and on these pages it is the same as sending the original.
+- At 1600 the model missed one stamp on page 19, a dense page. Both runs at the original size found it.
+- 1400 matched the original. Since 1600 lost a stamp, this reads as run-to-run noise rather than a sign that smaller is safe: the original's own direction score moved from 13 to 12 between two identical runs.
+- Cost and latency do not fall with size. Most of the time and cost is the model's reasoning on dense pages (page 21 took 129–213 s), not the image tokens.
+
+Result: 2048 stays. It is the only tested size that is not worse than the original on these pages, because here it is the original. 1600 is worse by one stamp. The sample is small (4 pages, one call per page and size), so the result rules out 1600 for now; it does not prove 2048 is the lowest safe size.
 
 ## Consequences
 
 - A 12 MP phone photo goes out at about 2048 × 1536 instead of 4032 × 3024: roughly a quarter of the pixels and a much smaller request.
 - Pages up to 2048 px are sent as before.
-- The trial result sets the constant before this ADR is accepted: the smallest size that is as accurate as the original on these pages.
+- Phone photos, the case this targets, were not in the trial: the repository has no public full-size phone photos of stamp pages with ground truth.
