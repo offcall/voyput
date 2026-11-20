@@ -68,6 +68,7 @@ export {
 	dateMatchesText,
 	dateProblem,
 	isInRange,
+	isPlausibleDay,
 	isValidDate,
 } from "./stamps/dates";
 export {

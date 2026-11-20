@@ -33,6 +33,47 @@ describe("review", () => {
 		expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-10");
 	});
 
+	it("saves a typed date only as a whole, plausible date on blur or Enter", async () => {
+		const db = await demoDb();
+		const user = userEvent.setup();
+		renderApp("/review", { db });
+		const stamp = within(await card(1));
+		await user.click(stamp.getByRole("button", { expanded: false }));
+		const date = stamp.getByLabelText<HTMLInputElement>("Date");
+		const stored = async () => {
+			// A later write on the same table runs after any save the change started.
+			await db.transaction("rw", db.stamps, async () => {});
+			return (await db.stamps.get("demo-stamp-01"))?.date;
+		};
+
+		// Chrome reports a whole date after each typed year digit: 0002, 0020, 0201.
+		for (const value of ["0002-08-10", "0020-08-10", "0201-08-10"]) {
+			fireEvent.keyDown(date, { key: "1" });
+			fireEvent.change(date, { target: { value } });
+		}
+		expect(await stored()).toBe("2016-08-10");
+
+		// An implausible year left in the field shows the stored date again.
+		fireEvent.blur(date);
+		expect(date.value).toBe("2016-08-10");
+		fireEvent.keyDown(date, { key: "1" });
+		fireEvent.change(date, { target: { value: "1899-12-31" } });
+		fireEvent.keyDown(date, { key: "Enter" });
+		expect(date.value).toBe("2016-08-10");
+		expect(await stored()).toBe("2016-08-10");
+
+		// A whole typed date saves when the field is left.
+		fireEvent.keyDown(date, { key: "9" });
+		fireEvent.change(date, { target: { value: "2016-08-09" } });
+		expect(await stored()).toBe("2016-08-10");
+		fireEvent.blur(date);
+		await waitFor(async () => expect(await stored()).toBe("2016-08-09"));
+
+		// A day picked in the date picker, with no key typed, saves at once.
+		fireEvent.change(date, { target: { value: "2016-08-11" } });
+		await waitFor(async () => expect(await stored()).toBe("2016-08-11"));
+	});
+
 	it("keeps an edited, reviewed stamp and undoes a delete", async () => {
 		const db = await demoDb();
 		const user = userEvent.setup();

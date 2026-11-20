@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	dateMatchesText,
 	findConflicts,
+	isPlausibleDay,
 	isValidDate,
 	pairVisits,
 	parsePhotoResponse,
@@ -533,4 +534,16 @@ describe("dateMatchesText", () => {
 			expect(passing).toEqual([]);
 		},
 	);
+});
+
+describe("isPlausibleDay", () => {
+	it("keeps whole days from 1900 to the end of next year", () => {
+		expect(isPlausibleDay("1900-01-01", "2026-11-20")).toBe(true);
+		expect(isPlausibleDay("2027-12-31", "2026-11-20")).toBe(true);
+		expect(isPlausibleDay("1899-12-31", "2026-11-20")).toBe(false);
+		expect(isPlausibleDay("2028-01-01", "2026-11-20")).toBe(false);
+		expect(isPlausibleDay("0002-05-12", "2026-11-20")).toBe(false);
+		expect(isPlausibleDay("", "2026-11-20")).toBe(false);
+		expect(isPlausibleDay("2026-02-30", "2026-11-20")).toBe(false);
+	});
 });

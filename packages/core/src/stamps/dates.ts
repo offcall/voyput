@@ -15,6 +15,20 @@ export const isValidDate = (value: unknown): value is string | null => {
 	);
 };
 
+/** The earliest year a stamp or stay date may have. */
+const FIRST_YEAR = 1900;
+
+/**
+ * True for a whole date a person could have travelled on: a real day from
+ * 1900 to the end of next year. A native date input reports years like 0002
+ * while a year is typed digit by digit, and "" while a part is cleared.
+ */
+export function isPlausibleDay(value: string, today: string): boolean {
+	if (!isValidDate(value)) return false;
+	const year = Number(value.slice(0, 4));
+	return year >= FIRST_YEAR && year <= Number(today.slice(0, 4)) + 1;
+}
+
 /**
  * Full month names (and Russian/Ukrainian genitive forms), January first, in
  * English, French, German, Spanish, Italian, Portuguese, Turkish, Russian and

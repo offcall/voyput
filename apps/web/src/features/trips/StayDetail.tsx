@@ -2,6 +2,7 @@ import {
 	addDays,
 	COUNTRY_CODES,
 	type DatedStamp,
+	isPlausibleDay,
 	type NewStay,
 	type Stamp,
 	type StayEdge,
@@ -17,7 +18,7 @@ import { Badge, Button } from "@voyput/ui";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { useCountryColour } from "../../app/countryColours";
 import type { PhotoDays } from "../../data/photoDays";
-import { DateField, isPlausibleDay } from "./DateField";
+import { DateField } from "./DateField";
 import { DaysTimeline } from "./DaysTimeline";
 import {
 	countryName,

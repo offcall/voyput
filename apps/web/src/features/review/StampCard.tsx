@@ -4,6 +4,7 @@ import {
 	type DayRun,
 	type Direction,
 	isCountryCode,
+	isPlausibleDay,
 	isValidDate,
 	type NearbyPhoto,
 	type NoteKind,
@@ -12,6 +13,7 @@ import {
 } from "@voyput/core";
 import { Badge, Button } from "@voyput/ui";
 import { useEffect, useRef, useState } from "react";
+import { localToday } from "../../data/today";
 import { CountryTag } from "./CountryTag";
 import {
 	CROSSINGS,
@@ -66,6 +68,57 @@ function DraftInput({
 				onKeyDown={(event) => {
 					if (event.key === "Enter") event.currentTarget.blur();
 				}}
+			/>
+		</label>
+	);
+}
+
+/**
+ * The stamp's date. Only a whole, plausible date saves, so a year typed digit
+ * by digit never becomes 0002: typed keys save on Enter or when the field is
+ * left, a day picked in the date picker saves at once. A rejected value shows
+ * the stored date again.
+ */
+function DateInput({
+	value,
+	title,
+	onCommit,
+}: {
+	value: string | null;
+	title: string | undefined;
+	onCommit: (date: string) => void;
+}) {
+	const [typed, setTyped] = useState(value ?? "");
+	useEffect(() => setTyped(value ?? ""), [value]);
+	// Keys were pressed since the field was last left: the value is being typed.
+	const typing = useRef(false);
+	const save = (date: string): boolean => {
+		if (date === value || !isPlausibleDay(date, localToday())) return false;
+		onCommit(date);
+		return true;
+	};
+	const commit = () => {
+		typing.current = false;
+		if (!save(typed)) setTyped(value ?? "");
+	};
+	return (
+		<label className="vp-field">
+			<span className="vp-field-label">Date</span>
+			<input
+				className="vp-input"
+				type="date"
+				value={typed}
+				title={title}
+				onChange={(event) => {
+					setTyped(event.target.value);
+					// Typing reports a whole date after each digit: only a picked day saves now.
+					if (!typing.current) save(event.target.value);
+				}}
+				onKeyDown={(event) => {
+					if (event.key === "Enter") commit();
+					else typing.current = true;
+				}}
+				onBlur={commit}
 			/>
 		</label>
 	);
@@ -272,22 +325,11 @@ export function StampCard({
 								))}
 							</select>
 						</label>
-						<label className="vp-field">
-							<span className="vp-field-label">Date</span>
-							<input
-								className="vp-input"
-								type="date"
-								value={stamp.date ?? ""}
-								title={
-									stamp.dateText ? `Printed: ${stamp.dateText}` : undefined
-								}
-								onChange={(event) => {
-									// A cleared or half-typed date reads as "": keep the saved one.
-									const value = event.target.value;
-									if (value && isValidDate(value)) onEdit({ date: value });
-								}}
-							/>
-						</label>
+						<DateInput
+							value={stamp.date}
+							title={stamp.dateText ? `Printed: ${stamp.dateText}` : undefined}
+							onCommit={(date) => onEdit({ date })}
+						/>
 						<DraftInput
 							label="Country"
 							value={stamp.country ?? ""}
