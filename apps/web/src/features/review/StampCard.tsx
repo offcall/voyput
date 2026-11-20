@@ -26,6 +26,7 @@ import {
 import { PannableDayStrip } from "./PannableDayStrip";
 import { problemParts, type StampEdit } from "./reviewStore";
 import type { TravelDays } from "./strip";
+import type { StripHint } from "./stripHint";
 
 export type Validation =
 	| { status: "running" }
@@ -161,6 +162,7 @@ export function StampCard({
 	onValidate,
 	onNext,
 	onHover,
+	stripHint,
 }: {
 	item: CheckedStamp;
 	number: number;
@@ -188,6 +190,8 @@ export function StampCard({
 	onNext?: (() => void) | undefined;
 	/** The pointer entered (true) or left (false) the card. */
 	onHover?: (on: boolean) => void;
+	/** The one-time drag hint on the day strip. */
+	stripHint?: StripHint;
 }) {
 	const { stamp, check } = item;
 	const level = severity(item);
@@ -417,6 +421,7 @@ export function StampCard({
 								stampCode={stamp.countryCode}
 								radius={windowDays}
 								onDate={(date) => onEdit({ date })}
+								hint={stripHint}
 							/>
 							{nearby.length > 0 ? (
 								<ul className="review-nearby" aria-label="Nearest photos">

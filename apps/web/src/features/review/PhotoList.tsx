@@ -1,7 +1,7 @@
 import { type CheckedStamp, photoSeverity } from "@voyput/core";
 import { useEffect, useRef } from "react";
 import type { PhotoRecord } from "../../db/db";
-import { pageInView, type ReviewView } from "./queue";
+import { pageInView, pageProgress, type ReviewView } from "./queue";
 import { Thumb } from "./Thumb";
 
 /** The pages in the chosen view, as a strip of thumbnails. */
@@ -49,8 +49,8 @@ export function PhotoList({
 					{visible.map((photo) => {
 						const items = stampsOf(photo.id);
 						const level = photoSeverity(items);
-						const done =
-							items.length > 0 && items.every((item) => item.stamp.reviewed);
+						const { reviewed, total, problems } = pageProgress(items);
+						const done = total > 0 && reviewed === total;
 						return (
 							<li key={photo.id}>
 								<button
@@ -64,12 +64,27 @@ export function PhotoList({
 									<Thumb photo={photo} />
 									<span className="review-photo-row-name">{photo.name}</span>
 									<span className="review-photo-row-meta">
-										{items.length === 0
-											? "no stamps"
-											: `${items.length} ${items.length === 1 ? "stamp" : "stamps"}`}
-										{level === "critical" ? " · issue" : ""}
-										{level === "warning" ? " · photo location" : ""}
-										{done ? " · ✓" : ""}
+										{total === 0 ? (
+											"no stamps"
+										) : (
+											<>
+												<span
+													className="review-photo-row-count"
+													title={`${reviewed} of ${total} ${total === 1 ? "stamp" : "stamps"} reviewed`}
+												>
+													{reviewed}/{total} ✓
+												</span>
+												{problems > 0 ? (
+													<span
+														className="review-photo-row-problems"
+														title={`${problems} with a problem`}
+													>
+														{problems} ?
+													</span>
+												) : null}
+												{level === "warning" ? " · photo location" : ""}
+											</>
+										)}
 									</span>
 								</button>
 							</li>

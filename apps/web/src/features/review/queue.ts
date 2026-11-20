@@ -3,6 +3,7 @@ import {
 	needsAttention,
 	photoMatches,
 	type ReviewFilter,
+	severity,
 } from "@voyput/core";
 
 /** Which pages the photo strip shows; one select on Review. The core filters plus "needs attention". */
@@ -31,6 +32,15 @@ export const pageInView = (
 	view: ReviewView,
 ): boolean =>
 	view === "attention" ? items.some(needsAttention) : photoMatches(items, view);
+
+/** How far a page is: stamps reviewed of all, and stamps with an open problem (unreadable or misread). */
+export const pageProgress = (
+	items: readonly CheckedStamp[],
+): { reviewed: number; total: number; problems: number } => ({
+	reviewed: items.filter((item) => item.stamp.reviewed).length,
+	total: items.length,
+	problems: items.filter((item) => severity(item) === "critical").length,
+});
 
 /** Where the user is: a stamp on a page, or a page as a whole. */
 export interface QueueCursor {

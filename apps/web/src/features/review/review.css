@@ -399,6 +399,21 @@
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+.review-photo-row-count {
+	font-variant-numeric: tabular-nums;
+}
+.review-photo-row[data-done] .review-photo-row-count {
+	color: var(--vp-good);
+	font-weight: 600;
+}
+.review-photo-row-problems {
+	margin-left: 6px;
+	padding: 0 5px;
+	border-radius: 999px;
+	font-weight: 600;
+	color: var(--vp-bad);
+	background: var(--vp-bad-soft);
+}
 
 /* Photos tab: photo pane beside stamp pane */
 
@@ -469,6 +484,19 @@
 }
 .review-viewer-frame[data-zoomed]:active {
 	cursor: grabbing;
+}
+/* Zoomed, a grip in the corner says the photo can be dragged. */
+.review-viewer-grip {
+	position: absolute;
+	left: 8px;
+	bottom: 8px;
+	padding: 2px 7px;
+	font-size: 14px;
+	line-height: 20px;
+	color: #fff;
+	border-radius: var(--vp-radius);
+	background: rgb(15 17 23 / 0.62);
+	pointer-events: none;
 }
 .review-viewer-page {
 	position: absolute;
@@ -1478,6 +1506,7 @@
 	gap: 6px;
 }
 .review-pan-track {
+	position: relative;
 	border-radius: 6px;
 	cursor: grab;
 	touch-action: pan-y;
@@ -1486,6 +1515,38 @@
 }
 .review-pan-track[data-dragging] {
 	cursor: grabbing;
+}
+/* A small grip under the strip says it can be dragged. */
+.review-pan-grip {
+	position: absolute;
+	left: 50%;
+	bottom: -7px;
+	width: 22px;
+	height: 6px;
+	transform: translateX(-50%);
+	border-radius: 3px;
+	background: var(--vp-surface);
+	border: 1px solid var(--vp-border);
+	background-image: repeating-linear-gradient(
+		90deg,
+		var(--vp-muted) 0 1px,
+		transparent 1px 4px
+	);
+	background-origin: content-box;
+	padding: 1px 4px;
+	pointer-events: none;
+}
+.review-pan-hint {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	margin: 0;
+	padding: 2px 2px 2px 8px;
+	font-size: 12px;
+	color: var(--vp-text);
+	background: var(--vp-accent-soft);
+	border-radius: 6px;
 }
 .review-pan-track:focus-visible {
 	outline: 2px solid var(--vp-accent);

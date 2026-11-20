@@ -315,6 +315,11 @@ export function PhotoViewer({
 						))}
 					</div>
 				) : null}
+				{view.scale > 1 ? (
+					<span className="review-viewer-grip" aria-hidden="true">
+						✥
+					</span>
+				) : null}
 			</div>
 			<div className="review-viewer-tools">
 				<Button

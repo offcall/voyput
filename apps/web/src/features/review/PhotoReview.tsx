@@ -38,6 +38,7 @@ import {
 } from "./reviewStore";
 import { COUNTRY_LIST_ID, StampCard, type Validation } from "./StampCard";
 import type { TravelDays } from "./strip";
+import { useStripHint } from "./stripHint";
 import type { ReviewRecords } from "./useReviewData";
 
 const NO_RANGE: DateRange = { from: null, to: null };
@@ -100,6 +101,7 @@ export function PhotoReview({
 	/** The card under the pointer, and the card last opened: their boxes stand out. */
 	const [hoveredId, setHoveredId] = useState<string | null>(null);
 	const [openedId, setOpenedId] = useState<string | null>(null);
+	const stripHint = useStripHint();
 	// biome-ignore lint/correctness/useExhaustiveDependencies: each focus, even of the same stamp
 	useEffect(() => {
 		if (focusStampId) setOpenedId(focusStampId);
@@ -149,6 +151,10 @@ export function PhotoReview({
 	const aiReady = aiSetup === null;
 	const isExpanded = (stamp: Stamp) => expanded[stamp.id] ?? !stamp.reviewed;
 	const extraction = records.extractions.get(photo.id);
+	/** The drag hint goes on the first day strip shown, not on every card. */
+	const hintStampId = items.find(
+		(item) => item.stamp.date && isExpanded(item.stamp),
+	)?.stamp.id;
 
 	const validate = async (item: CheckedStamp) => {
 		const id = item.stamp.id;
@@ -287,6 +293,7 @@ export function PhotoReview({
 									[item.stamp.id]: !isExpanded(item.stamp),
 								}));
 							}}
+							{...(item.stamp.id === hintStampId ? { stripHint } : {})}
 							onHover={(on) =>
 								setHoveredId((id) =>
 									on ? item.stamp.id : id === item.stamp.id ? null : id,

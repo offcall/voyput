@@ -4,6 +4,7 @@ import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import { DayStrip } from "./DayStrip";
 import { formatDay } from "./format";
 import { stripView, type TravelDays } from "./strip";
+import type { StripHint } from "./stripHint";
 import { dragShift, snapShift } from "./stripPan";
 
 /**
@@ -22,6 +23,7 @@ export function PannableDayStrip({
 	stampCode,
 	radius,
 	onDate,
+	hint,
 }: {
 	dayRuns: readonly DayRun[];
 	travelDays: TravelDays;
@@ -34,6 +36,8 @@ export function PannableDayStrip({
 	radius: number;
 	/** Saves a new stamp date. */
 	onDate: (date: string) => void;
+	/** The one-time drag hint; a drag dismisses it. */
+	hint?: StripHint | undefined;
 }) {
 	/** Days moved from `date`, a fraction while dragging; null at rest. */
 	const [moving, setMoving] = useState<number | null>(null);
@@ -86,6 +90,7 @@ export function PannableDayStrip({
 			return;
 		}
 		if (blocked.current) return;
+		if (hint?.show) hint.dismiss();
 		drag.current = {
 			pointerId: event.pointerId,
 			startX: event.clientX,
@@ -142,6 +147,23 @@ export function PannableDayStrip({
 				: "border change in the day";
 	return (
 		<div className="review-pan">
+			{hint?.show ? (
+				<p className="review-pan-hint" role="note">
+					<span>
+						⟷ Drag to see more days; the day under the line becomes the stamp
+						date.
+					</span>
+					<Button
+						variant="ghost"
+						size="sm"
+						square
+						aria-label="Hide the drag hint"
+						onClick={hint.dismiss}
+					>
+						×
+					</Button>
+				</p>
+			) : null}
 			<div className="review-pan-row">
 				<Button
 					variant="ghost"
@@ -179,6 +201,7 @@ export function PannableDayStrip({
 						radius={radius}
 						shift={moving ?? 0}
 					/>
+					<span className="review-pan-grip" aria-hidden="true" />
 				</div>
 				<Button
 					variant="ghost"
