@@ -99,4 +99,14 @@ describe("assumed home", () => {
 		expect(await screen.findByText("gap · 37 days")).toBeTruthy();
 		expect(screen.queryByText("assumed home")).toBeNull();
 	});
+
+	it("follows a home country set while the Stays page is open", async () => {
+		const db = await seed("assumed-live");
+		renderApp("/collect/trips", { db });
+		expect(await screen.findByText("gap · 37 days")).toBeTruthy();
+
+		await db.kv.put({ key: "trips:assumedHome", value: "PT" });
+		expect(await screen.findByText("assumed home")).toBeTruthy();
+		expect(screen.queryByText("gap · 37 days")).toBeNull();
+	});
 });

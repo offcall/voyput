@@ -38,6 +38,7 @@ import {
 } from "react";
 import { useLocations } from "../../data/locations";
 import { NO_PHOTO_DAYS } from "../../data/photoDays";
+import { loadHomeFill } from "../../data/profile";
 import { useDb } from "../../db/DbContext";
 import { EMPTY_EDITS, editReducer, type Snapshot } from "./editHistory";
 import {
@@ -319,6 +320,23 @@ export function TripsPage() {
 			subscription.unsubscribe();
 		};
 	}, [db, ready, load, fail]);
+
+	// The home fill is set in Settings, maybe in another tab: show it at once,
+	// without reloading the stays or their undo history (ADR 0051).
+	useEffect(() => {
+		const subscription = liveQuery(() => loadHomeFill(db)).subscribe({
+			next: (fill) =>
+				setData((d) =>
+					d &&
+					(d.assumedHome !== fill.assumedHome ||
+						d.countAssumed !== fill.countAssumed)
+						? { ...d, ...fill }
+						: d,
+				),
+			error: fail,
+		});
+		return () => subscription.unsubscribe();
+	}, [db, fail]);
 
 	// A suggestion follows new locations, as reading them again would; a
 	// stored history shows them in its photo days (ADR 0038).
