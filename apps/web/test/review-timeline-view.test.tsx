@@ -87,6 +87,31 @@ describe("review timeline view", () => {
 		const run = container.querySelector(".review-band-run");
 		expect(run?.getAttribute("title")).toBe("Germany · 20 Jul – 23 Jul 2024");
 	});
+
+	it("fills a paired stay's days without photos from its stamps", () => {
+		const { container } = render(
+			<TimelineView
+				dayRuns={[
+					{ start: "2024-07-22", end: "2024-07-23", countryCode: "DE" },
+				]}
+				travelDays={new Map()}
+				index={buildPhotoIndex([])}
+				stamps={[
+					stamp("in", "2024-07-20", "DE", "entry"),
+					stamp("out", "2024-08-02", "DE", "exit"),
+				]}
+				photoNames={new Map()}
+				windowDays={90}
+				onWindowDays={() => {}}
+				onFrom={() => {}}
+				onOpen={() => {}}
+			/>,
+		);
+		const runs = [...container.querySelectorAll(".review-band-run")].map(
+			(run) => run.getAttribute("data-source"),
+		);
+		expect(runs).toEqual(["stamps", "photos", "stamps"]);
+	});
 });
 
 describe("band run label", () => {

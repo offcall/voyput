@@ -53,11 +53,11 @@ export const buildDayRuns = (index: PhotoIndex): DayRun[] => {
 };
 
 /** Runs overlapping [from, to], clipped to it. Dates are YYYY-MM-DD. */
-export const runsBetween = (
-	runs: readonly DayRun[],
+export const runsBetween = <T extends DayRun>(
+	runs: readonly T[],
 	from: string,
 	to: string,
-): DayRun[] =>
+): T[] =>
 	runs
 		.filter((run) => run.end >= from && run.start <= to)
 		.map((run) => ({

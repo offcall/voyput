@@ -1,10 +1,12 @@
 import {
+	type BandRun,
 	checkStamp,
 	countryNameOf,
 	type DayRun,
 	dayIso,
 	dayNumber,
 	daysBetween,
+	mergeBandRuns,
 	nearbyPhotos,
 	type PhotoIndex,
 	runsBetween,
@@ -133,6 +135,25 @@ export function TimelineView({
 		[stamps, index, stripDays],
 	);
 	const items = useMemo(() => buildTimeline(stamps), [stamps]);
+	const bandRuns = useMemo(
+		() =>
+			mergeBandRuns(
+				dayRuns,
+				items.flatMap((item) =>
+					item.kind === "stay"
+						? [
+								{
+									start: item.entry.date,
+									end: item.exit.date,
+									zone: item.zone,
+									countryCode: item.entry.countryCode ?? item.zone,
+								},
+							]
+						: [],
+				),
+			),
+		[dayRuns, items],
+	);
 	const dated = useMemo(() => chronological(stamps), [stamps]);
 	const undated = stamps.filter((s) => s.date === null);
 	const first = dated[0]?.date ?? dayRuns[0]?.start ?? null;
@@ -207,7 +228,7 @@ export function TimelineView({
 					<OverviewBand
 						from={from}
 						windowDays={windowDays}
-						dayRuns={dayRuns}
+						bandRuns={bandRuns}
 						stamps={dated}
 						levels={levels}
 						onMove={(day) => onFrom(dayIso(day))}
@@ -410,7 +431,7 @@ function StampRow({
 function OverviewBand({
 	from,
 	windowDays,
-	dayRuns,
+	bandRuns,
 	stamps,
 	levels,
 	onMove,
@@ -419,7 +440,7 @@ function OverviewBand({
 }: {
 	from: number;
 	windowDays: number;
-	dayRuns: readonly DayRun[];
+	bandRuns: readonly BandRun[];
 	stamps: readonly DatedStamp[];
 	levels: ReadonlyMap<string, Severity>;
 	onMove: (start: number) => void;
@@ -430,7 +451,7 @@ function OverviewBand({
 	const [daysRef, bandWidth] = useWidth<HTMLDivElement>();
 	const fromIso = dayIso(from);
 	const toIso = dayIso(from + windowDays - 1);
-	const runs = runsBetween(dayRuns, fromIso, toIso);
+	const runs = runsBetween(bandRuns, fromIso, toIso);
 	const inWindow = stamps.filter((s) => s.date >= fromIso && s.date <= toIso);
 	const at = (iso: string) => (dayNumber(iso) ?? from) - from;
 	const pct = (days: number) => `${(days / windowDays) * 100}%`;
@@ -507,6 +528,7 @@ function OverviewBand({
 							<span
 								key={`${run.start}-${run.countryCode}`}
 								className="review-band-run"
+								data-source={run.source}
 								title={`${countryNameOf(run.countryCode)} · ${run.start === run.end ? formatDay(run.start) : formatDayRange(run.start, run.end)}`}
 								style={{
 									...hueStyle(run.countryCode),
@@ -531,8 +553,9 @@ function OverviewBand({
 				</div>
 			</div>
 			<p className="review-muted">
-				Coloured blocks: country of each day's photos. Hatched: no photos.
-				Markers: stamps; click one to open its photo.
+				Solid: country of the photos. Light stripes: between a paired entry and
+				exit stamp, no photos. Hatched: no data. Markers: stamps; click one to
+				open its photo.
 			</p>
 		</section>
 	);

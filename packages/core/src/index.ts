@@ -27,6 +27,12 @@ export type {
 } from "./passports/types";
 export { SUPPORTED_PHOTO_TYPES } from "./passports/types";
 export {
+	type BandRun,
+	mergeBandRuns,
+	photosInRun,
+	type StampStay,
+} from "./review/bandRuns";
+export {
 	checkStamp,
 	type NearbyPhoto,
 	nearbyPhotos,

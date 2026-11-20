@@ -49,7 +49,7 @@ const SCHENGEN_SINCE: Record<string, string> = Object.fromEntries([
  * Where a stay is counted: the whole Schengen area is one zone
  * (enter in Spain, exit in Italy = one visit), other countries are their own zone.
  */
-export const zoneOf = (stamp: Stamp): string => {
+export const zoneOf = (stamp: Pick<Stamp, "countryCode" | "date">): string => {
 	const joined = SCHENGEN_SINCE[stamp.countryCode ?? ""];
 	return joined && (stamp.date ?? "") >= joined
 		? "Schengen"
