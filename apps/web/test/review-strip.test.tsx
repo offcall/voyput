@@ -12,6 +12,7 @@ import { PannableDayStrip } from "../src/features/review/PannableDayStrip";
 import {
 	NO_TRAVEL_DAYS,
 	photoDayRuns,
+	photoMarks,
 	segmentBox,
 	segmentTip,
 	stampLine,
@@ -247,6 +248,34 @@ describe("DayStrip", () => {
 		]);
 	});
 
+	it("joins one country's days across days without photos and marks the days that had them", () => {
+		const { container } = render(
+			<DayStrip
+				dayRuns={[
+					{ start: "2017-01-01", end: "2017-01-01", countryCode: "UA" },
+					{ start: "2017-01-03", end: "2017-01-03", countryCode: "UA" },
+				]}
+				travelDays={NO_TRAVEL_DAYS}
+				date="2017-01-02"
+				direction="entry"
+				stampCode="UA"
+				radius={1}
+			/>,
+		);
+		expect(titles(container)).toEqual([
+			{
+				title: "UA · 1 Jan – 2 Jan 2017",
+				left: "0%",
+				right: "0%",
+				empty: false,
+			},
+		]);
+		const marks = [...container.querySelectorAll(".review-photo-mark")].map(
+			(el) => [(el as HTMLElement).style.left, (el as HTMLElement).style.width],
+		);
+		expect(marks).toEqual([["0%", "50%"]]);
+	});
+
 	it("puts an exit line on the change out of the stamp's country", () => {
 		const { container } = render(
 			<DayStrip
@@ -410,5 +439,25 @@ describe("DayStrip", () => {
 			expect(left).toBeCloseTo(60, 10);
 			expect(right).toBeCloseTo(30, 10);
 		});
+	});
+});
+
+describe("photoMarks", () => {
+	it("places each stretch of photo days inside a block, in % of it", () => {
+		const start = dayNumber("2017-01-01") ?? 0;
+		expect(
+			photoMarks(
+				[
+					{ start: "2016-12-30", end: "2017-01-01", countryCode: "UA" },
+					{ start: "2017-01-03", end: "2017-01-03", countryCode: "UA" },
+					{ start: "2017-01-09", end: "2017-01-09", countryCode: "UA" },
+				],
+				start,
+				start + 3,
+			),
+		).toEqual([
+			{ left: 0, width: 25 },
+			{ left: 50, width: 25 },
+		]);
 	});
 });

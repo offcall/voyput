@@ -137,6 +137,34 @@ export function stripSegments(
 	return segments;
 }
 
+/**
+ * Where the days with photos sit inside a block of days `start`–`end` (day
+ * numbers, inclusive), as left offset and width in % of the block: one mark
+ * per stretch of photo days. `photoRuns` are runs of consecutive photo days,
+ * sorted; a block joined across days without photos shows which days had them.
+ */
+export function photoMarks(
+	photoRuns: readonly DayRun[],
+	start: number,
+	end: number,
+): { left: number; width: number }[] {
+	const span = end - start + 1;
+	if (span <= 0) return [];
+	const marks: { left: number; width: number }[] = [];
+	for (const run of photoRuns) {
+		const a = dayNumber(run.start);
+		const b = dayNumber(run.end);
+		if (a === null || b === null || b < start || a > end) continue;
+		const from = Math.max(a, start);
+		const to = Math.min(b, end);
+		marks.push({
+			left: ((from - start) / span) * 100,
+			width: ((to - from + 1) / span) * 100,
+		});
+	}
+	return marks;
+}
+
 /** Left and right offsets in % of the window; neighbours share an edge exactly. */
 export const segmentBox = (
 	segment: StripSegment,
@@ -157,9 +185,10 @@ export const segmentTip = (segment: StripSegment): string =>
 			)}`;
 
 /**
- * Core day runs bridge silences of up to 30 days in one country; the review
- * strips show those days as days without photos, so runs are cut at every day
- * that has none. `photoDays` are the sorted day numbers of all photos.
+ * Core day runs bridge silences of up to 30 days in one country; Review needs
+ * the days that really have photos, so runs are cut at every day that has
+ * none. The strips join them again with `bridgeSameCountry` and mark these
+ * days with `photoMarks`. `photoDays` are the sorted day numbers of all photos.
  */
 export function photoDayRuns(
 	runs: readonly DayRun[],

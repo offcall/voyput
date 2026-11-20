@@ -1,8 +1,15 @@
-import { type DayRun, type Direction, dayIso, dayNumber } from "@voyput/core";
+import {
+	bridgeSameCountry,
+	type DayRun,
+	type Direction,
+	dayIso,
+	dayNumber,
+} from "@voyput/core";
 import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { useColourOf } from "./CountryTag";
 import { flagOf, formatDay } from "./format";
 import {
+	photoMarks,
 	segmentBox,
 	segmentTip,
 	stripSegments,
@@ -30,7 +37,9 @@ function useWidth<T extends HTMLElement>() {
 }
 
 /**
- * Countries by photo day around one date, one strip per stamp: a block per run of photo days, hatched days without photos, faint
+ * Countries by photo day around one date, one strip per stamp: a block per
+ * country, joined across days without photos when no other country's photos
+ * lie between, a mark under each day that has photos, hatched days unknown, faint
  * day ticks, travel days split by country, and a line in the exact middle
  * where the stamp says the border was crossed (see `stampLine`). `shift` slides the days under the line
  * while the strip is dragged: the line then marks the date the stamp would get.
@@ -68,7 +77,12 @@ export function DayStrip({
 	const { from, days } = view;
 	const first = Math.floor(from);
 	const last = Math.ceil(from + days) - 1;
-	const segments = stripSegments(dayRuns, travelDays, first, last);
+	const segments = stripSegments(
+		bridgeSameCountry(dayRuns),
+		travelDays,
+		first,
+		last,
+	);
 	const pxPerDay = width > 0 ? width / days : FALLBACK_PX_PER_DAY;
 	const pct = (n: number) => `${n}%`;
 
@@ -122,6 +136,16 @@ export function DayStrip({
 							} as CSSProperties
 						}
 					>
+						{code
+							? photoMarks(dayRuns, segment.start, segment.end).map((mark) => (
+									<span
+										key={mark.left}
+										className="review-photo-mark"
+										aria-hidden="true"
+										style={{ left: pct(mark.left), width: pct(mark.width) }}
+									/>
+								))
+							: null}
 						{code && px >= 20 ? (
 							<span className="review-strip-label">
 								{px >= 48 ? (

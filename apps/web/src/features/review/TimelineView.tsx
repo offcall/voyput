@@ -46,7 +46,7 @@ import {
 	startOf,
 	type TimelineItem,
 } from "./stays";
-import type { TravelDays } from "./strip";
+import { photoMarks, type TravelDays } from "./strip";
 
 /** Inline style that sets `--review-country` to a country's colour. */
 function useHueStyle() {
@@ -256,6 +256,7 @@ export function TimelineView({
 						from={from}
 						windowDays={windowDays}
 						bandRuns={bandRuns}
+						photoRuns={dayRuns}
 						stamps={dated}
 						levels={levels}
 						index={index}
@@ -460,6 +461,7 @@ function OverviewBand({
 	from,
 	windowDays,
 	bandRuns,
+	photoRuns,
 	stamps,
 	levels,
 	index,
@@ -470,6 +472,8 @@ function OverviewBand({
 	from: number;
 	windowDays: number;
 	bandRuns: readonly BandRun[];
+	/** Runs of consecutive photo days: marked under the joined blocks. */
+	photoRuns: readonly DayRun[];
 	stamps: readonly DatedStamp[];
 	levels: ReadonlyMap<string, Severity>;
 	index: PhotoIndex;
@@ -575,6 +579,23 @@ function OverviewBand({
 									width: pct(days),
 								}}
 							>
+								{run.source === "photos"
+									? photoMarks(
+											photoRuns,
+											at(run.start) + from,
+											at(run.end) + from,
+										).map((mark) => (
+											<span
+												key={mark.left}
+												className="review-photo-mark"
+												aria-hidden="true"
+												style={{
+													left: `${mark.left}%`,
+													width: `${mark.width}%`,
+												}}
+											/>
+										))
+									: null}
 								{label === "flag" ? (
 									<span aria-hidden="true">{flagOf(run.countryCode)} </span>
 								) : null}
@@ -595,6 +616,10 @@ function OverviewBand({
 				<li>
 					<span className="review-band-swatch" data-source="photos" />
 					Photos, and days between photos in one country
+				</li>
+				<li>
+					<span className="review-band-swatch" data-source="photo-days" />
+					Days with photos
 				</li>
 				<li>
 					<span className="review-band-swatch" data-source="stamps" />

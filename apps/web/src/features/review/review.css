@@ -1252,6 +1252,24 @@
 		var(--vp-surface) 3px 6px
 	);
 }
+.review-band-swatch[data-source="photo-days"] {
+	background:
+		linear-gradient(
+			to top,
+			color-mix(in srgb, var(--review-country) 85%, var(--vp-text)) 0 3px,
+			transparent 3px
+		),
+		color-mix(in srgb, var(--review-country) 35%, var(--vp-surface));
+}
+/* A day with photos inside a block joined across days without them: a bar along its bottom. */
+.review-photo-mark {
+	position: absolute;
+	bottom: 0;
+	height: 3px;
+	min-width: 2px;
+	pointer-events: none;
+	background: color-mix(in srgb, var(--review-country) 85%, var(--vp-text));
+}
 .review-band-marker {
 	flex: none;
 	width: 14px;

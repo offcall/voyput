@@ -135,6 +135,12 @@ describe("review timeline view", () => {
 			(run) => run.getAttribute("title")?.split(" · ").at(-1),
 		);
 		expect(runs).toEqual(["1 Jul – 25 Jul 2024", "27 Jul 2024"]);
+		const joined = container.querySelector(".review-band-run");
+		expect(
+			[...(joined?.querySelectorAll(".review-photo-mark") ?? [])].map(
+				(el) => (el as HTMLElement).style.left,
+			),
+		).toEqual(["0%", "96%"]);
 	});
 
 	it("fills a paired stay's days without photos from its stamps", () => {
@@ -171,6 +177,7 @@ describe("review timeline view", () => {
 				.map((item) => item.textContent),
 		).toEqual([
 			"Photos, and days between photos in one country",
+			"Days with photos",
 			"Stamps: between entry and exit",
 			"No data",
 			"→←Stamps: entry, exit; click one to open its photo",
