@@ -9,12 +9,14 @@ import {
 	type SpriteName,
 } from "@voyput/ui";
 import { useState } from "react";
+import { aiSetupNeeded } from "../../ai/client";
 import { localCommands } from "../../ai/local";
 import { SOURCE_URL } from "../../app/links";
 import type { Plan } from "../../data/plan/planProgress";
 import { saveSources } from "../../data/plan/sources";
 import { usePlan } from "../../data/plan/usePlan";
 import { useDb } from "../../db/DbContext";
+import { useSettings } from "../../settings/SettingsContext";
 import { SourcesChoice } from "../collect/SourcesChoice";
 import { nextAction } from "../collect/steps";
 import { DemoActionsProvider, useDemoActions } from "../demo/DemoActions";
@@ -241,6 +243,7 @@ function Start({ plan }: { plan: Plan | undefined }) {
 			<h2 id="home-start" className="home-heading">
 				What do you have?
 			</h2>
+			<AiStatus />
 			<p className="collect-muted">
 				Start with one source and add the other later.
 			</p>
@@ -271,6 +274,25 @@ function Start({ plan }: { plan: Plan | undefined }) {
 				</a>
 			</p>
 		</section>
+	);
+}
+
+/** First thing to do before stamps can be read: connect an AI, or a tick once it is. */
+function AiStatus() {
+	const { settings } = useSettings();
+	if (!aiSetupNeeded(settings))
+		return (
+			<p className="home-ai" data-connected="">
+				✓ AI connected
+			</p>
+		);
+	return (
+		<p className="home-ai">
+			<span>Connect an AI (your key or local)</span>
+			<Link to="/settings" className="vp-button" data-variant="primary">
+				Settings
+			</Link>
+		</p>
 	);
 }
 

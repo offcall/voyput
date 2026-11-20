@@ -116,6 +116,20 @@
 	font-size: var(--vp-text-sm);
 }
 
+.home-ai {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--vp-space-3);
+	align-items: center;
+	margin: 0;
+}
+.home-ai .vp-button {
+	text-decoration: none;
+}
+.home-ai[data-connected] {
+	color: var(--vp-good);
+}
+
 .home-source {
 	margin: 0;
 	font-size: var(--vp-text-sm);

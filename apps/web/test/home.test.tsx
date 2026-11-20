@@ -109,6 +109,17 @@ describe("home page", () => {
 					text.endsWith(`node voyput-local.mjs --site ${origin}`),
 			),
 		).toBeTruthy();
+		// Start opens with connecting an AI, which leads to Settings.
+		const start = within(
+			screen
+				.getByRole("heading", { name: "What do you have?" })
+				.closest("section") as HTMLElement,
+		);
+		expect(start.getByText("Connect an AI (your key or local)")).toBeTruthy();
+		expect(
+			start.getByRole("link", { name: "Settings" }).getAttribute("href"),
+		).toBe("/settings");
+		expect(start.queryByText("✓ AI connected")).toBeNull();
 		expect(screen.getByRole("button", { name: /^Photos only/ })).toBeTruthy();
 		expect(
 			screen.getByRole("button", { name: "Try with demo data" }),
@@ -120,6 +131,22 @@ describe("home page", () => {
 		).toBe("https://github.com/offcall/voyput");
 		expect(screen.queryByText("Welcome back")).toBeNull();
 		expect(router.state.location.pathname).toBe("/");
+	});
+
+	it("shows the AI as connected in Start once it is set up", async () => {
+		localStorage.setItem(
+			"voyput:settings",
+			JSON.stringify({ openRouterKey: "sk-or-test" }),
+		);
+		try {
+			renderApp("/", { db: freshDb() });
+			await screen.findByText("✓ AI connected");
+			expect(
+				screen.queryByText("Connect an AI (your key or local)"),
+			).toBeNull();
+		} finally {
+			localStorage.removeItem("voyput:settings");
+		}
 	});
 
 	it("starts Collect from the sources choice", async () => {
