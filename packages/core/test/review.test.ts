@@ -8,7 +8,9 @@ import {
 	needsAttention,
 	parseValidateResponse,
 	photoMatches,
+	photoSeverity,
 	type Stamp,
+	severity,
 	usableStamps,
 } from "../src/index";
 
@@ -148,6 +150,14 @@ describe("needsAttention", () => {
 		expect(photoMatches([item({})], "problem")).toBe(false);
 		expect(photoMatches([item({}), overlap], "problem")).toBe(true);
 		expect(photoMatches([{ ...overlap, overlap: "" }], "problem")).toBe(false);
+	});
+
+	it("holds a reviewed stamp with an overlapping stay, as a critical problem", () => {
+		const overlap = { ...item({}), overlap: "you are also in Turkey" };
+		expect(needsAttention(overlap)).toBe(true);
+		expect(severity(overlap)).toBe("critical");
+		expect(photoSeverity([item({}), overlap])).toBe("critical");
+		expect(needsAttention({ ...overlap, overlap: "" })).toBe(false);
 	});
 });
 

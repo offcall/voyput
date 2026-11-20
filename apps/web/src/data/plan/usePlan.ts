@@ -1,9 +1,11 @@
 import {
 	checkStamp,
+	findConflicts,
 	isCountryCode,
 	isIsoDate,
 	needsAttention,
 	type PhotoIndex,
+	pairVisits,
 	type Stamp,
 	staySpan,
 } from "@voyput/core";
@@ -18,20 +20,28 @@ import { buildPlan, type Plan, type PlanStay } from "./planProgress";
 import { isSources, SOURCES_KEY } from "./sources";
 
 /**
- * Stamps in the Review queue: unreviewed, or with a warning from the extraction or
- * the photo locations that is still open. Same rule as Review's "Needs attention".
+ * Stamps in the Review queue: unreviewed, with a warning from the extraction or
+ * the photo locations that is still open, or in a stay that overlaps another
+ * (the stamps Review notes with core `findConflicts`). Same rule as Review's
+ * "Needs attention".
  */
 export function countToCheck(
 	stamps: readonly Stamp[],
 	index: PhotoIndex | undefined,
 	windowDays: number,
 ): number {
+	const overlapping = new Set(
+		findConflicts(pairVisits(stamps), stamps).flatMap(({ first, second }) =>
+			[first, second].flatMap((v) => [v.entryStampId, v.exitStampId]),
+		),
+	);
 	return stamps.filter((stamp) =>
 		needsAttention({
 			stamp,
 			check: index
 				? checkStamp(index, stamp, windowDays)
 				: { icloudCheck: "", suggestion: "" },
+			...(overlapping.has(stamp.id) ? { overlap: "overlap" } : {}),
 		}),
 	).length;
 }

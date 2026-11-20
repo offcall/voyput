@@ -36,6 +36,7 @@ import {
 	formatDayRange,
 	plural,
 } from "./format";
+import { overlapNotes } from "./overlaps";
 import { TIMELINE_WINDOWS } from "./reviewStore";
 import {
 	buildTimeline,
@@ -144,16 +145,22 @@ export function TimelineView({
 	/** Opens the stamp's photo and card on the Photos tab. */
 	onOpen: (stamp: Stamp) => void;
 }) {
-	const levels = useMemo(
-		() =>
-			new Map(
-				stamps.map((stamp) => [
+	const levels = useMemo(() => {
+		const overlaps = overlapNotes(stamps);
+		return new Map(
+			stamps.map((stamp) => {
+				const overlap = overlaps.get(stamp.id);
+				return [
 					stamp.id,
-					severity({ stamp, check: checkStamp(index, stamp, stripDays) }),
-				]),
-			),
-		[stamps, index, stripDays],
-	);
+					severity({
+						stamp,
+						check: checkStamp(index, stamp, stripDays),
+						...(overlap ? { overlap } : {}),
+					}),
+				];
+			}),
+		);
+	}, [stamps, index, stripDays]);
 	const items = useMemo(() => buildTimeline(stamps), [stamps]);
 	const bandRuns = useMemo(
 		() =>

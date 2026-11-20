@@ -70,7 +70,7 @@ let dbCount = 0;
 describe("overlaps in Review", () => {
 	beforeEach(() => stubObjectUrls());
 
-	it("shows a red note on the overlapping stamps and counts them as problems", async () => {
+	it("shows a red note on the overlapping stamps and counts them as problems in the queue", async () => {
 		const db = new VoyputDb(`review-overlap-${++dbCount}`);
 		await db.passports.put({
 			id: "p1",
@@ -105,5 +105,22 @@ describe("overlaps in Review", () => {
 				within(select).getByRole("option", { name: "Problems (2)" }),
 			).toBeTruthy(),
 		);
+		// All stamps are reviewed, yet the overlapping pages stay in the queue.
+		expect(
+			within(select).getByRole("option", { name: "Needs attention (2)" }),
+		).toBeTruthy();
+		expect(screen.queryByText("All checked ✓")).toBeNull();
+		const strip = within(
+			screen.getByRole("navigation", { name: "Review photos" }),
+		);
+		expect(strip.getAllByTitle("2 with a problem")).toHaveLength(2);
+	});
+
+	it("counts overlapping stamps under To check on the timeline", async () => {
+		const db = new VoyputDb(`review-overlap-${++dbCount}`);
+		await db.stamps.bulkPut(stamps);
+		renderApp("/collect/review?tab=timeline", { db });
+		const toCheck = await screen.findByText("To check");
+		expect(toCheck.parentElement?.querySelector("dd")?.textContent).toBe("4");
 	});
 });

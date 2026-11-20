@@ -17,8 +17,9 @@ export interface CheckedStamp {
 	check: StampCheck;
 	/**
 	 * Another stay at the same time as this stamp's stay (core `findConflicts`),
-	 * as text for the user; missing or empty when there is none. It counts under
-	 * the "problem" filter and goes away once a date or direction is fixed.
+	 * as text for the user; missing or empty when there is none. It is a problem
+	 * (critical, so the stamp needs attention) and goes away once a date or
+	 * direction is fixed.
 	 */
 	overlap?: string;
 }
@@ -29,9 +30,9 @@ export const hasOpenProblem = ({ stamp }: CheckedStamp): boolean =>
 export const hasOpenIcloudCheck = ({ stamp, check }: CheckedStamp): boolean =>
 	Boolean(check.icloudCheck) && !stamp.dismissed?.icloudCheck;
 
-/** Only warnings the user has not dismissed count. */
+/** Only warnings the user has not dismissed count; an overlap cannot be dismissed. */
 export const severity = (item: CheckedStamp): Severity =>
-	hasOpenProblem(item)
+	hasOpenProblem(item) || item.overlap
 		? "critical"
 		: hasOpenIcloudCheck(item)
 			? "warning"
@@ -39,7 +40,8 @@ export const severity = (item: CheckedStamp): Severity =>
 
 /**
  * A stamp in the Review queue: not reviewed yet, or with a warning the user has
- * not fixed or marked as fine (a check from the extraction or the photo locations).
+ * not fixed or marked as fine (a check from the extraction or the photo
+ * locations), or in a stay that overlaps another.
  */
 export const needsAttention = (item: CheckedStamp): boolean =>
 	!item.stamp.reviewed || severity(item) !== "ok";

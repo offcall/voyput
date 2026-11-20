@@ -49,4 +49,23 @@ describe("Collect's review count", () => {
 		// Without photo locations only unreviewed stamps and problems count.
 		expect(countToCheck(stamps, undefined, 10)).toBe(2);
 	});
+
+	it("counts the reviewed stamps of stays that overlap", () => {
+		const stamps = [
+			stamp("tr-in", { date: "2024-07-03", countryCode: "TR" }),
+			stamp("tr-out", {
+				date: "2024-07-08",
+				countryCode: "TR",
+				direction: "exit",
+			}),
+			stamp("ge-in", { date: "2024-07-05", countryCode: "GE" }),
+			stamp("ge-out", {
+				date: "2024-07-10",
+				countryCode: "GE",
+				direction: "exit",
+			}),
+		];
+		expect(countToCheck(stamps, undefined, 10)).toBe(4);
+		expect(countToCheck(stamps.slice(0, 2), undefined, 10)).toBe(0);
+	});
 });
