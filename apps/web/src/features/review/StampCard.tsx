@@ -136,20 +136,6 @@ const groupNearby = (nearby: readonly NearbyPhoto[]) => {
 	return [...groups.values()];
 };
 
-/**
- * The date a photo-location suggestion points to ("Possible correct date is around
- * 2016-08-11 …", "… also a photo in Spain on 2016-08-11 …"), for a one-click fix.
- */
-export function suggestedDate(lines: readonly string[]): string | null {
-	for (const line of lines) {
-		const match =
-			/correct date is around (\d{4}-\d{2}-\d{2})/.exec(line) ??
-			/also a photo in .+? on (\d{4}-\d{2}-\d{2})/.exec(line);
-		if (match?.[1] && isValidDate(match[1])) return match[1];
-	}
-	return null;
-}
-
 const NOTE_LABELS: Record<NoteKind, string> = {
 	problem: "Check",
 	icloudCheck: "Photo location history",
@@ -207,16 +193,18 @@ export function StampCard({
 		{ kind: "icloudCheck" as const, lines: [check.icloudCheck] },
 		{ kind: "suggestion" as const, lines: [check.suggestion] },
 	].filter((note) => note.lines.some(Boolean));
-	// The first open warning sits under the row, folded or not, with its fix.
-	const lead = notes.find(
-		({ kind }) => kind !== "suggestion" && !stamp.dismissed?.[kind],
-	);
 	const suggestion = notes.find(
 		({ kind }) => kind === "suggestion" && !stamp.dismissed?.suggestion,
 	);
+	// The first open warning sits under the row, folded or not, with its fix;
+	// with no photo warning at all, an open suggestion does (a misread year).
+	const lead =
+		notes.find(
+			({ kind }) => kind !== "suggestion" && !stamp.dismissed?.[kind],
+		) ?? (check.icloudCheck ? undefined : suggestion);
 	const fix =
-		lead?.kind === "icloudCheck" && suggestion
-			? suggestedDate(suggestion.lines)
+		(lead?.kind === "icloudCheck" || lead?.kind === "suggestion") && suggestion
+			? (check.fixDate ?? null)
 			: null;
 	const label = `Stamp ${number}`;
 	const ref = useRef<HTMLElement>(null);

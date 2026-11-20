@@ -161,6 +161,7 @@ describe("checkStamp on border days", () => {
 		TR: "Turkey",
 		RU: "Russia",
 		AT: "Austria",
+		US: "United States",
 	};
 	// `at` is local time; the uuid puts each row in the order the app reads them back.
 	let seq = 0;
@@ -286,6 +287,7 @@ describe("checkStamp on border days", () => {
 		});
 		expect(check.icloudCheck).toContain("taken in Ukraine, not Spain");
 		expect(check.suggestion).toContain("around 2024-09-10");
+		expect(check.fixDate).toBe("2024-09-10");
 	});
 
 	it("uses the direction: an entry is not confirmed by the day before", () => {
@@ -353,6 +355,87 @@ describe("checkStamp on border days", () => {
 				direction: "entry",
 			}),
 		).toEqual(ok);
+	});
+
+	describe("a year read wrong", () => {
+		const usa2017 = [
+			photo("2017-08-12 12:00", "US"),
+			photo("2017-08-13 12:00", "US"),
+			photo("2017-08-15 12:00", "US"),
+		];
+		const stamp = {
+			date: "2016-08-12",
+			countryCode: "US",
+			direction: "entry" as const,
+		};
+
+		it("suggests the year the photos in the stamp's country show", () => {
+			// Home in Ukraine around the stamp date, far enough not to warn.
+			const index = buildPhotoIndex([
+				photo("2016-07-01 12:00", "UA"),
+				...usa2017,
+			]);
+			expect(checkStamp(index, stamp)).toEqual({
+				icloudCheck: "",
+				suggestion:
+					"Maybe 2017? Photos in United States from 2017-08-12 to 2017-08-15",
+				fixDate: "2017-08-12",
+			});
+		});
+
+		it("suggests it beside a warning instead of a country misread", () => {
+			const index = buildPhotoIndex([
+				photo("2016-08-13 12:00", "UA"),
+				...usa2017,
+			]);
+			const check = checkStamp(index, stamp);
+			expect(check.icloudCheck).toContain(
+				"taken in Ukraine, not United States",
+			);
+			expect(check.suggestion).toContain("Maybe 2017?");
+			expect(check.fixDate).toBe("2017-08-12");
+		});
+
+		it("says nothing when the stamp's country has photos around its date", () => {
+			const index = buildPhotoIndex([
+				photo("2016-08-20 12:00", "US"),
+				...usa2017,
+			]);
+			expect(checkStamp(index, stamp)).toEqual(ok);
+			// Confirmed on its own day: no year check at all.
+			const confirmed = buildPhotoIndex([
+				photo("2016-08-12 12:00", "US"),
+				...usa2017,
+			]);
+			expect(checkStamp(confirmed, stamp)).toEqual(ok);
+		});
+
+		it("looks a year earlier too, within 3 days", () => {
+			const within = buildPhotoIndex([photo("2015-08-09 12:00", "US")]);
+			expect(checkStamp(within, stamp)).toMatchObject({
+				suggestion: "Maybe 2015? Photos in United States on 2015-08-09",
+				fixDate: "2015-08-12",
+			});
+			const beyond = buildPhotoIndex([
+				photo("2015-08-08 12:00", "US"),
+				photo("2017-08-16 12:00", "US"),
+			]);
+			expect(checkStamp(beyond, stamp)).toEqual(ok);
+			// Photos of another country a year off say nothing about this one.
+			expect(
+				checkStamp(buildPhotoIndex([photo("2017-08-12 12:00", "UA")]), stamp),
+			).toEqual(ok);
+		});
+
+		it("moves 29 February to 28 February in the other year", () => {
+			const index = buildPhotoIndex([photo("2017-03-02 12:00", "US")]);
+			expect(checkStamp(index, { ...stamp, date: "2016-02-29" })).toMatchObject(
+				{
+					suggestion: "Maybe 2017? Photos in United States on 2017-03-02",
+					fixDate: "2017-02-28",
+				},
+			);
+		});
 	});
 });
 

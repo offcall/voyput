@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Amends ADR 0030: which photos in another country make `checkStamp` warn.
+Accepted. Amends ADR 0030: which photos in another country make `checkStamp` warn. Its suggestion search amended by ADR 0046 (a misread year).
 
 ## Context
 

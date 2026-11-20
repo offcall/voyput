@@ -49,3 +49,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0043](0043-node-22-22-for-development.md) | Node 22.22 for Development | Accepted (amends 0002) |
 | [0044](0044-implausible-stamp-dates-read-as-undated.md) | Implausible Stamp Dates Read as Undated | Accepted |
 | [0045](0045-photo-check-looks-one-side-of-a-crossing.md) | Photo Check Looks One Side of a Crossing | Accepted (amends 0030) |
+| [0046](0046-photo-check-suggests-a-misread-year.md) | Photo Check Suggests a Misread Year | Accepted (amends 0030, 0045) |

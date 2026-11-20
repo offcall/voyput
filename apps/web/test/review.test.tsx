@@ -258,6 +258,38 @@ describe("review", () => {
 		);
 	});
 
+	it("suggests the year the photos show and moves the stamp there in one click", async () => {
+		const db = await demoDb();
+		// The demo's first stamp, 10 Aug 2016, read a year early.
+		await updateStamp(db, "demo-stamp-01", { date: "2015-08-10" });
+		const user = userEvent.setup();
+		renderApp("/review", { db });
+		const stamp = within(await card(1));
+		expect(stamp.getByText(/^Maybe 2016\? Photos in/)).toBeTruthy();
+		await user.click(
+			stamp.getByRole("button", { name: "Move to 10 Aug 2016" }),
+		);
+		await waitFor(async () =>
+			expect((await db.stamps.get("demo-stamp-01"))?.date).toBe("2016-08-10"),
+		);
+		await waitFor(() => expect(stamp.queryByText(/^Maybe/)).toBeNull());
+	});
+
+	it("hides a year suggestion marked as fine", async () => {
+		const db = await demoDb();
+		await updateStamp(db, "demo-stamp-01", { date: "2015-08-10" });
+		const user = userEvent.setup();
+		renderApp("/review", { db });
+		const stamp = within(await card(1));
+		await user.click(
+			await stamp.findByRole("button", { name: "Suggestion looks right" }),
+		);
+		await waitFor(() => expect(stamp.queryByText(/^Maybe/)).toBeNull());
+		expect((await db.stamps.get("demo-stamp-01"))?.dismissed).toEqual({
+			suggestion: true,
+		});
+	});
+
 	it("adds a stamp found by a rescan", async () => {
 		localStorage.setItem(
 			"voyput:settings",

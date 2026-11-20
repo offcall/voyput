@@ -9,7 +9,6 @@ import {
 	nextInQueue,
 	viewFromStored,
 } from "../src/features/review/queue";
-import { suggestedDate } from "../src/features/review/StampCard";
 import { stubObjectUrls } from "./fixtures/demo";
 import { offlineAi, renderApp } from "./renderApp";
 
@@ -81,22 +80,6 @@ describe("review queue order", () => {
 		expect(viewFromStored("attention")).toBe("attention");
 		expect(viewFromStored("reviewed")).toBe("reviewed");
 		expect(viewFromStored("nope")).toBeNull();
-	});
-
-	it("finds the date a photo-location suggestion points to", () => {
-		expect(
-			suggestedDate([
-				'Possible correct date is around 2016-08-11 (photo "x.jpg" in Spain, 1 day(s) from the stamp date)',
-			]),
-		).toBe("2016-08-11");
-		expect(
-			suggestedDate([
-				'There is also a photo in Spain on 2016-08-12 ("x.jpg", 2 day(s) away); check which date is right',
-			]),
-		).toBe("2016-08-12");
-		expect(
-			suggestedDate(["No photos in Spain within 30 days: check by hand"]),
-		).toBeNull();
 	});
 });
 

@@ -17,6 +17,8 @@ export interface NearbyPhoto {
 export interface StampCheck {
 	icloudCheck: string;
 	suggestion: string;
+	/** The date the suggestion points to, for a one-click fix; missing when it points to none. */
+	fixDate?: string;
 }
 
 const NEAR_DAYS = 2;
@@ -24,6 +26,8 @@ const NEAR_DAYS = 2;
 const STAMP_CHECK_WINDOW = 10;
 const SUGGEST_WINDOW = 30;
 const NEARBY_COUNT = 5;
+/** Days either side of the same date a year earlier or later that still count. */
+const YEAR_TOLERANCE = 3;
 
 const NO_CHECK: StampCheck = { icloudCheck: "", suggestion: "" };
 
@@ -132,6 +136,61 @@ const hasPhotoIn = (
 	return false;
 };
 
+/** `iso` moved by `years` years; 29 February lands on 28 February. */
+const shiftYear = (iso: string, years: number): string | null => {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+	if (!match) return null;
+	const year = Number(match[1]) + years;
+	const month = Number(match[2]);
+	const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+	const day = Math.min(Number(match[3]), lastDay);
+	return `${String(year).padStart(4, "0")}-${match[2]}-${String(day).padStart(2, "0")}`;
+};
+
+interface OtherYear {
+	/** The stamp date in that year. */
+	date: string;
+	first: string;
+	last: string;
+	gap: number;
+}
+
+/**
+ * Photos in `code` within `YEAR_TOLERANCE` days of the same date one year
+ * before or after `date`, which hint at a misread year; the year whose nearest
+ * photo is closer wins, the earlier one on a tie.
+ */
+const otherYearPhotos = (
+	index: PhotoIndex,
+	code: string,
+	date: string,
+): OtherYear | null => {
+	let best: OtherYear | null = null;
+	for (const years of [-1, 1]) {
+		const shifted = shiftYear(date, years);
+		const target = shifted ? dayNumber(shifted) : null;
+		if (!shifted || target === null) continue;
+		let first: number | null = null;
+		let last = 0;
+		let gap = Infinity;
+		const end = lowerBound(index.days, target + YEAR_TOLERANCE + 1);
+		for (
+			let i = lowerBound(index.days, target - YEAR_TOLERANCE);
+			i < end;
+			i++
+		) {
+			if (index.countryCodes[i] !== code) continue;
+			const day = index.days[i] ?? 0;
+			first ??= day;
+			last = day;
+			gap = Math.min(gap, Math.abs(day - target));
+		}
+		if (first !== null && (!best || gap < best.gap))
+			best = { date: shifted, first: dayIso(first), last: dayIso(last), gap };
+	}
+	return best;
+};
+
 /**
  * Checks a stamp against the photo locations around its date. It agrees when
  * the stamp's country has a photo on its confirming days (`confirmingDays`).
@@ -140,7 +199,10 @@ const hasPhotoIn = (
  * before an exit, on or after an entry, either side when the direction is
  * unknown) is a warning; with none, nothing contradicts the stamp. The
  * suggestion points to the nearest photo in the stamp's own country within
- * 30 days, which hints at a misread date.
+ * 30 days, which hints at a misread date. With no such photo, photos in the
+ * stamp's country within 3 days of the same date a year earlier or later hint
+ * at a misread year: that suggestion comes with or without a warning. The
+ * date a suggestion points to is `fixDate`.
  */
 export const checkStamp = (
 	index: PhotoIndex,
@@ -156,15 +218,6 @@ export const checkStamp = (
 	if (!code || target === null) return NO_CHECK;
 	const [from, to] = confirmingDays(stamp.direction);
 	if (hasPhotoIn(index, code, target + from, target + to)) return NO_CHECK;
-	const nearest = nearestWhere(
-		index,
-		target,
-		contradictingDays(stamp.direction, window),
-		(c) => c !== code,
-	);
-	if (!nearest) return NO_CHECK;
-	const country = countryLabel(index, nearest.countryCode);
-	const photo = `photo${nearest.filename ? ` "${nearest.filename}"` : ""}`;
 	const stampCountry = countryLabel(index, code);
 	const confirm = nearestWhere(
 		index,
@@ -172,18 +225,43 @@ export const checkStamp = (
 		[-SUGGEST_WINDOW, SUGGEST_WINDOW],
 		(c) => c === code,
 	);
+	const year =
+		confirm || !stamp.date ? null : otherYearPhotos(index, code, stamp.date);
+	const yearHint = year
+		? `Maybe ${year.date.slice(0, 4)}? Photos in ${stampCountry} ${
+				year.first === year.last
+					? `on ${year.first}`
+					: `from ${year.first} to ${year.last}`
+			}`
+		: "";
+	const fixDate = confirm?.date ?? year?.date;
+	const fix = fixDate ? { fixDate } : {};
+	const nearest = nearestWhere(
+		index,
+		target,
+		contradictingDays(stamp.direction, window),
+		(c) => c !== code,
+	);
+	if (!nearest)
+		return year ? { icloudCheck: "", suggestion: yearHint, ...fix } : NO_CHECK;
+	const country = countryLabel(index, nearest.countryCode);
+	const photo = `photo${nearest.filename ? ` "${nearest.filename}"` : ""}`;
 
 	if (nearest.gap <= NEAR_DAYS)
 		return {
 			icloudCheck: `${nearest.gap} day(s) from the stamp date, a ${photo} was taken in ${country}, not ${stampCountry}`,
 			suggestion: confirm
 				? `Possible correct date is around ${confirm.date} (photo "${confirm.filename}" in ${stampCountry}, ${confirm.gap} day(s) from the stamp date)`
-				: `No photos in ${stampCountry} within ${SUGGEST_WINDOW} days: the country may be misread (nearby photos show ${country})`,
+				: yearHint ||
+					`No photos in ${stampCountry} within ${SUGGEST_WINDOW} days: the country may be misread (nearby photos show ${country})`,
+			...fix,
 		};
 	return {
 		icloudCheck: `Possible inaccuracy: the nearest ${photo} (${nearest.gap} day(s) away) is in ${country}`,
 		suggestion: confirm
 			? `There is also a photo in ${stampCountry} on ${confirm.date} ("${confirm.filename}", ${confirm.gap} day(s) away); check which date is right`
-			: `No photos in ${stampCountry} within ${SUGGEST_WINDOW} days: check by hand`,
+			: yearHint ||
+				`No photos in ${stampCountry} within ${SUGGEST_WINDOW} days: check by hand`,
+		...fix,
 	};
 };
