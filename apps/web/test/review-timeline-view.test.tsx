@@ -104,6 +104,13 @@ describe("review timeline view", () => {
 		expect(run?.getAttribute("title")).toBe(
 			"Germany · from 2 photos · 20 Jul – 23 Jul 2024",
 		);
+		// Not mouse-only: the band lists its runs with the tooltip text as their names.
+		const band = screen.getByRole("list", { name: "Countries in this window" });
+		expect(
+			within(band)
+				.getAllByRole("listitem")
+				.map((item) => item.getAttribute("aria-label")),
+		).toEqual(["Germany · from 2 photos · 20 Jul – 23 Jul 2024"]);
 	});
 
 	it("joins one country's photo days when no other country's photos lie between", () => {

@@ -79,7 +79,10 @@ export function PhotoList({
 														className="review-photo-row-problems"
 														title={`${problems} with a problem`}
 													>
-														{problems} ?
+														<span aria-hidden="true">{problems} ?</span>
+														<span className="vp-visually-hidden">
+															{problems} with a problem
+														</span>
 													</span>
 												) : null}
 												{level === "warning" ? " · photo location" : ""}

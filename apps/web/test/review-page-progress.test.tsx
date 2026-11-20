@@ -95,6 +95,9 @@ describe("page strip progress", () => {
 			await strip.findByRole("button", { name: /page-1\.png/ }),
 		);
 		expect(page1.getByText("1/2 ✓")).toBeTruthy();
-		expect(page1.getByText("1 ?").title).toBe("1 with a problem");
+		expect(page1.getByText("1 ?").parentElement?.title).toBe(
+			"1 with a problem",
+		);
+		expect(page1.getByText("1 with a problem")).toBeTruthy();
 	});
 });

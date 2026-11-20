@@ -114,6 +114,8 @@ describe("overlaps in Review", () => {
 			screen.getByRole("navigation", { name: "Review photos" }),
 		);
 		expect(strip.getAllByTitle("2 with a problem")).toHaveLength(2);
+		// Screen readers hear words, not "2 question mark".
+		expect(strip.getAllByText("2 with a problem")).toHaveLength(2);
 	});
 
 	it("counts overlapping stamps under To check on the timeline", async () => {

@@ -478,7 +478,7 @@ function OverviewBand({
 	onOpen: (stamp: Stamp) => void;
 }) {
 	const hueStyle = useHueStyle();
-	const [daysRef, bandWidth] = useWidth<HTMLDivElement>();
+	const [daysRef, bandWidth] = useWidth<HTMLUListElement>();
 	const fromIso = dayIso(from);
 	const toIso = dayIso(from + windowDays - 1);
 	const runs = runsBetween(bandRuns, fromIso, toIso);
@@ -550,19 +550,25 @@ function OverviewBand({
 						);
 					})}
 				</div>
-				<div className="review-band-days" ref={daysRef}>
+				<ul
+					className="review-band-days"
+					ref={daysRef}
+					aria-label="Countries in this window"
+				>
 					{runs.map((run) => {
 						const days = at(run.end) - at(run.start) + 1;
 						const label = runLabel((days / windowDays) * bandWidth);
+						const title = bandRunTitle(
+							run,
+							run.source === "photos" ? photosInRun(index, run) : 0,
+						);
 						return (
-							<span
+							<li
 								key={`${run.start}-${run.countryCode}`}
 								className="review-band-run"
 								data-source={run.source}
-								title={bandRunTitle(
-									run,
-									run.source === "photos" ? photosInRun(index, run) : 0,
-								)}
+								aria-label={title}
+								title={title}
 								style={{
 									...hueStyle(run.countryCode),
 									left: pct(at(run.start)),
@@ -573,10 +579,10 @@ function OverviewBand({
 									<span aria-hidden="true">{flagOf(run.countryCode)} </span>
 								) : null}
 								{label === "none" ? null : run.countryCode}
-							</span>
+							</li>
 						);
 					})}
-				</div>
+				</ul>
 				<div className="review-band-axis" aria-hidden="true">
 					{ticks.map((tick) => (
 						<span key={tick.day} style={{ left: pct(tick.day) }}>
