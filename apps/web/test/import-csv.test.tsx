@@ -29,6 +29,7 @@ describe("import location CSV", () => {
 		const user = userEvent.setup();
 		const { db } = renderApp("/collect/locations");
 		await db.locations.add(OLD_ROW);
+		await screen.findByText("2001–2001");
 
 		await user.upload(
 			await screen.findByLabelText(PICKER),
@@ -40,6 +41,8 @@ describe("import location CSV", () => {
 			]),
 		);
 
+		// Locations are stored: Replace keeps today's behaviour, the old row goes.
+		await user.click(await screen.findByRole("button", { name: "Replace" }));
 		await screen.findByText(
 			"Imported 2 locations · 2 countries · 2019. Skipped 1 rows with a bad date or coordinates, or no country.",
 		);
@@ -50,7 +53,7 @@ describe("import location CSV", () => {
 		await waitFor(() => expect(document.activeElement).toBe(stored));
 		await within(stored).findByText("2019–2019");
 		expect(
-			within(stored)
+			within(within(stored).getByRole("list", { name: "Stored countries" }))
 				.getAllByRole("listitem")
 				.map((item) => item.textContent),
 		).toEqual(["🇲🇩MDMoldova, Republic of", "🇹🇷TRTürkiye"]);
@@ -104,7 +107,7 @@ describe("import location CSV", () => {
 		});
 		await waitFor(() =>
 			expect(
-				within(stored)
+				within(within(stored).getByRole("list", { name: "Stored countries" }))
 					.getAllByRole("listitem")
 					.map((item) => item.textContent),
 			).toEqual(["🇫🇷FRFrance", "🇵🇹PTPortugal"]),
@@ -117,11 +120,15 @@ describe("import location CSV", () => {
 		const { db } = renderApp("/collect/locations");
 		await db.locations.add(OLD_ROW);
 		const picker = await screen.findByLabelText(PICKER);
+		await screen.findByText("2001–2001");
+		const replace = async () =>
+			user.click(await screen.findByRole("button", { name: "Replace" }));
 
 		await user.upload(
 			picker,
 			csvFile(["date,latitude,longitude", "2019-05-01,47,28"]),
 		);
+		await replace();
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"missing required columns: lat, lon",
 		);
@@ -134,6 +141,7 @@ describe("import location CSV", () => {
 				"2019-02-30T10:00:00,47,28,MD",
 			]),
 		);
+		await replace();
 		expect(
 			(await screen.findByText(/has no valid rows/)).textContent,
 		).toContain("Nothing was changed");

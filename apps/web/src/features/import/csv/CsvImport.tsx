@@ -5,23 +5,36 @@ import {
 	summarizeLocations,
 } from "@voyput/core";
 import {
+	Button,
 	Card,
 	CommandBox,
 	CountryChip,
+	Dialog,
 	Disclosure,
 	Dropzone,
 	Notice,
 	Stat,
 	StatGroup,
 } from "@voyput/ui";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { type ServedScript, verifiedCommand } from "../../../app/servedScripts";
 import { staysAfterEvidenceChange } from "../../../data/evidenceChange";
 import { keepStorageOnce } from "../../../data/storageKeeper";
+import { useLiveQuery } from "../../../data/useLiveQuery";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
 import { LocationStrip } from "./LocationStrip";
+import {
+	type AddResult,
+	addLocationFile,
+	addResultText,
+	type LocationFile,
+	listOnlyFile,
+	locationFile,
+	readLocationFiles,
+	removeLocationFile,
+} from "./locationFiles";
 import {
 	focusStoredLocations,
 	locationLine,
@@ -33,21 +46,28 @@ import { type StoredLocations, useStoredLocations } from "./storedLocations";
 type ImportState =
 	| { kind: "idle" }
 	| { kind: "busy" }
+	| { kind: "choose"; file: File }
 	| { kind: "done"; summary: LocationSummary; skipped: number }
+	| { kind: "added"; result: AddResult; skipped: number }
 	| { kind: "demo"; summary: LocationSummary }
 	| { kind: "error"; message: string };
 
 /** What places a photo in a stay: its local day and country. */
 const readingOf = (row: LocationRow) => `${dayOf(row)}|${row.countryCode}`;
 
+/** What a new file does to stored locations (ADR 0050). */
+type ImportMode = "replace" | "add";
+
 /**
- * Parses the file and replaces all stored locations in one transaction.
- * Stored stays lose the photos the new file no longer has, and are marked,
- * as are stays whose photos now have another day or country.
+ * Parses the file. Replace swaps all stored locations for its rows in one
+ * transaction: stored stays lose the photos the new file no longer has, and
+ * are marked, as are stays whose photos now have another day or country.
+ * Add keeps them and stores only the rows not there yet.
  */
 async function importLocationCsv(
 	db: VoyputDb,
 	file: File,
+	mode: ImportMode,
 ): Promise<ImportState> {
 	const result = await parseLocationFile(await file.text());
 	if (!result.ok) {
@@ -66,7 +86,15 @@ async function importLocationCsv(
 			message: `${file.name} has no valid rows (${result.skipped} skipped). Nothing was changed.`,
 		};
 	}
-	await db.transaction("rw", db.locations, db.stays, db.stamps, async () => {
+	const importedAt = new Date().toISOString();
+	if (mode === "add")
+		return {
+			kind: "added",
+			result: await addLocationFile(db, file.name, result.rows, importedAt),
+			skipped: result.skipped,
+		};
+	const tables = [db.locations, db.stays, db.stamps, db.kv];
+	await db.transaction("rw", tables, async () => {
 		const old = new Map(
 			(await db.locations.toArray()).map((row) => [row.uuid, readingOf(row)]),
 		);
@@ -82,6 +110,11 @@ async function importLocationCsv(
 		const removedPhotos = new Set(old.keys());
 		if (removedPhotos.size + changedPhotos.size > 0)
 			await staysAfterEvidenceChange(db, { removedPhotos, changedPhotos });
+		const uuids = result.rows.map((row) => row.uuid);
+		await listOnlyFile(
+			db,
+			locationFile(file.name, result.rows, uuids, importedAt),
+		);
 	});
 	void keepStorageOnce();
 	return {
@@ -116,12 +149,10 @@ export function CsvImport({
 	}, [demoLoaded]);
 	const { data: stored } = useStoredLocations();
 
-	const onFiles = async (files: File[]) => {
-		const file = files[0];
-		if (!file || state.kind === "busy") return;
+	const run = async (file: File, mode: ImportMode) => {
 		setState({ kind: "busy" });
 		try {
-			const next = await importLocationCsv(db, file);
+			const next = await importLocationCsv(db, file, mode);
 			setState(next);
 		} catch (error) {
 			setState({
@@ -130,9 +161,17 @@ export function CsvImport({
 			});
 		}
 	};
+	const onFiles = (files: File[]) => {
+		const file = files[0];
+		if (!file || state.kind === "busy") return;
+		// With locations stored, the user says whether the file replaces or adds to them.
+		if ((stored?.rowCount ?? 0) > 0) setState({ kind: "choose", file });
+		else void run(file, "replace");
+	};
+	const choosing = state.kind === "choose" ? state.file : null;
 
 	// After an import, move to what is stored once it shows (it is hidden while empty).
-	const imported = state.kind === "done";
+	const imported = state.kind === "done" || state.kind === "added";
 	const hasRows = (stored?.rowCount ?? 0) > 0;
 	useEffect(() => {
 		if (imported && hasRows) focusStoredLocations();
@@ -150,23 +189,59 @@ export function CsvImport({
 					aria-label="Stored photo locations"
 				>
 					<StoredSummary stored={stored} />
+					{hasRows ? <FileList /> : null}
 				</section>
 				<ImportStatus state={state} />
 				<Dropzone
 					accept=".csv,text/csv"
 					label="Drop photo_locations.csv here or pick it"
-					hint="A new file replaces the photo locations imported before."
+					hint="With photo locations stored, you choose: the new file replaces them or adds to them."
 					onFiles={onFiles}
 				/>
+				<Dialog
+					open={choosing !== null}
+					onOpenChange={(open) => {
+						if (!open) setState({ kind: "idle" });
+					}}
+					title="Photo locations are already stored"
+					actions={
+						<>
+							<Button onClick={() => setState({ kind: "idle" })}>Cancel</Button>
+							<Button
+								variant="danger"
+								onClick={() => choosing && run(choosing, "replace")}
+							>
+								Replace
+							</Button>
+							<Button
+								variant="primary"
+								onClick={() => choosing && run(choosing, "add")}
+							>
+								Add to them
+							</Button>
+						</>
+					}
+				>
+					<p>
+						Replace them with {choosing?.name}, or add its photo locations that
+						are not stored yet, for example from another library.
+					</p>
+				</Dialog>
 				<HowToGetFile open={empty} />
 			</div>
 		</Card>
 	);
 }
 
+const skippedText = (skipped: number) =>
+	skipped > 0
+		? ` Skipped ${skipped.toLocaleString("en")} rows with a bad date or coordinates, or no country.`
+		: "";
+
 function ImportStatus({ state }: { state: ImportState }) {
 	switch (state.kind) {
 		case "idle":
+		case "choose":
 			return null;
 		case "busy":
 			return (
@@ -190,13 +265,17 @@ function ImportStatus({ state }: { state: ImportState }) {
 			const { summary, skipped } = state;
 			return (
 				<Notice tone="good" role="status">
-					Imported {locationLine(summary)}.
-					{skipped > 0
-						? ` Skipped ${skipped.toLocaleString("en")} rows with a bad date or coordinates, or no country.`
-						: ""}
+					Imported {locationLine(summary)}.{skippedText(skipped)}
 				</Notice>
 			);
 		}
+		case "added":
+			return (
+				<Notice tone="good" role="status">
+					{addResultText(state.result)}
+					{skippedText(state.skipped)}
+				</Notice>
+			);
 	}
 }
 
@@ -309,6 +388,73 @@ function StoredSummary({ stored }: { stored: StoredLocations | undefined }) {
 				))}
 			</ul>
 			<LocationStrip periods={stored.periods} />
+		</>
+	);
+}
+
+const dayRange = (file: LocationFile) =>
+	file.firstDay === file.lastDay
+		? (file.firstDay ?? "–")
+		: `${file.firstDay} to ${file.lastDay}`;
+
+/** The imported files, each removable with the rows only it brought. */
+function FileList() {
+	const db = useDb();
+	const { data: files } = useLiveQuery(
+		useCallback(() => readLocationFiles(db), [db]),
+	);
+	const [removing, setRemoving] = useState<LocationFile | null>(null);
+	if (!files || files.length === 0) return null;
+	return (
+		<>
+			<ul className="import-files" aria-label="Imported files">
+				{files.map((file) => (
+					<li key={file.id}>
+						<span className="import-file-name">{file.name}</span>
+						<span className="import-file-meta">
+							{file.rows.toLocaleString("en")} rows · {dayRange(file)}
+							{file.importedAt
+								? ` · imported ${file.importedAt.slice(0, 10)}`
+								: ""}
+						</span>
+						<Button
+							size="sm"
+							variant="ghost"
+							aria-label={`Remove ${file.name}`}
+							onClick={() => setRemoving(file)}
+						>
+							Remove
+						</Button>
+					</li>
+				))}
+			</ul>
+			<Dialog
+				open={removing !== null}
+				onOpenChange={(open) => {
+					if (!open) setRemoving(null);
+				}}
+				title={`Remove ${removing?.name ?? "file"}?`}
+				actions={
+					<>
+						<Button onClick={() => setRemoving(null)}>Cancel</Button>
+						<Button
+							variant="danger"
+							onClick={async () => {
+								const file = removing;
+								setRemoving(null);
+								if (file) await removeLocationFile(db, file.id);
+							}}
+						>
+							Remove file
+						</Button>
+					</>
+				}
+			>
+				<p>
+					Its photo locations are deleted from this browser, except those
+					another listed file also has.
+				</p>
+			</Dialog>
 		</>
 	);
 }

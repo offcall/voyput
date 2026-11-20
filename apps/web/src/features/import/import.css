@@ -362,3 +362,30 @@
 		grid-column: 1;
 	}
 }
+
+/* Imported location files: name, then rows and dates, remove at the end. */
+.import-files {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	gap: var(--vp-space-2);
+	font-size: var(--vp-text-sm);
+}
+.import-files li {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	column-gap: var(--vp-space-2);
+}
+.import-file-name {
+	overflow-wrap: anywhere;
+}
+.import-file-meta {
+	grid-column: 1;
+	color: var(--vp-muted);
+}
+.import-files .vp-button {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+}

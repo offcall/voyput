@@ -11,6 +11,12 @@ export {
 export * from "./explore";
 export { parseCsvRows } from "./locations/csv";
 export {
+	hasExportUuid,
+	type LocationMerge,
+	mergeLocations,
+	SAME_PLACE_KM,
+} from "./locations/merge";
+export {
 	type LocationCsvResult,
 	type LocationSummary,
 	parseLocationCsv,

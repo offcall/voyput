@@ -173,6 +173,8 @@ describe("stays after evidence changes", () => {
 			approved: true,
 		});
 		renderApp("/collect/locations", { db });
+		// Locations are stored: the file replaces them.
+		await screen.findByText("2024–2024");
 		await user.upload(
 			await screen.findByLabelText(PICKER),
 			new File(
@@ -186,6 +188,7 @@ describe("stays after evidence changes", () => {
 				{ type: "text/csv" },
 			),
 		);
+		await user.click(await screen.findByRole("button", { name: "Replace" }));
 		await screen.findByText(/Imported 1 location/);
 		expect(await db.stays.get("jp")).toMatchObject({
 			photoIds: ["u2"],
@@ -414,6 +417,8 @@ describe("stays after evidence changes", () => {
 		};
 		await db.stays.bulkPut([jp, { ...jp, id: "other", photoIds: [] }]);
 		renderApp("/collect/locations", { db });
+		// Locations are stored: the file replaces them.
+		await screen.findByText("2024–2024");
 		await user.upload(
 			await screen.findByLabelText(PICKER),
 			new File(
@@ -427,6 +432,7 @@ describe("stays after evidence changes", () => {
 				{ type: "text/csv" },
 			),
 		);
+		await user.click(await screen.findByRole("button", { name: "Replace" }));
 		await screen.findByText(/Imported 1 location/);
 		expect(await db.stays.get("jp")).toMatchObject({
 			photoIds: ["u1"],

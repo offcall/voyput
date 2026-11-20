@@ -53,3 +53,4 @@ Format and rules: `AGENTS.md`, section ADR Rules.
 | [0047](0047-stamp-boxes.md) | Stamp Boxes | Accepted |
 | [0048](0048-backup-file-format.md) | Backup File Format | Accepted |
 | [0049](0049-downscale-pages-sent-to-the-model.md) | Downscale Pages Sent to the Model | Proposed |
+| [0050](0050-several-location-files.md) | Several Location Files | Accepted |
