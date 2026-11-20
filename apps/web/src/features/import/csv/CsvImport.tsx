@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { useCountryColour } from "../../../app/countryColours";
 import { type ServedScript, verifiedCommand } from "../../../app/servedScripts";
 import { staysAfterEvidenceChange } from "../../../data/evidenceChange";
+import { keepStorageOnce } from "../../../data/storageKeeper";
 import { useDb } from "../../../db/DbContext";
 import type { VoyputDb } from "../../../db/db";
 import { LocationStrip } from "./LocationStrip";
@@ -82,6 +83,7 @@ async function importLocationCsv(
 		if (removedPhotos.size + changedPhotos.size > 0)
 			await staysAfterEvidenceChange(db, { removedPhotos, changedPhotos });
 	});
+	void keepStorageOnce();
 	return {
 		kind: "done",
 		summary: summarizeLocations(result.rows),

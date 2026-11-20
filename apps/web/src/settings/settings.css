@@ -68,11 +68,18 @@
 	height: 1.1rem;
 	accent-color: var(--vp-accent);
 }
+.settings-data-storage {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--vp-space-2) var(--vp-space-3);
+}
 .settings-data-error {
 	color: var(--vp-bad);
 }
 @media (max-width: 560px) {
-	.settings-data-row .vp-button {
+	.settings-data-row .vp-button,
+	.settings-data-storage .vp-button {
 		flex: 1 1 100%;
 	}
 }

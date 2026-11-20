@@ -1,5 +1,6 @@
 import { Button, Card, Dialog, PixelArt } from "@voyput/ui";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { browserStorageKeeper as keeper } from "../data/storageKeeper";
 import { useLiveQuery } from "../data/useLiveQuery";
 import { useDb } from "../db/DbContext";
 import { runsFor } from "../features/extract/runs";
@@ -91,6 +92,23 @@ export function DataCard({
 	const [lastExport, setLastExport] = useState(readLastExport);
 	const [pending, setPending] = useState<Backup | null>(null);
 	const fileInput = useRef<HTMLInputElement>(null);
+	// null: this browser cannot tell, so no storage line shows.
+	const [kept, setKept] = useState<boolean | null>(null);
+	const [refused, setRefused] = useState(false);
+	useEffect(() => {
+		let live = true;
+		void keeper.persisted().then((value) => {
+			if (live) setKept(value);
+		});
+		return () => {
+			live = false;
+		};
+	}, []);
+	const askToKeep = async () => {
+		const granted = await keeper.persist();
+		setKept((await keeper.persisted()) ?? granted);
+		setRefused(granted !== true);
+	};
 	const statsQuery = useCallback(() => backupStats(db), [db]);
 	const { data: stats } = useLiveQuery(statsQuery);
 
@@ -167,6 +185,18 @@ export function DataCard({
 				<p className="settings-data-holds">
 					{stats ? `This browser holds ${describeCounts(stats.counts)}.` : "…"}
 				</p>
+				{kept === true ? (
+					<p className="vp-field-description">Storage: kept by the browser ✓</p>
+				) : kept === false ? (
+					<div className="settings-data-storage">
+						<p className="vp-field-description">
+							Storage: the browser may clear it when space runs low — export a
+							backup
+							{refused ? ". The browser did not agree to keep it." : null}
+						</p>
+						<Button onClick={askToKeep}>Ask the browser to keep it</Button>
+					</div>
+				) : null}
 				<div className="settings-data-row">
 					<div className="settings-data-text">
 						<h3 className="settings-data-heading">Export</h3>

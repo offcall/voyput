@@ -5,6 +5,7 @@ import {
 	rotateBy,
 } from "@voyput/core";
 import { staysAfterEvidenceChange } from "../../../data/evidenceChange";
+import { keepStorageOnce } from "../../../data/storageKeeper";
 import type { PhotoRecord, VoyputDb } from "../../../db/db";
 
 export interface PassportInput {
@@ -156,6 +157,7 @@ export async function addPhotos(
 		records.push({ ...photo, blob: file });
 	}
 	await db.photos.bulkAdd(records);
+	if (records.length > 0) void keepStorageOnce();
 	return result;
 }
 
